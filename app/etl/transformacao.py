@@ -20,11 +20,26 @@ from app.utils.texto import titulo
 
 logger = get_logger("etl.transformacao")
 
+MAX_EXEMPLOS = 25
+
+# Sugestão exibida ao usuário para cada tipo de problema (regra 23: mostrar
+# arquivo, linha, coluna, valor, problema e sugestão — nunca só um erro
+# técnico).
+SUGESTOES_TIPO = {
+    "data": "Use uma data reconhecível, como 21/08/2026 ou 2026-08-21.",
+    "numero": "Use apenas números — separador de milhar com ponto e decimal com "
+              "vírgula (ex.: 1.234,56), sem letras nem símbolos além de R$ e %.",
+    "inteiro": "Use um número inteiro, sem texto (ex.: 12).",
+    "booleano": "Use um valor como Sim/Não, Faturado/Não Faturado ou 1/0.",
+}
+SUGESTAO_OBRIGATORIO = "Preencha esta coluna neste registro — ela é obrigatória para a base {titulo}."
+
 
 @dataclass
 class RelatorioValidacao:
     dataset: str
     aba: str
+    titulo: str = ""
     linhas_lidas: int = 0
     linhas_validas: int = 0
     linhas_descartadas: int = 0
@@ -34,9 +49,36 @@ class RelatorioValidacao:
     colunas_mapeadas: dict[str, str] = field(default_factory=dict)
     colunas_ignoradas: list[str] = field(default_factory=list)
     colunas_ausentes: list[str] = field(default_factory=list)
+    exemplos: list[dict] = field(default_factory=list)
+    exemplos_omitidos: int = 0
 
     def registrar_problema(self, descricao: str) -> None:
         self.problemas[descricao] = self.problemas.get(descricao, 0) + 1
+
+    def registrar_exemplo(self, *, linha: int, campo: str, coluna_original: str | None,
+                          valor: object, problema: str, tipo_problema: str) -> None:
+        """Guarda um exemplo concreto (linha/coluna/valor) para a tela de upload.
+
+        Limitado a `MAX_EXEMPLOS` para não estourar a resposta em arquivos com
+        milhares de linhas problemáticas — o restante continua contabilizado
+        em `problemas`, só não aparece como exemplo individual.
+        """
+        if len(self.exemplos) >= MAX_EXEMPLOS:
+            self.exemplos_omitidos += 1
+            return
+        sugestao = SUGESTOES_TIPO.get(tipo_problema, "Corrija o valor e envie o arquivo novamente.")
+        if tipo_problema == "obrigatorio":
+            sugestao = SUGESTAO_OBRIGATORIO.format(titulo=self.titulo or self.dataset)
+        texto_valor = "(vazio)" if valor is None or (isinstance(valor, str) and not valor.strip()) \
+            else str(valor)[:120]
+        self.exemplos.append({
+            "linha": linha,
+            "campo": campo,
+            "coluna_original": coluna_original or campo,
+            "valor": texto_valor,
+            "problema": problema,
+            "sugestao": sugestao,
+        })
 
     @property
     def status(self) -> str:
@@ -45,6 +87,13 @@ class RelatorioValidacao:
         if self.linhas_descartadas or self.problemas:
             return "ATENCAO"
         return "SUCESSO"
+
+    @property
+    def qualidade_dados(self) -> float | None:
+        """% de linhas lidas que entraram válidas — indicador da regra 24."""
+        if self.linhas_lidas == 0:
+            return None
+        return round(self.linhas_validas / self.linhas_lidas * 100, 1)
 
     def mensagens(self) -> list[str]:
         saida = [f"{qtd} {descricao}" for descricao, qtd in sorted(
@@ -66,11 +115,14 @@ class RelatorioValidacao:
             "linhas_validas": self.linhas_validas,
             "linhas_descartadas": self.linhas_descartadas,
             "duplicadas_no_arquivo": self.duplicadas_no_arquivo,
+            "qualidade_dados": self.qualidade_dados,
             "problemas": self.problemas,
             "avisos": self.avisos,
             "colunas_mapeadas": self.colunas_mapeadas,
             "colunas_ignoradas": self.colunas_ignoradas,
             "colunas_ausentes": self.colunas_ausentes,
+            "exemplos": self.exemplos,
+            "exemplos_omitidos": self.exemplos_omitidos,
             "status": self.status,
             "resumo": self.resumo(),
         }
@@ -100,6 +152,7 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
     relatorio = RelatorioValidacao(
         dataset=dataset.nome,
         aba=identificacao.planilha.nome,
+        titulo=dataset.titulo,
         linhas_lidas=len(origem),
         colunas_mapeadas=dict(identificacao.mapeamento),
         colunas_ignoradas=identificacao.colunas_ignoradas,
@@ -111,7 +164,11 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
         )
 
     linhas: list[dict] = []
-    for _, linha_bruta in origem.iterrows():
+    for indice_planilha, linha_bruta in origem.iterrows():
+        # O índice do pandas é 0-based e preserva a posição original da linha
+        # na aba (ver leitura._limpar): +1 dá exatamente o número da linha
+        # como o usuário vê no Excel.
+        numero_linha = int(indice_planilha) + 1
         registro: dict = {}
         descartar = False
 
@@ -122,6 +179,10 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
                 if campo.obrigatorio and campo.padrao is None:
                     relatorio.registrar_problema(
                         f"registro(s) sem '{_rotulo(campo.nome)}' (descartado)")
+                    relatorio.registrar_exemplo(
+                        linha=numero_linha, campo=_rotulo(campo.nome), coluna_original=coluna,
+                        valor=bruto, problema=f"Coluna '{_rotulo(campo.nome)}' vazia",
+                        tipo_problema="obrigatorio")
                     descartar = True
                     break
                 registro[campo.nome] = campo.padrao
@@ -137,6 +198,9 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
                     f"registro(s) com {tipo_legivel} em '{_rotulo(campo.nome)}'"
                     + (" (descartado)" if campo.obrigatorio else " (campo ignorado)")
                 )
+                relatorio.registrar_exemplo(
+                    linha=numero_linha, campo=_rotulo(campo.nome), coluna_original=coluna,
+                    valor=bruto, problema=tipo_legivel.capitalize(), tipo_problema=campo.tipo)
                 if campo.obrigatorio:
                     descartar = True
                     break
@@ -146,6 +210,10 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
             if valor is None and campo.obrigatorio:
                 relatorio.registrar_problema(
                     f"registro(s) sem '{_rotulo(campo.nome)}' (descartado)")
+                relatorio.registrar_exemplo(
+                    linha=numero_linha, campo=_rotulo(campo.nome), coluna_original=coluna,
+                    valor=bruto, problema=f"Coluna '{_rotulo(campo.nome)}' vazia",
+                    tipo_problema="obrigatorio")
                 descartar = True
                 break
             registro[campo.nome] = valor if valor is not None else campo.padrao

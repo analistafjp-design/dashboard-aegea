@@ -701,18 +701,49 @@
     if (!alvo) return;
     const cores = { SUCESSO: "verde", ATENCAO: "amarelo", ERRO: "vermelho" };
     alvo.innerHTML = `<div style="margin-bottom:12px"><strong>${App.escapar(dados.mensagem || "")}</strong></div>` +
-      (dados.resultados || []).map((r) => `
+      (dados.resultados || []).map((r) => {
+        const exemplos = (r.validacao && r.validacao.exemplos) || [];
+        const omitidos = (r.validacao && r.validacao.exemplos_omitidos) || 0;
+        return `
         <div class="alerta-item alerta-item--${r.status === "ERRO" ? "CRITICO"
           : (r.status === "ATENCAO" ? "ATENCAO" : "NORMAL")}">
           <span class="selo selo--${cores[r.status] || "cinza"}">${r.status}</span>
-          <div>
+          <div style="flex:1">
             <div class="alerta-item__titulo">${App.escapar(r.arquivo)}
               ${r.titulo_dataset ? `— ${App.escapar(r.titulo_dataset)}` : ""}</div>
             <div class="alerta-item__descricao">${App.escapar(r.mensagem)}</div>
+            ${r.confianca_deteccao !== null && r.confianca_deteccao !== undefined ? `
+              <div class="painel__descricao" style="margin-top:6px">
+                Confiança da identificação: <strong>${App.percentual(r.confianca_deteccao * 100)}</strong>
+                ${(r.campos_detectados || []).length
+                  ? " · Campos encontrados: " + r.campos_detectados.map((c) => App.escapar(c)).join(", ")
+                  : ""}
+                ${r.qualidade_dados !== null && r.qualidade_dados !== undefined
+                  ? ` · Qualidade dos dados: <strong>${App.percentual(r.qualidade_dados)}</strong>` : ""}
+              </div>` : ""}
             ${(r.detalhes || []).length ? `<ul class="alerta-item__descricao" style="margin:6px 0 0 16px">
               ${r.detalhes.map((d) => `<li>${App.escapar(d)}</li>`).join("")}</ul>` : ""}
+            ${exemplos.length ? `
+              <div class="tabela-wrap" style="margin-top:8px">
+                <table class="tabela">
+                  <thead><tr><th>Linha</th><th>Coluna</th><th>Valor</th><th>Problema</th><th>Sugestão</th></tr></thead>
+                  <tbody>${exemplos.map((ex) => `
+                    <tr>
+                      <td class="num">${ex.linha}</td>
+                      <td>${App.escapar(ex.coluna_original)}</td>
+                      <td>${App.escapar(ex.valor)}</td>
+                      <td>${App.escapar(ex.problema)}</td>
+                      <td class="painel__descricao">${App.escapar(ex.sugestao)}</td>
+                    </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+              ${omitidos > 0 ? `<div class="painel__descricao" style="margin-top:4px">
+                + ${omitidos} outro(s) registro(s) com problema, não listados individualmente.</div>` : ""}
+            ` : ""}
           </div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
   }
 
   async function carregarHistorico() {

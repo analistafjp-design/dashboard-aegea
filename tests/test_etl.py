@@ -121,3 +121,80 @@ def test_metas_sao_carregadas_antes_dos_fatos(planilhas):
     with sessao() as s:
         resultados = processar_lote(s, list(planilhas.values()))
     assert resultados[0].dataset == "metas"
+
+
+def test_erro_de_validacao_aponta_a_linha_real_do_excel(tmp_path):
+    """Regra 23: mostrar arquivo, LINHA, coluna, valor, problema e sugestão.
+
+    A planilha tem título nas linhas 1-2, cabeçalho na linha 3, uma linha em
+    branco na posição 6 e o erro proposital na linha 8 — exatamente onde um
+    usuário abrindo o Excel encontraria o problema.
+    """
+    linhas = [
+        ["RELATÓRIO DE VENDAS", None, None, None],   # Excel linha 1 (título)
+        [None, None, None, None],                     # Excel linha 2 (em branco)
+        ["Data", "Cidade", "Canal", "Quantidade"],     # Excel linha 3 (cabeçalho)
+        ["01/07/2026", "Maricá", "Comercial", 1],      # Excel linha 4
+        ["02/07/2026", "Maricá", "Comercial", 1],      # Excel linha 5
+        [None, None, None, None],                      # Excel linha 6 (em branco)
+        ["03/07/2026", "Maricá", "Comercial", 1],      # Excel linha 7
+        ["DATA INVALIDA", "Maricá", "Comercial", 1],   # Excel linha 8 <- erro
+        ["05/07/2026", "Maricá", "Comercial", 1],      # Excel linha 9
+    ]
+    caminho = tmp_path / "venda_com_titulo.xlsx"
+    pd.DataFrame(linhas).to_excel(caminho, index=False, header=False)
+
+    with sessao() as s:
+        resultado = processar_arquivo(s, caminho)
+
+    assert resultado.status == "ATENCAO"
+    exemplos = resultado.validacao["exemplos"]
+    assert len(exemplos) == 1
+    exemplo = exemplos[0]
+    assert exemplo["linha"] == 8
+    assert exemplo["coluna_original"] == "Data"
+    assert exemplo["valor"] == "DATA INVALIDA"
+    assert "inválida" in exemplo["problema"].lower()
+    assert exemplo["sugestao"]  # nunca vazio
+
+
+def test_quantidade_de_exemplos_e_limitada_e_contabilizada(tmp_path):
+    """Arquivo com muitas linhas problemáticas não pode inflar a resposta."""
+    linhas = [{"Data": "invalida", "Cidade": "Maricá", "Canal": "Comercial",
+              "Quantidade": 1} for _ in range(60)]
+    caminho = tmp_path / "venda_toda_invalida.xlsx"
+    pd.DataFrame(linhas).to_excel(caminho, index=False)
+
+    with sessao() as s:
+        resultado = processar_arquivo(s, caminho)
+
+    assert resultado.status == "ERRO"  # nenhuma linha válida
+    from app.etl.transformacao import MAX_EXEMPLOS
+    assert len(resultado.detalhes) <= 5  # ErroValidacaoArquivo, não usa 'exemplos'
+
+
+def test_qualidade_dados_reflete_proporcao_de_linhas_validas(planilhas, tmp_path):
+    dados = pd.read_excel(planilhas["vendas"])
+    dados["Data"] = dados["Data"].astype(object)
+    dados.loc[:9, "Data"] = "data errada"  # 10 de N linhas inválidas
+    caminho = tmp_path / "venda_parcial.xlsx"
+    dados.to_excel(caminho, index=False)
+
+    with sessao() as s:
+        resultado = processar_arquivo(s, caminho)
+
+    esperado = round(resultado.inseridos / resultado.lidos * 100, 1)
+    assert resultado.qualidade_dados == esperado
+    assert 0 < resultado.qualidade_dados < 100
+
+
+def test_confianca_e_campos_detectados_aparecem_mesmo_com_sucesso(planilhas):
+    """Regra 22: mostrar a confiança da identificação, não só quando falha."""
+    with sessao() as s:
+        resultado = processar_arquivo(s, planilhas["vendas"])
+
+    assert resultado.confianca_deteccao is not None
+    assert 0.0 < resultado.confianca_deteccao <= 1.0
+    assert "data" in resultado.campos_detectados
+    assert "frente" in resultado.campos_detectados
+    assert resultado.qualidade_dados == 100.0  # planilha limpa, sem erros

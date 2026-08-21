@@ -66,12 +66,19 @@ def _detectar_cabecalho(bruto: pd.DataFrame) -> int:
 
 
 def _limpar(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove colunas/linhas totalmente vazias e nomeia colunas sem cabeçalho.
+
+    Propositalmente NÃO reindexa as linhas: o índice original (posição na
+    aba, 0-based, igual ao de `pd.read_excel(..., header=None)`) é mantido
+    para que o índice + 1 corresponda ao número real da linha no Excel —
+    isso é o que permite apontar "linha 42" numa mensagem de erro.
+    """
     df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
     df.columns = [
         str(c).strip() if not str(c).startswith("Unnamed") else f"coluna_{i}"
         for i, c in enumerate(df.columns)
     ]
-    return df.reset_index(drop=True)
+    return df
 
 
 def ler_planilhas(caminho: Path) -> list[Planilha]:

@@ -43,6 +43,9 @@ class ResultadoArquivo:
     atualizados: int = 0
     descartados: int = 0
     validacao: dict | None = None
+    confianca_deteccao: float | None = None
+    campos_detectados: list[str] = field(default_factory=list)
+    qualidade_dados: float | None = None
 
     @property
     def ok(self) -> bool:
@@ -56,6 +59,9 @@ class ResultadoArquivo:
             "lidos": self.lidos, "inseridos": self.inseridos,
             "atualizados": self.atualizados, "descartados": self.descartados,
             "validacao": self.validacao,
+            "confianca_deteccao": self.confianca_deteccao,
+            "campos_detectados": self.campos_detectados,
+            "qualidade_dados": self.qualidade_dados,
         }
 
 
@@ -84,6 +90,11 @@ def processar_arquivo(sessao: Session, caminho: Path, dataset_forcado: str | Non
         resultado.validacao = validacao.to_dict()
         resultado.status = validacao.status
         resultado.detalhes = validacao.mensagens()
+        # Regra 22: mesmo com o arquivo aceito, mostrar a confiança da
+        # identificação e quais campos foram reconhecidos na planilha.
+        resultado.confianca_deteccao = identificacao.pontuacao
+        resultado.campos_detectados = sorted(identificacao.mapeamento.keys())
+        resultado.qualidade_dados = validacao.qualidade_dados
         resultado.mensagem = (
             f"{identificacao.dataset.titulo}: {carga.inseridos} novo(s) e "
             f"{carga.atualizados} atualizado(s) de {validacao.linhas_lidas} linha(s) lidas."
