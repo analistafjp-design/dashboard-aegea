@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Testes e ferramentas
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Dados locais (nunca versionar base operacional)
+data/database/*
+!data/database/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/logs/
+data/exemplos/
+*.db
+*.db-wal
+*.db-shm
+
+# Biblioteca provisionada na inicialização a partir do pacote plotly
+frontend/static/js/plotly.min.js
+
+# Ambiente
+.env
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
