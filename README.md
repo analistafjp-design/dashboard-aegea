@@ -142,10 +142,11 @@ A lista completa de sinônimos está na página **Dicionário de dados** e em
 .venv/bin/python -m pytest
 ```
 
-99 testes cobrindo calendário e dias úteis, conversão de tipos, detecção de
+103 testes cobrindo calendário e dias úteis, conversão de tipos, detecção de
 arquivos, importação (duplicidade, datas inválidas, coluna ausente, carga
-incremental), regras de indicadores (meta, atingimento, projeção, "sem dados"
-× zero), API, upload, exportação e todas as páginas.
+incremental, número exato da linha com erro no Excel), regras de indicadores
+(meta, atingimento, projeção, "sem dados" × zero), API, upload, exportação e
+todas as páginas.
 
 ---
 
@@ -182,7 +183,7 @@ dashboard-aegea/
 │   ├── templates/              base.html + uma página por rota
 │   └── static/                 css, js (Plotly local), ícones
 ├── data/                       uploads, processados, banco e logs (não versionados)
-├── docs/                       indicadores, arquitetura, conferência Power BI
+├── docs/                       indicadores, regras de negócio, arquitetura, validação Power BI
 ├── scripts/                    iniciar, carregar planilhas, validar, dados de exemplo
 ├── tests/                      suíte pytest
 ├── requirements.txt
@@ -191,10 +192,19 @@ dashboard-aegea/
 
 ## Documentação
 
-- [Dicionário de indicadores](docs/indicadores.md) — regra de cada número
+- [Dicionário de indicadores](docs/indicadores.md) — regra de cada número, com referência ao PBIX
+- [Mapa de regras de negócio](docs/regras_negocio.md) — a lógica exata implementada, ligada ao código-fonte
+- [Matriz de dados real](docs/matriz_dados_real.csv) — toda coluna aceita em cada planilha, gerada a partir do código
 - [Arquitetura](docs/arquitetura.md) — camadas, modelo de dados, publicação
 - [Conferência Power BI](docs/validacao_powerbi.md) — como validar os números
+- [Relatório final de validação](docs/relatorio_final_validacao.md) — status real de cada critério de aprovação
 - API interativa: **http://127.0.0.1:8000/api/docs**
+
+> **Status de validação**: o sistema está funcional, testado (103 testes
+> automatizados) e auditado, mas a comparação numérica com os três Power BI
+> originais está pendente — os arquivos `.pbix` e os Excel reais ainda não
+> foram disponibilizados. Veja o relatório final de validação para o
+> detalhamento completo.
 
 ---
 
