@@ -210,6 +210,14 @@ dashboard-aegea/
 
 ## Publicação em servidor
 
+### Com URL pública gratuita (Render)
+
+O repositório já traz `render.yaml` pronto. Passo a passo, com o aviso
+importante sobre persistência de dados no plano gratuito, em
+[`docs/deploy.md`](docs/deploy.md).
+
+### Manual, em qualquer servidor
+
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```

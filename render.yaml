@@ -1,0 +1,55 @@
+# Blueprint de deploy no Render (https://render.com).
+# Uso: render.com > New > Blueprint > conectar este repositório.
+#
+# IMPORTANTE — leia antes de subir dados reais:
+# O plano Free do Render NÃO tem disco persistente. Isso significa que o
+# banco SQLite (data/database/dashboard.db) e os arquivos enviados são
+# apagados sempre que a instância reinicia — o que acontece automaticamente
+# após ~15 minutos sem acesso (plano Free "dorme" e "acorda" a cada request).
+#
+# Use o plano Free apenas para DEMONSTRAÇÃO/VISUALIZAÇÃO do dashboard.
+# Para uso operacional real (dados que precisam sobreviver a reinícios):
+#   1. Troque `plan: free` por `starter` (ou superior) nos dois blocos abaixo;
+#   2. Descomente o bloco `disk:` do serviço web; ou
+#   3. Aponte DATABASE_URL para um Postgres gerenciado (ex.: o banco definido
+#      abaixo, ou um serviço externo) — nesse caso o disco deixa de ser
+#      necessário, pois os dados ficam no banco, não no sistema de arquivos.
+# Detalhes em docs/deploy.md.
+
+services:
+  - type: web
+    name: dashboard-executivo
+    runtime: python
+    plan: free
+    branch: claude/novo-projeto-independente-ao910q
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/status
+    # disk:
+    #   name: dashboard-dados
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_NOME
+        value: Dashboard Executivo
+      - key: DEBUG
+        value: "false"
+      - key: TAMANHO_MAXIMO_MB
+        value: "50"
+      - key: CACHE_TTL
+        value: "300"
+      # Descomente para usar o Postgres definido abaixo em vez do SQLite local:
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: dashboard-executivo-db
+      #     property: connectionString
+
+# Banco gerenciado opcional (não usado por padrão — o app já roda com
+# SQLite embutido). Só é necessário se você quiser dados persistentes sem
+# pagar por disco, ou múltiplos workers. O Postgres Free do Render expira
+# em 30 dias; para uso contínuo, escolha um plano pago aqui também.
+# databases:
+#   - name: dashboard-executivo-db
+#     plan: free
