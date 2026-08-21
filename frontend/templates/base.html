@@ -1,0 +1,172 @@
+{% if not fragmento %}<!DOCTYPE html>
+<html lang="pt-BR" data-tema="{{ configuracoes.tema if configuracoes.tema == 'escuro' else 'claro' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo_pagina }} · {{ app_nome }}</title>
+  <meta name="description" content="Dashboard executivo de Termos, Venda, Implantação e Programação.">
+  <link rel="icon" href="/static/icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/tema.css">
+  <script src="/static/js/plotly.min.js"></script>
+</head>
+<body data-pagina="{{ pagina }}">
+{% include "componentes/icones.html" %}
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar__marca">
+      <div class="sidebar__logo">DE</div>
+      <div>
+        <div class="sidebar__nome">Dashboard</div>
+        <div class="sidebar__sub">Executivo</div>
+      </div>
+    </div>
+    <nav class="sidebar__nav">
+      {% set grupos = [] %}
+      {% for item in menu %}
+        {% if item.grupo not in grupos %}
+          {% set _ = grupos.append(item.grupo) %}
+          <div class="sidebar__grupo">{{ item.grupo }}</div>
+        {% endif %}
+        <a class="sidebar__item {% if item.chave == pagina %}ativo{% endif %}"
+           href="{{ item.rota }}" data-rota="{{ item.rota }}" data-chave="{{ item.chave }}"
+           data-titulo="{{ item.titulo }}">
+          <svg class="sidebar__icone" aria-hidden="true"><use href="#ic-{{ item.icone }}"></use></svg>
+          <span>{{ item.titulo }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar__rodape">
+      v{{ app_versao }} · <a href="/dicionario" style="color:#9db6d9">Dicionário de dados</a>
+    </div>
+  </aside>
+
+  <main class="principal">
+    <header class="topo">
+      <button class="btn menu-mobile" id="btn-menu" aria-label="Abrir menu"><svg class="icone" aria-hidden="true"><use href="#ic-menu"></use></svg></button>
+      <div>
+        <div class="topo__titulo" id="titulo-pagina">{{ titulo_pagina }}</div>
+        <div class="topo__breadcrumb">{{ app_nome }} · visão consolidada</div>
+      </div>
+      <div class="topo__direita">
+        <div class="topo__atualizacao">
+          Última atualização
+          <strong id="topo-ultima-atualizacao">{{ ultima_atualizacao }}</strong>
+        </div>
+        <button class="btn" id="btn-tema" title="Alternar tema claro/escuro" aria-label="Alternar tema"><svg class="icone" aria-hidden="true"><use href="#ic-tema"></use></svg></button>
+      </div>
+    </header>
+
+    <div class="conteudo">
+      {% if not tem_dados %}
+      <div class="aviso aviso--atencao">
+        <span>⚠</span>
+        <div>
+          <strong>Nenhum dado importado ainda.</strong>
+          Envie as planilhas em <a href="/atualizacao">Atualização de Dados</a> para que os
+          indicadores sejam calculados. Nada é exibido com valores fictícios.
+        </div>
+      </div>
+      {% endif %}
+
+      <form class="filtros" id="form-filtros" autocomplete="off">
+        <div class="filtros__linha">
+          <div class="campo">
+            <label for="f-ano">Ano</label>
+            <select id="f-ano" name="ano">
+              <option value="">Todos</option>
+              {% for ano in opcoes.anos %}<option value="{{ ano }}">{{ ano }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-mes">Mês</label>
+            <select id="f-mes" name="mes">
+              <option value="">Todos</option>
+              {% for numero, nome in [(1,'Janeiro'),(2,'Fevereiro'),(3,'Março'),(4,'Abril'),
+                                      (5,'Maio'),(6,'Junho'),(7,'Julho'),(8,'Agosto'),
+                                      (9,'Setembro'),(10,'Outubro'),(11,'Novembro'),(12,'Dezembro')] %}
+                <option value="{{ numero }}">{{ nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-cidade">Cidade</label>
+            <select id="f-cidade" name="cidade">
+              <option value="">Todas</option>
+              {% for cidade in opcoes.cidades %}<option value="{{ cidade }}">{{ cidade }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-frente">Frente</label>
+            <select id="f-frente" name="frente">
+              <option value="">Todas</option>
+              {% for frente in opcoes.frentes %}<option value="{{ frente }}">{{ frente }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-equipe">Equipe</label>
+            <select id="f-equipe" name="equipe">
+              <option value="">Todas</option>
+              {% for equipe in opcoes.equipes %}<option value="{{ equipe }}">{{ equipe }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-regiao">Região</label>
+            <select id="f-regiao" name="regiao">
+              <option value="">Todas</option>
+              {% for regiao in opcoes.regioes %}<option value="{{ regiao }}">{{ regiao }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-projeto">Projeto</label>
+            <select id="f-projeto" name="projeto">
+              <option value="">Todos</option>
+              {% for projeto in opcoes.projetos %}<option value="{{ projeto }}">{{ projeto }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="f-inicio">Período de</label>
+            <input type="date" id="f-inicio" name="data_inicio">
+          </div>
+          <div class="campo">
+            <label for="f-fim">até</label>
+            <input type="date" id="f-fim" name="data_fim">
+          </div>
+          <div class="filtros__acoes">
+            <button type="submit" class="btn btn--primario">Aplicar</button>
+            <button type="button" class="btn" id="btn-limpar-filtros">Limpar filtros</button>
+          </div>
+        </div>
+        <div class="filtros__resumo" id="resumo-filtros"></div>
+      </form>
+{% endif %}
+
+      <div id="conteudo-pagina" data-pagina="{{ pagina }}">
+        {% block conteudo %}{% endblock %}
+      </div>
+
+{% if not fragmento %}
+    </div>
+  </main>
+</div>
+
+<div class="toasts"></div>
+
+<script src="/static/js/nucleo.js"></script>
+<script src="/static/js/graficos.js"></script>
+<script src="/static/js/paginas.js"></script>
+<script>
+  (function () {
+    try {
+      var salvo = localStorage.getItem("tema");
+      if (salvo) document.documentElement.dataset.tema = salvo;
+    } catch (erro) { /* modo privado */ }
+    document.getElementById("btn-tema").addEventListener("click", function () {
+      App.alternarTema();
+    });
+    App.iniciar();
+  })();
+</script>
+</body>
+</html>
+{% endif %}

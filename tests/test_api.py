@@ -1,0 +1,157 @@
+"""Testes de ponta a ponta da API e das páginas HTML."""
+import io
+
+import pandas as pd
+
+PAGINAS = ["/", "/termos", "/faturamento", "/vendas", "/implantacao", "/programacao",
+           "/equipes", "/cidades", "/metas", "/analises", "/alertas", "/atualizacao",
+           "/configuracoes", "/dicionario"]
+
+MODULOS = ["termos", "faturamento", "vendas", "implantacao", "programacao",
+           "cidades", "equipes"]
+
+
+def test_todas_as_paginas_respondem(cliente, base_carregada):
+    for rota in PAGINAS:
+        resposta = cliente.get(rota)
+        assert resposta.status_code == 200, rota
+        assert "text/html" in resposta.headers["content-type"]
+
+
+def test_pagina_em_modo_fragmento_nao_repete_o_layout(cliente):
+    inteira = cliente.get("/vendas").text
+    fragmento = cliente.get("/vendas?fragmento=1").text
+    assert "<!DOCTYPE html>" in inteira
+    assert "<!DOCTYPE html>" not in fragmento
+    assert "conteudo-pagina" in fragmento
+
+
+def test_status_reflete_a_base(cliente, base_carregada):
+    dados = cliente.get("/api/status").json()
+    assert dados["tem_dados"] is True
+    assert dados["metas_cadastradas"] is True
+    assert dados["ultima_atualizacao"]
+
+
+def test_modulos_respondem_com_estrutura_esperada(cliente, base_carregada):
+    """Cidades entrega ranking/tabela; os demais módulos entregam indicadores."""
+    for nome in MODULOS:
+        dados = cliente.get(f"/api/modulo/{nome}?ano=2026&mes=8").json()
+        assert "periodo" in dados, nome
+        assert dados["periodo"]["ano_mes"] == "2026-08"
+        assert dados["titulo"], nome
+        if nome == "cidades":
+            assert dados["tabela"], nome
+        else:
+            assert dados["indicadores"], nome
+
+
+def test_modulo_inexistente_devolve_404(cliente):
+    assert cliente.get("/api/modulo/inexistente").status_code == 404
+
+
+def test_filtros_invalidos_sao_recusados(cliente):
+    assert cliente.get("/api/home?mes=13").status_code == 422
+    assert cliente.get("/api/home?ano=1800").status_code == 422
+
+
+def test_opcoes_de_filtro_vem_dos_dados(cliente, base_carregada):
+    opcoes = cliente.get("/api/filtros/opcoes").json()
+    assert 2026 in opcoes["anos"]
+    assert "Maricá" in opcoes["cidades"]
+    assert "Região A" in opcoes["regioes"]
+    assert "Não Informado" not in opcoes["cidades"]
+
+
+def test_upload_processa_planilha(cliente, planilhas):
+    with planilhas["vendas"].open("rb") as arquivo:
+        resposta = cliente.post("/api/upload", files={"arquivos": ("venda.xlsx", arquivo.read())})
+    dados = resposta.json()
+    assert dados["ok"] is True
+    assert dados["resultados"][0]["dataset"] == "vendas"
+    assert dados["resultados"][0]["inseridos"] > 0
+
+
+def test_upload_de_arquivo_invalido_devolve_mensagem_amigavel(cliente):
+    resposta = cliente.post("/api/upload",
+                            files={"arquivos": ("virus.exe", b"MZ conteudo binario")})
+    dados = resposta.json()
+    assert dados["ok"] is False
+    assert "não é aceito" in dados["resultados"][0]["mensagem"]
+    assert "Traceback" not in resposta.text
+
+
+def test_upload_com_tipo_forcado(cliente, planilhas):
+    with planilhas["implantacao"].open("rb") as arquivo:
+        resposta = cliente.post(
+            "/api/upload",
+            files={"arquivos": ("qualquer_nome.xlsx", arquivo.read())},
+            data={"tipo": "implantacao"},
+        )
+    assert resposta.json()["resultados"][0]["dataset"] == "implantacao"
+
+
+def test_historico_lista_importacoes(cliente, base_carregada):
+    registros = cliente.get("/api/historico").json()["registros"]
+    assert len(registros) >= 6
+    assert all("data_hora" in r for r in registros)
+
+
+def test_exportacao_nos_tres_formatos(cliente, base_carregada):
+    for formato, assinatura in (("xlsx", b"PK"), ("csv", None), ("pdf", b"%PDF")):
+        resposta = cliente.get(f"/api/exportar/home?formato={formato}")
+        assert resposta.status_code == 200, formato
+        assert "attachment" in resposta.headers["content-disposition"]
+        if assinatura:
+            assert resposta.content.startswith(assinatura)
+
+    excel = cliente.get("/api/exportar/vendas?formato=xlsx&ano=2026&mes=8")
+    abas = pd.read_excel(io.BytesIO(excel.content), sheet_name=None)
+    assert "Indicadores" in abas
+
+
+def test_exportacao_em_formato_invalido(cliente, base_carregada):
+    assert cliente.get("/api/exportar/home?formato=docx").status_code == 400
+
+
+def test_dicionario_de_dados_documenta_todas_as_bases(cliente):
+    datasets = cliente.get("/api/datasets").json()["datasets"]
+    assert {d["nome"] for d in datasets} == {
+        "termos", "faturamento", "vendas", "implantacao", "programacao", "metas"}
+    for dataset in datasets:
+        assert dataset["descricao"]
+        assert dataset["chave_unica"]
+        for campo in dataset["campos"]:
+            assert campo["descricao"], f"{dataset['nome']}.{campo['nome']} sem descrição"
+
+
+def test_configuracoes_salvam_e_recusam_valor_invalido(cliente):
+    cliente.post("/api/configuracoes", json={"tema": "escuro", "linhas_tabela": "50"})
+    atual = cliente.get("/api/configuracoes").json()["configuracoes"]
+    assert atual["tema"] == "escuro"
+    assert atual["linhas_tabela"] == "50"
+
+    cliente.post("/api/configuracoes", json={"tema": "roxo_neon"})
+    assert cliente.get("/api/configuracoes").json()["configuracoes"]["tema"] == "escuro"
+
+
+def test_alertas_e_insights_respondem(cliente, base_carregada):
+    alertas = cliente.get("/api/alertas?ano=2026&mes=8").json()
+    assert alertas["resumo"]["total"] == len(alertas["alertas"])
+    insights = cliente.get("/api/insights?ano=2026&mes=8").json()
+    assert isinstance(insights["insights"], list)
+
+
+def test_metas_expoem_acompanhamento(cliente, base_carregada):
+    dados = cliente.get("/api/metas?ano=2026&mes=8").json()
+    assert dados["tem_metas"] is True
+    assert {linha["modulo"] for linha in dados["acompanhamento"]} == {
+        "Termos", "Venda", "Implantação"}
+
+
+def test_banco_vazio_nao_quebra_nenhuma_rota(cliente):
+    for rota in PAGINAS:
+        assert cliente.get(rota).status_code == 200, rota
+    for nome in MODULOS:
+        assert cliente.get(f"/api/modulo/{nome}").status_code == 200, nome
+    assert cliente.get("/api/home").json()["tem_dados"] is False

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--2">
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div><div class="painel__titulo">Atualização de Dados</div>
+        <div class="painel__descricao">Envie os arquivos Excel. O tipo de base é identificado
+          automaticamente pelas colunas — se preferir, escolha manualmente.</div></div>
+    </div>
+    <div class="painel__corpo">
+      <div class="upload-area" id="area-upload">
+        <div class="upload-area__icone">↥</div>
+        <div class="upload-area__titulo">Arraste os arquivos aqui ou clique para escolher</div>
+        <div class="upload-area__dica">Aceita .xlsx, .xlsm, .xls e .csv · até 50 MB por arquivo</div>
+        <input type="file" id="input-arquivos" multiple accept=".xlsx,.xlsm,.xls,.csv" hidden>
+      </div>
+
+      <div id="lista-arquivos" style="margin-top:14px"></div>
+
+      <button class="btn btn--primario btn--grande" id="btn-atualizar"
+              style="width:100%;margin-top:14px" disabled>
+        ATUALIZAR DASHBOARD
+      </button>
+
+      <div class="etapas" id="etapas-processo" hidden></div>
+      <div class="progresso" id="progresso-upload" hidden>
+        <div class="progresso__trilho">
+          <div class="progresso__barra progresso__barra--verde" id="barra-upload" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div><div class="painel__titulo">Resultado da última importação</div></div>
+    </div>
+    <div class="painel__corpo" id="resultado-upload">
+      <div class="vazio">Nenhum arquivo processado nesta sessão.</div>
+    </div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Histórico de atualizações</div></div>
+    <button class="btn" data-exportar="historico" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="historico-tabela"></div>
+</div>
+{% endblock %}

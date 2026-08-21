@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="painel">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Insights executivos — <span id="analises-periodo"></span></div>
+      <div class="painel__descricao">Frases geradas a partir dos números reais da base</div></div>
+  </div>
+  <div class="painel__corpo" id="analises-insights"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Comparação com o período anterior</div>
+      <div class="painel__descricao">Mesmo número de dias úteis decorridos</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="analises-comparacao"></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Projeção de fechamento</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="analises-projecao"></div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Evolução comparada dos módulos</div></div>
+  <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-analises-evolucao"></div></div>
+</div>
+{% endblock %}

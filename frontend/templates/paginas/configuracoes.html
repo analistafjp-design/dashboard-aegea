@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--2">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Preferências</div></div>
+    <div class="painel__corpo">
+      <form id="form-configuracoes">
+        <div class="grade grade--2">
+          <div class="campo">
+            <label for="cfg-tema">Tema</label>
+            <select id="cfg-tema" name="tema">
+              <option value="claro">Claro</option>
+              <option value="escuro">Escuro</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-periodo">Período padrão</label>
+            <select id="cfg-periodo" name="periodo_padrao">
+              <option value="ultimo_mes_com_dados">Último mês com dados</option>
+              <option value="mes_atual">Mês atual</option>
+              <option value="ano_atual">Ano atual</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-linhas">Linhas por tabela</label>
+            <select id="cfg-linhas" name="linhas_tabela">
+              <option>10</option><option>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-casas">Casas decimais</label>
+            <select id="cfg-casas" name="casas_decimais">
+              <option>0</option><option>1</option><option>2</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-insights">Mostrar insights</label>
+            <select id="cfg-insights" name="mostrar_insights">
+              <option value="sim">Sim</option><option value="nao">Não</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-alertas">Mostrar alertas</label>
+            <select id="cfg-alertas" name="mostrar_alertas">
+              <option value="sim">Sim</option><option value="nao">Não</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cfg-export">Formato padrão de exportação</label>
+            <select id="cfg-export" name="formato_exportacao">
+              <option value="xlsx">Excel</option><option value="csv">CSV</option>
+              <option value="pdf">PDF</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn--primario" style="margin-top:14px">Salvar preferências</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Informações do sistema</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="configuracoes-sistema"></div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Bases de dados reconhecidas</div>
+      <div class="painel__descricao">Estrutura esperada de cada planilha —
+        <a href="/dicionario">ver dicionário completo</a></div></div>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="configuracoes-datasets"></div>
+</div>
+{% endblock %}

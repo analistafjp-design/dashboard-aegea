@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="aviso">
+  <span>ℹ</span>
+  <div>Clique no nome de uma cidade para filtrar todo o dashboard por ela.</div>
+</div>
+
+<div class="painel">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Desempenho por cidade — <span id="cidades-periodo"></span></div>
+      <div class="painel__descricao">Cada módulo em coluna separada; meta e atingimento referem-se à implantação</div></div>
+    <button class="btn" data-exportar="cidades" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="cidades-tabela"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Cidades com maior venda</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-cidades-venda"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Cidades com maior implantação</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-cidades-implantacao"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Cidades com maior faturamento</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-cidades-faturamento"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Cidades abaixo da meta</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="cidades-abaixo"></div>
+  </div>
+</div>
+{% endblock %}

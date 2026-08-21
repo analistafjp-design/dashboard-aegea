@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div id="metas-aviso"></div>
+
+<div class="painel">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Acompanhamento das metas — <span id="metas-periodo"></span></div>
+      <div class="painel__descricao">Meta, realizado, falta, projeção e ritmo necessário por módulo</div></div>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="metas-acompanhamento"></div>
+</div>
+
+<div class="grade grade--3" style="margin-top:16px" id="metas-blocos"></div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Metas cadastradas</div>
+      <div class="painel__descricao">Valores oficiais importados da planilha de metas — o sistema
+        nunca estima uma meta</div></div>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="metas-tabela"></div>
+</div>
+{% endblock %}

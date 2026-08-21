@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="painel" style="margin-bottom:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Meta x Realizado — <span id="vendas-periodo"></span></div>
+      <div class="painel__descricao">Total de vendas do mês de referência</div></div>
+    <button class="btn" data-exportar="vendas" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo" id="vendas-bloco"></div>
+</div>
+
+<div class="grade grade--kpi" id="vendas-cards"></div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Meta x Realizado x Falta por canal</div></div>
+  <div class="painel__corpo painel__corpo--limpo" id="vendas-matriz"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Venda por mês</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-vendas-mensal"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Venda por dia e acumulado</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-vendas-diario"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Venda por frente</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-vendas-frente"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Venda por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-vendas-cidade"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Top cidades</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="vendas-top-cidades"></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Top equipes</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="vendas-top-equipes"></div>
+  </div>
+</div>
+{% endblock %}

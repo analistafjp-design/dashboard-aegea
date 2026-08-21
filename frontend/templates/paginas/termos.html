@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="painel" style="margin-bottom:16px">
+  <div class="painel__cabecalho">
+    <div>
+      <div class="painel__titulo">Meta x Realizado — <span id="termos-periodo"></span></div>
+      <div class="painel__descricao">Realizado Total, Serviços e VCG conforme a base de termos aplicados</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" data-exportar="termos" data-formato="xlsx">Exportar</button>
+    </div>
+  </div>
+  <div class="painel__corpo" id="termos-bloco"></div>
+</div>
+
+<div class="grade grade--kpi" id="termos-cards"></div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Meta x Realizado x Falta por frente</div></div>
+  <div class="painel__corpo painel__corpo--limpo" id="termos-matriz"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Realizado x Meta por mês</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-termos-mensal"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Realizado por dia e acumulado</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-termos-diario"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Distribuição por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-termos-cidade"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Distribuição por setor do recurso</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-termos-setor"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Status dos termos</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-termos-status"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Termos por cidade</div></div>
+    <div class="painel__corpo painel__corpo--limpo" id="termos-tabela-cidade"></div>
+  </div>
+</div>
+{% endblock %}
