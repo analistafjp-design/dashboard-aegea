@@ -1,0 +1,11 @@
+# Uma pasta ou um arquivo por linha. Linhas com # no início são ignoradas.
+# Pastas são lidas com subpastas incluídas. Copie este arquivo para
+# "pastas-monitoradas.txt" (sem ".exemplo") e edite os caminhos abaixo com
+# os locais reais das suas planilhas.
+#
+# Dica: para pegar o caminho certo, abra a pasta no Explorer, clique na
+# barra de endereço (fica azul e selecionada) e copie o texto — cole aqui.
+
+C:\Users\SeuUsuario\Documents\Acompanhamento Venda e Implantação
+C:\Users\SeuUsuario\Documents\Acompanhamento de Termos Aplicados - Versão
+C:\Users\SeuUsuario\Documents\Programação Interior
