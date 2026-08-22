@@ -94,6 +94,30 @@ def test_upload_com_tipo_forcado(cliente, planilhas):
     assert resposta.json()["resultados"][0]["dataset"] == "implantacao"
 
 
+def test_lote_de_arquivos_pequenos_que_somam_muito_e_recusado(cliente, planilhas, monkeypatch):
+    """Nenhum arquivo do lote sozinho passa do limite, mas a SOMA passa —
+    o lote inteiro é recusado antes de tocar o banco (proteção contra
+    vários arquivos pequenos derrubando a instância na mesma requisição)."""
+    # A planilha de vendas de teste tem 77 linhas (38 dias úteis * 2 + cabeçalho) —
+    # uma sozinha fica dentro do limite, três juntas (231) passam dele.
+    monkeypatch.setattr(config, "LIMITE_LINHAS_ARQUIVO", 150)
+    with planilhas["vendas"].open("rb") as a:
+        conteudo = a.read()
+
+    resposta = cliente.post("/api/upload", files=[
+        ("arquivos", ("venda1.xlsx", conteudo)),
+        ("arquivos", ("venda2.xlsx", conteudo)),
+        ("arquivos", ("venda3.xlsx", conteudo)),
+    ])
+    dados = resposta.json()
+
+    assert dados["ok"] is False
+    assert len(dados["resultados"]) == 3
+    assert all(r["status"] == "ERRO" for r in dados["resultados"])
+    assert "lotes menores" in dados["mensagem"]
+    assert cliente.get("/api/status").json()["tem_dados"] is False
+
+
 def test_historico_lista_importacoes(cliente, base_carregada):
     registros = cliente.get("/api/historico").json()["registros"]
     assert len(registros) >= 6

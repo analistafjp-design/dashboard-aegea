@@ -86,8 +86,13 @@ reinicia sozinha e aparece "502 Bad Gateway" no navegador).
 Para evitar isso, o sistema **recusa educadamente** (antes de gastar
 memória lendo o arquivo inteiro) qualquer planilha com mais de
 **100.000 linhas** — o limite fica configurável pela variável de ambiente
-`LIMITE_LINHAS_ARQUIVO`, caso o plano seja outro com mais RAM. Se um
-arquivo for recusado por esse motivo:
+`LIMITE_LINHAS_ARQUIVO`, caso o plano seja outro com mais RAM. A mesma
+verificação também soma as linhas de **todos os arquivos enviados juntos**
+numa mesma atualização: vários arquivos pequenos processados na mesma
+requisição consomem memória da mesma forma que um arquivo grande, então o
+lote inteiro é recusado se a soma passar do limite, mesmo que nenhum
+arquivo sozinho ultrapasse — nesse caso, envie em lotes menores (poucos
+arquivos por vez). Se um arquivo ou lote for recusado por esse motivo:
 
 - **Divida o arquivo** em partes menores (por mês, por cidade etc.) e
   envie cada parte separadamente — reenviar não duplica nada, cada linha

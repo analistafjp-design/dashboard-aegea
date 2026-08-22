@@ -82,34 +82,92 @@ def _mensagem_arquivo_grande(caminho: Path, total_linhas: int) -> ErroValidacaoA
     ])
 
 
-def _validar_linhas_xlsx(caminho: Path) -> None:
-    """Conta as linhas com openpyxl em modo `read_only` ANTES de deixar o
-    pandas carregar o arquivo inteiro — o `read_only` lê a dimensão
-    declarada na planilha (rápido, sem materializar as células), então dá
-    para recusar um arquivo grande demais sem pagar o custo de memória de
-    lê-lo primeiro. Sem isso, o próprio `pd.read_excel` já estourava a RAM
-    da instância antes de qualquer verificação ser possível (o processo
-    era morto no meio do upload — 502 Bad Gateway, tela travada).
+LIMITE_VARREDURA_FANTASMA = 500_000
+
+
+def _contar_linhas_reais_xlsx(livro, limite: int) -> int:
+    """Conta linhas com pelo menos uma célula preenchida, parando assim que
+    tiver certeza — ou porque já passou do limite, ou porque já varreu
+    `LIMITE_VARREDURA_FANTASMA` linhas cruas sem achar tantas preenchidas
+    (arquivo com dimensão "fantasma", ver `estimar_linhas_xlsx`)."""
+    total_real, varridas = 0, 0
+    for aba in livro.worksheets:
+        for linha in aba.iter_rows(values_only=True):
+            varridas += 1
+            if any(v is not None and str(v).strip() != "" for v in linha):
+                total_real += 1
+                if total_real > limite:
+                    return total_real
+            if varridas >= LIMITE_VARREDURA_FANTASMA:
+                return total_real
+    return total_real
+
+
+def estimar_linhas_xlsx(caminho: Path, limite: int | None = None) -> int:
+    """Estima o total de linhas com dado real, gastando o mínimo possível.
+
+    `max_row` do openpyxl em modo `read_only` é O(1) (lê a dimensão
+    declarada no XML, sem abrir células) — cobre a maioria dos arquivos
+    instantaneamente. Mas planilhas exportadas por outros sistemas
+    frequentemente têm formatação/estilo arrastados além dos dados reais
+    (ex.: alguém formatou "a coluna inteira"), fazendo o openpyxl reportar
+    um `max_row` muito maior do que as linhas realmente preenchidas — nesse
+    caso o pandas, na prática, só materializa as linhas com conteúdo. Por
+    isso, só quando `max_row` já aponta acima do limite é que confirmamos
+    com uma varredura real (limitada) em vez de confiar cegamente nele —
+    sem essa confirmação, um arquivo pequeno com esse tipo de formatação
+    seria recusado por engano.
     """
+    limite = config.LIMITE_LINHAS_ARQUIVO if limite is None else limite
     try:
         livro = openpyxl.load_workbook(caminho, read_only=True, data_only=True)
     except Exception:  # noqa: BLE001 - deixa o pandas tentar e dar a mensagem de erro
-        return
+        return 0
     try:
-        total_linhas = sum(aba.max_row or 0 for aba in livro.worksheets)
+        max_row_declarado = sum(aba.max_row or 0 for aba in livro.worksheets)
+        if max_row_declarado <= limite:
+            return max_row_declarado
+        return _contar_linhas_reais_xlsx(livro, limite)
     finally:
         livro.close()
+
+
+def estimar_linhas_csv(caminho: Path) -> int:
+    """Conta as linhas lendo em blocos, sem carregar o arquivo inteiro na
+    memória de uma vez."""
+    total_linhas = 0
+    with caminho.open("rb") as arquivo:
+        while bloco := arquivo.read(1024 * 1024):
+            total_linhas += bloco.count(b"\n")
+    return total_linhas
+
+
+def estimar_linhas_arquivo(caminho: Path) -> int:
+    """Estimativa cheap de linhas para qualquer extensão aceita — usada
+    para somar o total de um LOTE de arquivos antes de processar (ver
+    `app.routes.api.upload`). `.xls` legado não tem uma forma barata de
+    contar sem ler tudo, mas o próprio formato trava em 65.536 linhas por
+    aba, bem abaixo do limite — devolve 0 (não contribui para a soma).
+    """
+    extensao = caminho.suffix.lower()
+    try:
+        if extensao in (".xlsx", ".xlsm"):
+            return estimar_linhas_xlsx(caminho)
+        if extensao == ".csv":
+            return estimar_linhas_csv(caminho)
+    except Exception:  # noqa: BLE001 - estimativa é best-effort, nunca derruba o upload
+        logger.warning("Não foi possível estimar linhas de %s", caminho.name, exc_info=True)
+    return 0
+
+
+def _validar_linhas_xlsx(caminho: Path) -> None:
+    total_linhas = estimar_linhas_xlsx(caminho)
     if total_linhas > config.LIMITE_LINHAS_ARQUIVO:
         raise _mensagem_arquivo_grande(caminho, total_linhas)
 
 
 def _validar_linhas_csv(caminho: Path) -> None:
-    """Conta as linhas do CSV lendo em blocos (sem carregar tudo na
-    memória de uma vez) antes do `pd.read_csv`."""
-    total_linhas = 0
-    with caminho.open("rb") as arquivo:
-        while bloco := arquivo.read(1024 * 1024):
-            total_linhas += bloco.count(b"\n")
+    total_linhas = estimar_linhas_csv(caminho)
     if total_linhas > config.LIMITE_LINHAS_ARQUIVO:
         raise _mensagem_arquivo_grande(caminho, total_linhas)
 

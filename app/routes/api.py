@@ -12,6 +12,7 @@ from app.analytics.base import Filtros
 from app.analytics.periodo import resolver
 from app.config import config
 from app.etl.datasets import DATASETS
+from app.etl.leitura import estimar_linhas_arquivo
 from app.etl.pipeline import ETAPAS, processar_lote
 from app.models.db import sessao
 from app.schemas.filtros import filtros_da_query
@@ -19,7 +20,7 @@ from app.services import configuracoes as servico_config
 from app.services import exportacao as servico_exportacao
 from app.services import upload as servico_upload
 from app.utils.erros import ErroDashboard
-from app.utils.formato import data_hora_br
+from app.utils.formato import data_hora_br, numero
 from app.utils.log import get_logger
 
 logger = get_logger("api")
@@ -163,6 +164,33 @@ async def upload(arquivos: list[UploadFile] = File(...),
 
     resultados: list[dict] = []
     if salvos:
+        # Cada arquivo sozinho já é validado dentro de `processar_arquivo`
+        # (ver app/etl/leitura.py), mas um LOTE de vários arquivos pequenos
+        # processados na mesma requisição soma memória do mesmo jeito — por
+        # isso o total do lote também é checado ANTES de processar
+        # qualquer um, mesmo que nenhum arquivo isolado ultrapasse o limite.
+        total_estimado = sum(estimar_linhas_arquivo(c) for c in salvos)
+        if total_estimado > config.LIMITE_LINHAS_ARQUIVO:
+            for caminho in salvos:
+                caminho.unlink(missing_ok=True)
+            mensagem = (
+                f"Os {len(salvos)} arquivos somam aproximadamente {numero(total_estimado)} "
+                f"linhas juntos — acima do limite de {numero(config.LIMITE_LINHAS_ARQUIVO)} "
+                "linhas que esta instância suporta processar de uma vez, mesmo com cada "
+                "arquivo sendo pequeno sozinho. Envie em lotes menores (menos arquivos por vez)."
+            )
+            logger.warning("Lote de upload recusado: %s arquivo(s), %s linhas estimadas",
+                           len(salvos), total_estimado)
+            erro_lote = [{"arquivo": c.name, "status": "ERRO", "mensagem": mensagem,
+                         "detalhes": [], "dataset": None, "titulo_dataset": None, "lidos": 0,
+                         "inseridos": 0, "atualizados": 0, "descartados": 0, "validacao": None,
+                         "confianca_deteccao": None, "campos_detectados": [],
+                         "qualidade_dados": None} for c in salvos]
+            return JSONResponse(content={
+                "ok": False, "mensagem": mensagem,
+                "resultados": erro_lote + erros, "status": status(),
+            })
+
         try:
             with sessao() as s:
                 resultados = [r.to_dict() for r in processar_lote(s, salvos, forcados)]
