@@ -83,6 +83,11 @@ Se aparecer `ERRO`, leia a mensagem — ela é escrita em português e diz
 exatamente o que verificar (URL errada, senha errada, pasta não
 encontrada...). O mesmo texto fica guardado em `scripts\logs\`.
 
+> **Primeira execução com muito histórico**: se suas pastas já têm meses de
+> planilhas acumuladas (dezenas ou centenas de arquivos), essa primeira
+> sincronização é a única que envia tudo — as próximas só mandam o que for
+> novo ou mudar (ver seção abaixo). Pode demorar alguns minutos; é normal.
+
 ### 5. Ligar a sincronização automática
 
 Depois que o teste manual funcionar, clique com o botão direito em
@@ -109,12 +114,17 @@ ao dashboard é apagado.
 
 ## Como funciona por trás dos panos
 
-- A cada execução, o script **reenvia todos** os arquivos das pastas
-  monitoradas (não só os que mudaram). Isso é proposital: o dashboard
-  identifica cada linha por uma chave própria (data + cidade + equipe, por
-  exemplo) e nunca duplica um registro reenviado — apenas atualiza. Reenviar
-  tudo garante que, se a instância gratuita do Render "dormiu" e perdeu os
-  dados (ver aviso abaixo), a próxima sincronização os repõe sozinha.
+- **Envio incremental**: o script guarda um "manifesto" local
+  (`logs\manifesto_sincronizacao.json`) com o tamanho e a data de
+  modificação de cada arquivo já enviado. A cada execução, só envia o que é
+  **novo ou mudou** desde a última vez — se nada mudou, ele nem chega a
+  contatar o servidor. Isso é o que permite monitorar pastas com centenas
+  de planilhas históricas (uma por dia, por exemplo) sem reenviar tudo a
+  cada 15 minutos.
+- **Envio em lotes**: quando há muitos arquivos para enviar (ex.: a
+  primeira sincronização, com meses de histórico), eles vão em grupos de
+  até 20 arquivos ou 40 MB por vez — não tudo numa única requisição gigante,
+  que poderia travar em conexões mais lentas.
 - Arquivos temporários do Excel (que começam com `~$`, criados enquanto
   alguém tem a planilha aberta) são ignorados automaticamente.
 - Se um arquivo estiver aberto/travado no momento exato da sincronização,
@@ -123,16 +133,36 @@ ao dashboard é apagado.
 - O tipo de cada planilha (Termos, Venda, Implantação...) é identificado
   automaticamente pelas colunas, igual ao upload manual pelo navegador.
 
+### Forçar um reenvio completo
+
+Às vezes você precisa reenviar tudo de novo, ignorando o manifesto — por
+exemplo, se desconfia que a instância gratuita do Render "dormiu" e perdeu
+os dados (ver aviso abaixo). Abra o PowerShell na pasta `scripts` e rode:
+
+```powershell
+.\sincronizar_pastas.ps1 -Completo
+```
+
+Como o dashboard nunca duplica um registro reenviado (identifica cada linha
+por uma chave própria — data, cidade, equipe, etc.), reenviar tudo é sempre
+seguro, só demora mais.
+
 ## ⚠️ Sobre o plano gratuito do Render
 
 Como o [`deploy.md`](deploy.md) já explica: no plano Free, a instância
-"dorme" após ~15 minutos sem acesso e perde os dados ao acordar. Com a
-sincronização automática ativa, o **próximo ciclo agendado repõe os dados
-sozinho** — mas ainda assim pode haver uma janela de alguns minutos em que
-o dashboard mostra menos dados do que deveria (ex.: se a instância dormiu
-às 14h e o próximo ciclo é às 14h15). Para acompanhamento operacional
-sério, o ideal é migrar para um plano com persistência (disco pago ou
-Postgres — ver `deploy.md`), o que elimina essa janela por completo.
+"dorme" após ~15 minutos sem acesso e perde os dados ao acordar. Diferente
+da primeira versão deste script, a sincronização automática **não repõe
+isso sozinha a cada ciclo** (agora ela só envia o que mudou, para não
+sobrecarregar pastas com muito histórico) — então, se desconfiar que a
+instância dormiu e perdeu dados, rode manualmente:
+
+```powershell
+.\sincronizar_pastas.ps1 -Completo
+```
+
+Para acompanhamento operacional sério, sem se preocupar com isso, o ideal é
+migrar para um plano com persistência (disco pago ou Postgres — ver
+`deploy.md`), que elimina o problema por completo.
 
 ## Onde os arquivos ficam
 
@@ -145,5 +175,7 @@ scripts/
 ├── pastas-monitoradas.txt          suas pastas reais (você cria, não vai para o Git)
 ├── credenciais.exemplo.txt         modelo — copie e edite
 ├── credenciais.txt                 seu usuário/senha reais (você cria, não vai para o Git)
-└── logs/                           um arquivo de log por dia (criado automaticamente)
+└── logs/
+    ├── sincronizacao_AAAAMMDD.log      um arquivo de log por dia (criado automaticamente)
+    └── manifesto_sincronizacao.json    controle do que já foi enviado (criado automaticamente)
 ```
