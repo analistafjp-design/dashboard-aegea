@@ -38,21 +38,28 @@ senha nem configuração extra. Arquivos que estejam "somente na nuvem"
 primeira sincronização pode demorar mais por causa disso, e o script avisa
 no log quando encontra esse caso.
 
-Você pode fixar a base de cada pasta acrescentando `= tipo` no fim da
+Você pode fixar a base de cada pasta acrescentando `= base` no fim da
 linha — é o mesmo efeito de escolher a aba na tela de Atualização de
-Dados, e evita depender da identificação automática:
+Dados, e evita depender da identificação automática.
+
+Uma pasta pode alimentar **várias bases de uma vez**, separando por
+vírgula: os arquivos são enviados uma vez para cada base. É o caso de uma
+pasta cujas planilhas servem para Venda, Implantação e Termos ao mesmo
+tempo:
 
 ```text
-C:\Users\SeuUsuario\OneDrive\Acompanhamento\Interior = vendas
-C:\Users\SeuUsuario\OneDrive\Acompanhamento\Termos = termos
-C:\Users\SeuUsuario\OneDrive\Acompanhamento\Faturamento = faturamento
-C:\Users\SeuUsuario\OneDrive\Acompanhamento\Atendimento = implantacao
-C:\Users\SeuUsuario\OneDrive\Programação Interior = programacao
+...\DashBoard - Interior\Interior = vendas, implantacao, termos
+...\DashBoard - Interior\Faturamento = faturamento
+...\DashBoard - Interior\Programação Diaria = programacao
 ```
 
-Tipos aceitos: `termos`, `faturamento`, `vendas`, `implantacao`,
-`programacao`, `metas`. Sem o `= tipo`, o sistema identifica a base pelas
-colunas do arquivo.
+Bases aceitas: `termos`, `faturamento`, `vendas`, `implantacao`,
+`programacao`, `metas`. Sem o `= base`, o sistema identifica pelas colunas
+do arquivo.
+
+O controle do que já foi enviado é feito **por arquivo e por base**: o
+mesmo arquivo enviado para Venda continua pendente para Implantação e
+Termos até que cada uma receba a sua cópia.
 
 **Dica para pegar o caminho certo**: abra a pasta no Explorer do Windows,
 clique uma vez na barra de endereço no topo (o texto fica selecionado em

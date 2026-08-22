@@ -116,9 +116,20 @@ function Salvar-Manifesto {
 # reler o manifesto, o que troca o formato (perde os digitos de fracao de
 # segundo) e faz a comparacao falhar sempre. Um numero nao sofre esse
 # problema.
+# A chave inclui a base de destino: a MESMA planilha pode alimentar mais de
+# uma base (a pasta Interior alimenta Venda, Implantacao e Termos), e cada
+# destino precisa ser controlado em separado — senao, enviar para Venda
+# marcaria o arquivo como "ja enviado" e Implantacao/Termos nunca o
+# receberiam.
+function Chave-Manifesto {
+    param($Info, [string]$Tipo)
+    if ($Tipo) { return "$($Info.FullName)|$Tipo" }
+    return $Info.FullName
+}
+
 function Arquivo-Mudou {
-    param($Info, $Manifesto)
-    $chave = $Info.FullName
+    param($Info, [string]$Tipo, $Manifesto)
+    $chave = Chave-Manifesto -Info $Info -Tipo $Tipo
     if (-not $Manifesto.ContainsKey($chave)) { return $true }
     $registrado = $Manifesto[$chave]
     $ticksAtual = $Info.LastWriteTimeUtc.Ticks
@@ -126,8 +137,8 @@ function Arquivo-Mudou {
 }
 
 function Marcar-Enviado {
-    param($Info, $Manifesto)
-    $Manifesto[$Info.FullName] = @{
+    param($Info, [string]$Tipo, $Manifesto)
+    $Manifesto[(Chave-Manifesto -Info $Info -Tipo $Tipo)] = @{
         Tamanho = $Info.Length
         Ticks   = $Info.LastWriteTimeUtc.Ticks
     }
@@ -162,19 +173,28 @@ foreach ($linha in (Get-Content $PastasArquivo -Encoding UTF8)) {
     $texto = $linha.Trim()
     if (-not $texto -or $texto.StartsWith("#")) { continue }
 
-    $tipo = ""
+    # Aceita "CAMINHO = tipo" e tambem "CAMINHO = tipo1, tipo2, tipo3" — a
+    # mesma pasta pode alimentar varias bases (a pasta Interior tem os
+    # mesmos arquivos usados por Venda, Implantacao e Termos).
+    $tipos = @("")
     $caminho = $texto
     $separador = $texto.LastIndexOf("=")
     if ($separador -gt 0) {
-        $possivel = $texto.Substring($separador + 1).Trim().ToLower()
-        if ($TiposValidos -contains $possivel) {
-            $tipo = $possivel
+        $lista = $texto.Substring($separador + 1).Trim().ToLower() -split "," |
+            ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        $validos = @($lista | Where-Object { $TiposValidos -contains $_ })
+        $invalidos = @($lista | Where-Object { $TiposValidos -notcontains $_ })
+        foreach ($ruim in $invalidos) {
+            Escrever-Log "Tipo '$ruim' desconhecido em '$texto'. Use: $($TiposValidos -join ', ')." "AVISO"
+        }
+        if ($validos.Count -gt 0) {
+            $tipos = $validos
             $caminho = $texto.Substring(0, $separador).Trim()
-        } else {
-            Escrever-Log "Tipo '$possivel' desconhecido em '$texto'. Use um de: $($TiposValidos -join ', '). A base sera identificada automaticamente." "AVISO"
         }
     }
-    $CaminhosMonitorados.Add([pscustomobject]@{ Caminho = $caminho; Tipo = $tipo })
+    foreach ($t in $tipos) {
+        $CaminhosMonitorados.Add([pscustomobject]@{ Caminho = $caminho; Tipo = $t })
+    }
 }
 
 if ($CaminhosMonitorados.Count -eq 0) {
@@ -183,12 +203,16 @@ if ($CaminhosMonitorados.Count -eq 0) {
 }
 
 # ------------------------------------------------------- coletar arquivos
+# Cada item e um par (arquivo, base de destino). O mesmo arquivo aparece
+# mais de uma vez quando a pasta alimenta varias bases.
 $Arquivos = New-Object System.Collections.Generic.List[object]
-$TipoPorArquivo = @{}
 $SomenteNuvem = 0
+$JaVistos = New-Object System.Collections.Generic.HashSet[string]
 
 function Registrar-Arquivo {
     param($Info, [string]$Tipo)
+    # Evita duplicar se a mesma pasta aparecer duas vezes com o mesmo tipo.
+    if (-not $script:JaVistos.Add("$($Info.FullName)|$Tipo")) { return }
     # OneDrive/Drive com "Arquivos Sob Demanda": o arquivo aparece na pasta
     # mas o conteudo ainda esta na nuvem. Ler dispara o download automatico,
     # entao da certo - so pode demorar na primeira vez.
@@ -196,8 +220,7 @@ function Registrar-Arquivo {
     if ($atributos -match "Offline" -or $atributos -match "RecallOn") {
         $script:SomenteNuvem++
     }
-    $script:Arquivos.Add($Info)
-    $script:TipoPorArquivo[$Info.FullName] = $Tipo
+    $script:Arquivos.Add([pscustomobject]@{ Info = $Info; Tipo = $Tipo })
 }
 
 foreach ($entrada in $CaminhosMonitorados) {
@@ -231,15 +254,18 @@ if ($Arquivos.Count -eq 0) {
 Escrever-Log "Encontrados $($Arquivos.Count) arquivo(s) em $($CaminhosMonitorados.Count) local(is) monitorado(s)."
 
 # ------------------------------------------------ pular arquivos travados
-$ArquivosProntos = New-Object System.Collections.Generic.List[System.IO.FileInfo]
-foreach ($f in $Arquivos) {
+$ArquivosProntos = New-Object System.Collections.Generic.List[object]
+$travadosAvisados = New-Object System.Collections.Generic.HashSet[string]
+foreach ($par in $Arquivos) {
     try {
-        $stream = [System.IO.File]::Open($f.FullName, [System.IO.FileMode]::Open,
+        $stream = [System.IO.File]::Open($par.Info.FullName, [System.IO.FileMode]::Open,
             [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
         $stream.Close()
-        $ArquivosProntos.Add($f)
+        $ArquivosProntos.Add($par)
     } catch {
-        Escrever-Log "Pulando '$($f.Name)': arquivo aberto/travado agora. Sera reenviado na proxima execucao." "AVISO"
+        if ($travadosAvisados.Add($par.Info.FullName)) {
+            Escrever-Log "Pulando '$($par.Info.Name)': arquivo aberto/travado agora. Sera reenviado na proxima execucao." "AVISO"
+        }
     }
 }
 
@@ -254,7 +280,8 @@ if ($Completo) {
     $ArquivosParaEnviar = $ArquivosProntos
     Escrever-Log "Modo -Completo: reenviando todos os $($ArquivosProntos.Count) arquivo(s), ignorando o manifesto."
 } else {
-    $ArquivosParaEnviar = $ArquivosProntos | Where-Object { Arquivo-Mudou -Info $_ -Manifesto $Manifesto }
+    $ArquivosParaEnviar = $ArquivosProntos |
+        Where-Object { Arquivo-Mudou -Info $_.Info -Tipo $_.Tipo -Manifesto $Manifesto }
     $puladosPorManifesto = $ArquivosProntos.Count - $ArquivosParaEnviar.Count
     if ($puladosPorManifesto -gt 0) {
         Escrever-Log "$puladosPorManifesto arquivo(s) sem alteracao desde o ultimo envio — nao serao reenviados."
@@ -267,22 +294,27 @@ if (-not $ArquivosParaEnviar -or $ArquivosParaEnviar.Count -eq 0) {
 }
 
 # ------------------------------------------------------------- montar lotes
+# Os lotes sao montados POR BASE de destino: assim um lote nunca tem o
+# mesmo nome de arquivo duas vezes (o que tornaria ambiguo o casamento
+# entre o resultado devolvido pelo servidor e o arquivo local).
 $Lotes = New-Object System.Collections.Generic.List[System.Object]
-$loteAtual = New-Object System.Collections.Generic.List[System.IO.FileInfo]
-$tamanhoLoteAtual = 0L
 
-foreach ($f in $ArquivosParaEnviar) {
-    $estouraQuantidade = $loteAtual.Count -ge $ArquivosPorLote
-    $estouraTamanho = ($tamanhoLoteAtual + $f.Length) -gt $LimiteBytesPorLote -and $loteAtual.Count -gt 0
-    if ($estouraQuantidade -or $estouraTamanho) {
-        $Lotes.Add($loteAtual)
-        $loteAtual = New-Object System.Collections.Generic.List[System.IO.FileInfo]
-        $tamanhoLoteAtual = 0L
+foreach ($grupo in ($ArquivosParaEnviar | Group-Object -Property Tipo)) {
+    $loteAtual = New-Object System.Collections.Generic.List[object]
+    $tamanhoLoteAtual = 0L
+    foreach ($par in $grupo.Group) {
+        $estouraQuantidade = $loteAtual.Count -ge $ArquivosPorLote
+        $estouraTamanho = ($tamanhoLoteAtual + $par.Info.Length) -gt $LimiteBytesPorLote -and $loteAtual.Count -gt 0
+        if ($estouraQuantidade -or $estouraTamanho) {
+            $Lotes.Add($loteAtual)
+            $loteAtual = New-Object System.Collections.Generic.List[object]
+            $tamanhoLoteAtual = 0L
+        }
+        $loteAtual.Add($par)
+        $tamanhoLoteAtual += $par.Info.Length
     }
-    $loteAtual.Add($f)
-    $tamanhoLoteAtual += $f.Length
+    if ($loteAtual.Count -gt 0) { $Lotes.Add($loteAtual) }
 }
-if ($loteAtual.Count -gt 0) { $Lotes.Add($loteAtual) }
 
 Escrever-Log "Enviando $($ArquivosParaEnviar.Count) arquivo(s) novo(s)/alterado(s) em $($Lotes.Count) lote(s)."
 
@@ -323,24 +355,23 @@ foreach ($lote in $Lotes) {
     $streamsAbertos = New-Object System.Collections.Generic.List[System.IO.FileStream]
 
     try {
-        foreach ($f in $lote) {
-            $fileStream = [System.IO.File]::OpenRead($f.FullName)
+        foreach ($par in $lote) {
+            $fileStream = [System.IO.File]::OpenRead($par.Info.FullName)
             $streamsAbertos.Add($fileStream)
             $streamContent = New-Object System.Net.Http.StreamContent($fileStream)
             $streamContent.Headers.ContentType =
                 New-Object System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream")
-            $conteudoMultipart.Add($streamContent, "arquivos", $f.Name)
+            $conteudoMultipart.Add($streamContent, "arquivos", $par.Info.Name)
 
             # O campo "tipo" vai na MESMA ordem dos arquivos: o servidor
             # casa tipo[i] com arquivos[i]. String vazia = identificar
             # automaticamente pelas colunas.
-            $tipoDoArquivo = $TipoPorArquivo[$f.FullName]
-            if ($null -eq $tipoDoArquivo) { $tipoDoArquivo = "" }
             $conteudoMultipart.Add(
-                (New-Object System.Net.Http.StringContent($tipoDoArquivo)), "tipo")
+                (New-Object System.Net.Http.StringContent($par.Tipo)), "tipo")
         }
 
-        Escrever-Log "Lote $numeroLote/$($Lotes.Count): enviando $($lote.Count) arquivo(s) para $Url/api/upload ..."
+        $baseDoLote = if ($lote[0].Tipo) { $lote[0].Tipo } else { "deteccao automatica" }
+        Escrever-Log "Lote $numeroLote/$($Lotes.Count): enviando $($lote.Count) arquivo(s) [base: $baseDoLote] para $Url/api/upload ..."
         $respostaUpload = $cliente.PostAsync("$Url/api/upload", $conteudoMultipart).Result
         $corpo = $respostaUpload.Content.ReadAsStringAsync().Result
 
@@ -394,7 +425,8 @@ foreach ($lote in $Lotes) {
         # do nome. Em caso de nome ambiguo (dois arquivos iguais no mesmo
         # lote), o arquivo NAO e marcado como enviado — sera reenviado na
         # proxima execucao, o que e seguro (nunca duplica).
-        foreach ($f in $lote) {
+        foreach ($par in $lote) {
+            $f = $par.Info
             $correspondencias = @($dados.resultados | Where-Object { $_.arquivo.EndsWith($f.Name) })
             if ($correspondencias.Count -eq 1) {
                 $r = $correspondencias[0]
@@ -405,7 +437,7 @@ foreach ($lote in $Lotes) {
                 Escrever-Log $detalhe $nivel
 
                 if ($r.status -ne "ERRO") {
-                    Marcar-Enviado -Info $f -Manifesto $Manifesto
+                    Marcar-Enviado -Info $f -Tipo $par.Tipo -Manifesto $Manifesto
                     $totalOk++
                 } else {
                     $totalErros++

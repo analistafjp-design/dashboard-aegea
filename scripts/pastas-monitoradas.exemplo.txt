@@ -1,24 +1,33 @@
 # Pastas que o dashboard vai monitorar — uma por linha.
 #
-# COMO PEGAR O CAMINHO: abra a pasta no Explorer do Windows, clique uma vez
-# na barra de endereço no topo (o texto fica azul), Ctrl+C, e cole aqui.
+# SINTAXE:  CAMINHO DA PASTA = base1, base2, base3
 #
-# OPCIONAL — fixar a base de cada pasta com "= tipo" no fim da linha, do
-# mesmo jeito que as abas fazem na tela de Atualização de Dados:
+# O "= base" fixa para qual base do dashboard os arquivos daquela pasta
+# vão — é o mesmo efeito de escolher a aba na tela de Atualização de Dados.
+# Uma pasta pode alimentar VÁRIAS bases: os arquivos são enviados uma vez
+# para cada uma (é o caso da pasta Interior, cujos arquivos servem para
+# Venda, Implantação e Termos).
 #
-#     C:\Caminho\Da\Pasta = vendas
+# Bases aceitas: termos, faturamento, vendas, implantacao, programacao, metas
+# Sem "= base", o sistema tenta identificar pelas colunas do arquivo.
 #
-# Tipos aceitos: termos, faturamento, vendas, implantacao, programacao, metas
-# Sem "= tipo", o sistema identifica a base pelas colunas do arquivo.
+# Subpastas entram automaticamente. Linhas com # são ignoradas.
 #
-# Subpastas são incluídas automaticamente.
-# Linhas começando com # são ignoradas.
+# Funciona com OneDrive/Google Drive: a pasta sincronizada é uma pasta
+# normal no PC, basta apontar para ela. Arquivos "somente na nuvem" são
+# baixados sozinhos na leitura (a primeira execução pode demorar mais).
 
-# --- Exemplo baseado numa estrutura de pastas típica -------------------
-# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Interior = vendas
-# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Termos = termos
-# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Faturamento = faturamento
-# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Atendimento = implantacao
-# C:\Users\SeuUsuario\OneDrive\Programação Interior = programacao
+# ---------------------------------------------------------------------
+# CONFIGURAÇÃO PRONTA — OneDrive AEGEA, pasta "DashBoard - Interior"
+# Confira se o nome de usuário (fabio.passos) está certo e descomente
+# as linhas abaixo removendo o # do começo.
+# ---------------------------------------------------------------------
 
-# Escreva as suas abaixo:
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Interior = vendas, implantacao, termos
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Faturamento = faturamento
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Programação Diaria = programacao
+
+# A pasta Atendimento ("Analitico - acomp de solicitação") ainda não tem
+# base definida e o arquivo tem ~153 mil linhas, acima do limite que a
+# instância gratuita processa. Deixe comentada até resolver isso.
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Atendimento = implantacao
