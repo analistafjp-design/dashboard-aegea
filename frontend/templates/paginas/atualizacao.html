@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--2">
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div><div class="painel__titulo">Atualização de Dados</div>
+        <div class="painel__descricao">Envie os arquivos Excel. Escolha primeiro o módulo
+          (Venda/Implantação, Termos ou Programação Diária) e depois a pasta de origem, antes de
+          soltar os arquivos, para que cada um vá para a base certa. Todos são enviados juntos,
+          de uma vez só, no botão abaixo.</div></div>
+    </div>
+    <div class="painel__corpo">
+      <div class="abas-modulo" id="abas-modulo" role="tablist">
+        <button type="button" class="aba-modulo aba-modulo--ativa"
+                data-modulo="venda-implantacao" role="tab" aria-selected="true">① Venda e Implantação</button>
+        <button type="button" class="aba-modulo"
+                data-modulo="termos" role="tab" aria-selected="false">② Termos</button>
+        <button type="button" class="aba-modulo"
+                data-modulo="programacao" role="tab" aria-selected="false">③ Programação Diária</button>
+      </div>
+
+      <div class="abas-categoria" id="abas-categoria" role="tablist">
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="venda">Venda</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="implantacao">Implantação</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="faturamento-implantacao">Faturamento (Solicitação Geral)</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="atendimento">Atendimento (Outros Canais)</button>
+
+        <button type="button" class="aba-categoria" data-modulo="termos"
+                data-categoria="termos-interior">Termos / Interior</button>
+        <button type="button" class="aba-categoria" data-modulo="termos"
+                data-categoria="base-arquivos">Base Arquivos (dia)</button>
+
+        <button type="button" class="aba-categoria" data-modulo="programacao"
+                data-categoria="programacao-diaria">Programação Diária</button>
+      </div>
+      <div class="painel__descricao" id="abas-categoria-dica" style="margin:6px 0 12px"></div>
+
+      <div class="upload-area" id="area-upload">
+        <div class="upload-area__icone">↥</div>
+        <div class="upload-area__titulo">Arraste os arquivos aqui ou clique para escolher</div>
+        <div class="upload-area__dica">Aceita .xlsx, .xlsm, .xls e .csv · até 50 MB por arquivo</div>
+        <input type="file" id="input-arquivos" multiple accept=".xlsx,.xlsm,.xls,.csv" hidden>
+      </div>
+
+      <div id="lista-arquivos" style="margin-top:14px"></div>
+
+      <button class="btn btn--primario btn--grande" id="btn-atualizar"
+              style="width:100%;margin-top:14px" disabled>
+        ATUALIZAR DASHBOARD
+      </button>
+
+      <div class="etapas" id="etapas-processo" hidden></div>
+      <div class="progresso" id="progresso-upload" hidden>
+        <div class="progresso__trilho">
+          <div class="progresso__barra progresso__barra--verde" id="barra-upload" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div><div class="painel__titulo">Resultado da última importação</div></div>
+    </div>
+    <div class="painel__corpo" id="resultado-upload">
+      <div class="vazio">Nenhum arquivo processado nesta sessão.</div>
+    </div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Histórico de atualizações</div></div>
+    <button class="btn" data-exportar="historico" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="historico-tabela"></div>
+</div>
+{% endblock %}

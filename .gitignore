@@ -32,6 +32,13 @@ frontend/static/js/plotly.min.js
 # Ambiente
 .env
 
+# Sincronização automática de pastas (script Windows) — caminhos de pasta
+# e credenciais são pessoais/locais, nunca versionar. Os .exemplo.txt
+# continuam versionados como modelo.
+scripts/pastas-monitoradas.txt
+scripts/credenciais.txt
+scripts/logs/
+
 # Sistema operacional / editores
 .DS_Store
 Thumbs.db

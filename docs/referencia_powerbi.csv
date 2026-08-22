@@ -1,0 +1,24 @@
+# Conferência Power BI x Python — preencha a coluna valor_powerbi com o número
+# lido no PBIX para o mês indicado e rode: python scripts/validar_indicadores.py
+# Linhas iniciadas por # são ignoradas.
+modulo;indicador;ano;mes;cidade;valor_powerbi;observacao
+termos;realizado_total;;;;;f_Fild.Realizado Total
+termos;realizado_servicos;;;;;f_Fild.Realizado Serviços
+termos;realizado_vcg;;;;;f_Fild.Realizado VCG
+termos;qtd_termos;;;;;Termos.Qtd Termos Aplicados
+faturamento;qtd_faturado;;;;;Faturamento Termos — situação Faturado
+faturamento;qtd_negociacao;;;;;Faturamento Termos.Qtd Negociação
+faturamento;qtd_aguardando;;;;;Faturamento Termos.Qtd Aguardando
+faturamento;qtd_cancelado;;;;;Faturamento Termos.Qtd Cancelado
+vendas;total_venda;;;;;Medidas.Total Venda
+vendas;venda_comercial;;;;;Medidas.Venda Comercial
+vendas;venda_vcg;;;;;Medidas.Venda VCG
+vendas;venda_outros;;;;;Medidas.Vendas Outros Canais
+implantacao;total_implantacao;;;;;Medidas.Total Implantação
+implantacao;impl_servicos;;;;;Medidas.Implantação por Mês - Serviços
+implantacao;impl_vcg;;;;;Medidas.Implantação Mês - VCG
+implantacao;impl_faturada;;;;;Medidas.Implantação Faturada
+implantacao;impl_nao_faturada;;;;;Medidas.Implantação Não Faturada
+implantacao;valor_faturado;;;;;Medidas.Valor Total Faturado
+programacao;os_programadas_dia;;;;;Medidas.Qtd OS Programadas
+programacao;equipes_programadas;;;;;Medidas.Qtd Equipes Programadas

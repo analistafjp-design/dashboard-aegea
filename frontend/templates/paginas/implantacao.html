@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div id="implantacao-alerta"></div>
+
+<div class="painel" style="margin-bottom:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Meta x Realizado x Falta — <span id="implantacao-periodo"></span></div>
+      <div class="painel__descricao">Visual principal da implantação: Serviços, VCG e Total</div></div>
+    <button class="btn" data-exportar="implantacao" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="implantacao-matriz"></div>
+  <div class="painel__corpo" id="implantacao-bloco"></div>
+</div>
+
+<div class="grade grade--kpi" id="implantacao-cards"></div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Evolução mensal — Serviços x VCG</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-implantacao-mensal"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Implantação por dia e acumulado</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-implantacao-diario"></div></div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Faturamento da implantação</div>
+      <div class="painel__descricao">Quanto da produção já virou receita</div></div>
+  </div>
+  <div class="painel__corpo">
+    <div class="grade grade--3" id="implantacao-faturamento"></div>
+    <div class="grade grade--2" style="margin-top:14px">
+      <div class="grafico" id="graf-implantacao-faturado"></div>
+      <div class="grafico" id="graf-implantacao-pendente"></div>
+    </div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Implantação por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-implantacao-cidade"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Implantação por equipe</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-implantacao-equipe"></div></div>
+  </div>
+</div>
+{% endblock %}

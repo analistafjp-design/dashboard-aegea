@@ -1,0 +1,36 @@
+# Pastas que o dashboard vai monitorar — uma por linha.
+#
+# SINTAXE:  CAMINHO DA PASTA = base1, base2, base3
+#
+# O "= base" fixa para qual base do dashboard os arquivos daquela pasta
+# vão — é o mesmo efeito de escolher a aba na tela de Atualização de Dados.
+# Uma pasta pode alimentar VÁRIAS bases: os arquivos são enviados uma vez
+# para cada uma (é o caso da pasta Interior, cujos arquivos servem para
+# Venda, Implantação e Termos).
+#
+# Bases aceitas: termos, faturamento, vendas, implantacao, programacao,
+#                metas, atendimento
+# Sem "= base", o sistema tenta identificar pelas colunas do arquivo.
+#
+# Subpastas entram automaticamente. Linhas com # são ignoradas.
+#
+# Funciona com OneDrive/Google Drive: a pasta sincronizada é uma pasta
+# normal no PC, basta apontar para ela. Arquivos "somente na nuvem" são
+# baixados sozinhos na leitura (a primeira execução pode demorar mais).
+
+# ---------------------------------------------------------------------
+# CONFIGURAÇÃO PRONTA — OneDrive AEGEA, pasta "DashBoard - Interior"
+# Confira se o nome de usuário (fabio.passos) está certo e descomente
+# as linhas abaixo removendo o # do começo.
+# ---------------------------------------------------------------------
+
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Interior = vendas, implantacao, termos
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Faturamento = faturamento
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Programação Diaria = programacao
+
+# Atendimento ("Analitico - acomp de solicitação"): entra como Vendas por
+# Outros Canais, aplicando a mesma regra da medida do Power BI (só as
+# solicitações executadas de implantação de ligação de água, nas
+# localidades do Interior). O arquivo tem ~153 mil linhas e é lido em
+# blocos automaticamente — só leve em conta que demora mais que os demais.
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Atendimento = atendimento

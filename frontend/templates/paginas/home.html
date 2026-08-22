@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="painel" style="margin-bottom:16px">
+  <div class="painel__cabecalho">
+    <div>
+      <div class="painel__titulo">Status Geral — <span id="home-periodo">período</span></div>
+      <div class="painel__descricao">Meta consolidada: Termos + Venda + Implantação.
+        Cada módulo é acompanhado em detalhe nas páginas específicas.</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" data-exportar="home" data-formato="xlsx">Exportar Excel</button>
+      <button class="btn" data-exportar="home" data-formato="pdf">PDF</button>
+    </div>
+  </div>
+  <div class="painel__corpo" id="home-consolidado"></div>
+</div>
+
+<div class="secao-titulo">Indicadores principais</div>
+<div class="grade grade--kpi" id="home-cards"></div>
+
+<div class="secao-titulo">Situação por módulo</div>
+<div class="grade grade--3" id="home-modulos"></div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div class="painel__titulo">Evolução mensal por módulo</div>
+    </div>
+    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-home-evolucao"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div class="painel__titulo">Insights executivos</div>
+      <div class="painel__descricao">Calculados sobre os dados importados</div>
+    </div>
+    <div class="painel__corpo" id="home-insights"></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Principais alertas</div>
+      <a class="btn" href="/alertas" data-rota="/alertas">Ver todos</a></div>
+    <div class="painel__corpo" id="home-alertas"></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Destaques do período</div></div>
+    <div class="painel__corpo">
+      <div class="grade grade--2">
+        <div>
+          <div class="card__titulo" style="margin-bottom:8px">Cidades com maior implantação</div>
+          <div id="home-top-cidades"></div>
+        </div>
+        <div>
+          <div class="card__titulo" style="margin-bottom:8px">Equipes com maior produção</div>
+          <div id="home-top-equipes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

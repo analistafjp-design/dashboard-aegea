@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--3" id="alertas-resumo"></div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Alertas gerenciais — <span id="alertas-periodo"></span></div>
+      <div class="painel__descricao">🔴 Crítico · 🟡 Atenção · 🟢 Normal</div></div>
+    <div class="abas" style="border:0;margin:0">
+      <button class="aba ativa" data-categoria="">Todos</button>
+      <button class="aba" data-categoria="CRITICO">Críticos</button>
+      <button class="aba" data-categoria="ATENCAO">Atenção</button>
+      <button class="aba" data-categoria="NORMAL">Normais</button>
+    </div>
+  </div>
+  <div class="painel__corpo" id="alertas-lista"></div>
+</div>
+{% endblock %}

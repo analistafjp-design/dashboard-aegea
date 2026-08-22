@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--kpi" id="equipes-cards"></div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Tabela executiva de equipes</div>
+      <div class="painel__descricao">Termos, Venda e Implantação em colunas separadas —
+        a meta e o ranking usam a base selecionada</div></div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <div class="campo" style="min-width:150px">
+        <label for="equipes-base">Base do ranking</label>
+        <select id="equipes-base">
+          <option value="implantacao">Implantação</option>
+          <option value="vendas">Venda</option>
+          <option value="termos">Termos</option>
+        </select>
+      </div>
+      <button class="btn" data-exportar="equipes" data-formato="xlsx">Exportar</button>
+    </div>
+  </div>
+  <div class="painel__corpo painel__corpo--limpo" id="equipes-tabela"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Ranking de produção</div></div>
+    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-equipes-ranking"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Produção diária</div></div>
+    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-equipes-diaria"></div></div>
+  </div>
+</div>
+{% endblock %}

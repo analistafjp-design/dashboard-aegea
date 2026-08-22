@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="grade grade--kpi" id="faturamento-cards"></div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho">
+      <div><div class="painel__titulo">Funil de faturamento</div>
+        <div class="painel__descricao">Termos → Negociação → Aguardando → Faturamento → Concluído</div></div>
+      <button class="btn" data-exportar="faturamento" data-formato="xlsx">Exportar</button>
+    </div>
+    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-faturamento-funil"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Situação dos termos</div></div>
+    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-faturamento-situacao"></div></div>
+  </div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Evolução mensal do faturamento</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-faturamento-mensal"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">Faturamento por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-faturamento-cidade"></div></div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Detalhamento por cidade</div></div>
+  <div class="painel__corpo painel__corpo--limpo" id="faturamento-tabela"></div>
+</div>
+{% endblock %}
