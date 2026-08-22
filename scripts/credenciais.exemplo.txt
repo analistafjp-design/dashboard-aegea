@@ -1,10 +1,11 @@
 # Copie este arquivo para "credenciais.txt" (sem ".exemplo") e preencha com
-# o usuário e a senha configurados no Render em AUTH_USUARIO / AUTH_SENHA.
+# a URL, o usuário e a senha configurados no Render.
 #
 # Se o dashboard ainda não tiver login configurado, deixe os dois valores
 # em branco (USUARIO= e SENHA=) — o script funciona normalmente sem eles.
 #
 # Este arquivo NUNCA deve ir para o Git — já está no .gitignore do projeto.
 
+URL=https://dashboard-executivo.onrender.com
 USUARIO=
 SENHA=
