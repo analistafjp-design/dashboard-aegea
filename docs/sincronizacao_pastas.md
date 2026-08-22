@@ -1,9 +1,9 @@
-# Sincronização automática das pastas (Windows)
+# Atualização das pastas pelo botão (Windows)
 
-Faz o dashboard se atualizar sozinho a partir das mesmas pastas que você já
-usa hoje para guardar as planilhas — sem precisar abrir o navegador toda
-vez. Um script roda em segundo plano no seu computador e envia qualquer
-arquivo novo ou alterado para o dashboard, de tempos em tempos.
+Permite atualizar o dashboard a partir das pastas do OneDrive sem selecionar
+ou subir arquivos pelo navegador. Nada roda em segundo plano: os arquivos
+novos ou alterados são enviados somente quando você clica no atalho
+**Atualizar Dashboard AEGEA** na Área de Trabalho.
 
 ## Antes de começar
 
@@ -22,10 +22,48 @@ Você precisa de três coisas:
 
 Se você já clonou o repositório para rodar localmente, os scripts já estão
 em `scripts/`. Se não, baixe pelo menos a pasta `scripts/` do repositório
-`dashboard-aegea` (branch `claude/novo-projeto-independente-ao910q`) para
+`dashboard-aegea` (branch `main`) para
 uma pasta no seu PC, por exemplo `C:\DashboardExecutivo\scripts`.
 
-### 2. Configurar as pastas monitoradas
+### 2. Criar o botão uma única vez
+
+Abra a pasta `scripts` e dê dois cliques em **`CONFIGURAR_ATALHO.cmd`**.
+O assistente já vem preparado para esta estrutura:
+
+| Pasta do OneDrive | Base atualizada no dashboard |
+|---|---|
+| `Atendimento` | Atendimento |
+| `Faturamento` | Faturamento |
+| `Interior` | Vendas, Implantação e Termos |
+| `Programação Diaria` | Programação diária |
+
+O caminho padrão configurado é:
+
+```text
+C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior
+```
+
+Se essa pasta não estiver disponível, o assistente pedirá para você colar o
+caminho correto. Depois, informe a URL pública do dashboard e, se houver,
+o usuário e a senha configurados no Render. O instalador cria o botão
+**Atualizar Dashboard AEGEA** na Área de Trabalho e não cria agendamento.
+
+### 3. Atualizar o dashboard
+
+Sempre que colocar ou substituir uma planilha nas quatro pastas:
+
+1. aguarde o ícone do OneDrive indicar que o arquivo está sincronizado;
+2. dê dois cliques em **Atualizar Dashboard AEGEA** na Área de Trabalho;
+3. aguarde a mensagem de conclusão — o dashboard será aberto no navegador.
+
+O primeiro clique envia o histórico existente. Nos cliques seguintes, o
+manifesto local permite enviar apenas arquivos novos ou modificados.
+
+## Configuração manual ou avançada
+
+Se preferir configurar os arquivos sem o assistente, siga as seções abaixo.
+
+### Configurar as pastas monitoradas
 
 Na pasta `scripts`, copie o arquivo **`pastas-monitoradas.exemplo.txt`** e
 renomeie a cópia para **`pastas-monitoradas.txt`**. Abra com o Bloco de
@@ -69,11 +107,12 @@ O script entra em subpastas automaticamente — não precisa listar
 "Atendimento", "Interior" e "Faturamento" separadamente se elas já estão
 dentro de uma das pastas que você listou.
 
-### 3. Configurar o login (se o dashboard tiver senha)
+### Configurar a URL e o login (se o dashboard tiver senha)
 
 Copie **`credenciais.exemplo.txt`** para **`credenciais.txt`** e preencha:
 
 ```text
+URL=https://seu-dashboard.onrender.com
 USUARIO=admin
 SENHA=a-senha-que-voce-configurou-no-render
 ```
@@ -83,13 +122,11 @@ Se o dashboard não tiver login, deixe os dois valores em branco
 
 > Esse arquivo fica só no seu computador — nunca é enviado para o Git.
 
-### 4. Testar uma vez, manualmente
+### Executar manualmente sem o atalho
 
-Clique com o botão direito em **`sincronizar_pastas.ps1`** → **Executar com
-o PowerShell**. (Se aparecer um aviso azul de "Windows protegeu o
-computador", clique em "Mais informações" → "Executar assim mesmo" — é
-normal para scripts baixados da internet, o Windows só está avisando que
-não reconhece quem assinou o arquivo.)
+Dê dois cliques em **`ATUALIZAR_DASHBOARD.cmd`**. Se aparecer um aviso azul
+de "Windows protegeu o computador", clique em "Mais informações" →
+"Executar assim mesmo".
 
 Uma janela preta abre, mostra o que está acontecendo e fecha sozinha (ou
 fica aberta, dependendo de como você executou — pode fechar depois). Se
@@ -111,16 +148,15 @@ encontrada...). O mesmo texto fica guardado em `scripts\logs\`.
 > sincronização é a única que envia tudo — as próximas só mandam o que for
 > novo ou mudar (ver seção abaixo). Pode demorar alguns minutos; é normal.
 
-### 5. Ligar a sincronização automática
+### Agendamento opcional (não necessário para o botão)
 
-Depois que o teste manual funcionar, clique com o botão direito em
+Somente se no futuro você decidir automatizar o processo, clique com o botão direito em
 **`instalar_agendamento.ps1`** → **Executar com o PowerShell**. Isso roda
 **uma única vez** e configura o Agendador de Tarefas do Windows para
 chamar `sincronizar_pastas.ps1` sozinho a cada 15 minutos, enquanto você
 estiver logado no computador — não precisa administrador.
 
-Pronto. De agora em diante, sempre que você salvar uma planilha atualizada
-numa das pastas monitoradas, em até 15 minutos ela aparece no dashboard.
+O fluxo solicitado com botão não utiliza esse agendamento.
 
 Para mudar o intervalo (por exemplo, a cada 30 minutos), abra o PowerShell
 na pasta `scripts` e rode:
@@ -129,7 +165,7 @@ na pasta `scripts` e rode:
 .\instalar_agendamento.ps1 -IntervaloMinutos 30
 ```
 
-### 6. Desligar, se precisar
+### Desligar um agendamento antigo, se existir
 
 Clique com o botão direito em **`remover_agendamento.ps1`** → **Executar
 com o PowerShell**. Isso só desliga o agendamento — nenhum dado já enviado
@@ -191,6 +227,10 @@ migrar para um plano com persistência (disco pago ou Postgres — ver
 
 ```text
 scripts/
+├── CONFIGURAR_ATALHO.cmd            configuração inicial com dois cliques
+├── configurar_atalho.ps1            cria as configurações e o atalho
+├── ATUALIZAR_DASHBOARD.cmd           botão executável manual
+├── executar_atualizacao_manual.ps1   sincroniza e abre o dashboard
 ├── sincronizar_pastas.ps1          script principal
 ├── instalar_agendamento.ps1        liga a sincronização automática
 ├── remover_agendamento.ps1         desliga a sincronização automática

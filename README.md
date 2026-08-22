@@ -218,11 +218,11 @@ importante sobre persistência de dados no plano gratuito, em
 [`docs/deploy.md`](docs/deploy.md). A URL pública exige login (usuário/senha
 definidos no próprio deploy) — o sistema não tem outra proteção.
 
-### Atualização automática das planilhas (Windows)
+### Atualização das planilhas pelo atalho (Windows)
 
-Em vez de subir os arquivos pelo navegador toda vez, um script pode
-sincronizar automaticamente a partir das mesmas pastas que você já usa hoje
-para guardar as planilhas. Passo a passo em
+Em vez de subir arquivos pelo navegador, o botão **Atualizar Dashboard
+AEGEA** envia somente as planilhas novas ou alteradas das pastas do OneDrive.
+A atualização acontece apenas quando o botão é clicado. Passo a passo em
 [`docs/sincronizacao_pastas.md`](docs/sincronizacao_pastas.md).
 
 ### Manual, em qualquer servidor

@@ -34,7 +34,7 @@
        usuario/senha (as mesmas configuradas no Render em AUTH_USUARIO e
        AUTH_SENHA). Se o dashboard nao tiver login configurado, deixe os
        dois valores em branco.
-    3. Edite a variavel $UrlPadrao abaixo com a URL do seu dashboard.
+    3. Informe a URL do dashboard em credenciais.txt (linha URL=...).
 
 .EXEMPLO
     .\sincronizar_pastas.ps1
@@ -57,8 +57,7 @@ $PastaScript = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ---------------------------------------------------------------- config
 $UrlPadrao = "https://dashboard-executivo.onrender.com"
-if ([string]::IsNullOrWhiteSpace($Url)) { $Url = $UrlPadrao }
-$Url = $Url.TrimEnd("/")
+$UrlInformadaPorParametro = -not [string]::IsNullOrWhiteSpace($Url)
 
 if ([string]::IsNullOrWhiteSpace($PastasArquivo)) {
     $PastasArquivo = Join-Path $PastaScript "pastas-monitoradas.txt"
@@ -147,13 +146,19 @@ function Marcar-Enviado {
 # ------------------------------------------------------------ credenciais
 $Usuario = ""
 $Senha = ""
+$UrlConfigurada = ""
 if (Test-Path $CredenciaisArquivo) {
     $conteudo = Get-Content $CredenciaisArquivo -Encoding UTF8
     foreach ($linha in $conteudo) {
         if ($linha -match '^\s*USUARIO\s*=\s*(.*)$') { $Usuario = $Matches[1].Trim() }
         if ($linha -match '^\s*SENHA\s*=\s*(.*)$') { $Senha = $Matches[1].Trim() }
+        if ($linha -match '^\s*URL\s*=\s*(.*)$') { $UrlConfigurada = $Matches[1].Trim() }
     }
 }
+if (-not $UrlInformadaPorParametro) {
+    $Url = if ($UrlConfigurada) { $UrlConfigurada } else { $UrlPadrao }
+}
+$Url = $Url.TrimEnd("/")
 
 # --------------------------------------------------------------- pastas
 if (-not (Test-Path $PastasArquivo)) {
@@ -164,9 +169,10 @@ if (-not (Test-Path $PastasArquivo)) {
 
 # Cada linha pode ser so o caminho, ou "CAMINHO = tipo" para fixar a base
 # daquela pasta (mesma ideia das abas na tela de Atualizacao de Dados).
-# Tipos aceitos: termos, faturamento, vendas, implantacao, programacao, metas.
+# Tipos aceitos: termos, faturamento, vendas, implantacao, programacao,
+# metas e atendimento.
 # Sem "= tipo", o sistema identifica a base pelas colunas do arquivo.
-$TiposValidos = @("termos", "faturamento", "vendas", "implantacao", "programacao", "metas")
+$TiposValidos = @("termos", "faturamento", "vendas", "implantacao", "programacao", "metas", "atendimento")
 $CaminhosMonitorados = New-Object System.Collections.Generic.List[object]
 
 foreach ($linha in (Get-Content $PastasArquivo -Encoding UTF8)) {
