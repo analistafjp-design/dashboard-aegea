@@ -40,6 +40,24 @@ def test_sincronizador_aceita_atendimento_e_url_configuravel():
     assert "URL\\s*=\\s*(.*)" in sincronizador
 
 
+def test_sincronizador_prioriza_bases_rapidas_e_espera_arquivo_grande():
+    sincronizador = _texto("sincronizar_pastas.ps1")
+
+    assert '"programacao" = 10' in sincronizador
+    assert '"atendimento" = 90' in sincronizador
+    assert "Sort-Object { $_.Info.LastWriteTimeUtc } -Descending" in sincronizador
+    assert "[int]$TimeoutProcessamentoSegundos = 3600" in sincronizador
+
+
+def test_sincronizador_recupera_servidor_vazio_sem_perder_incremental():
+    sincronizador = _texto("sincronizar_pastas.ps1")
+
+    assert '$Manifesto.Count -gt 0 -and -not $Completo' in sincronizador
+    assert '$Completo = $true' in sincronizador
+    assert "Marcar-Enviado -Info $f -Tipo $par.Tipo -Manifesto $Manifesto" in sincronizador
+    assert "Salvar-Manifesto $Manifesto" in sincronizador
+
+
 def test_scripts_powershell_sao_ascii_para_windows_51():
     for caminho in SCRIPTS.glob("*.ps1"):
         caminho.read_text(encoding="utf-8").encode("ascii")
