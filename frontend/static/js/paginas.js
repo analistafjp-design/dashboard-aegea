@@ -667,10 +667,22 @@
       lista.querySelectorAll("select[data-indice]").forEach((select) =>
         formulario.append("tipo", select.value));
 
+      // Sem isso, um arquivo muito grande (ou uma instância gratuita lenta
+      // após "acordar") deixa a tela parada para sempre em "Recalculando
+      // indicadores...", sem nenhum retorno ao usuário — o fetch nunca
+      // rejeita sozinho. 8 minutos é generoso o bastante para arquivos
+      // grandes, mas garante que a tela sempre volte a responder.
+      const TEMPO_LIMITE_MS = 8 * 60 * 1000;
+      const controlador = new AbortController();
+      const limiteId = setTimeout(() => controlador.abort(), TEMPO_LIMITE_MS);
+
       try {
-        const resposta = await fetch("/api/upload", { method: "POST", body: formulario });
+        const resposta = await fetch("/api/upload", {
+          method: "POST", body: formulario, signal: controlador.signal,
+        });
         const dados = await resposta.json();
         clearInterval(relogio);
+        clearTimeout(limiteId);
         render(etapas.etapas.length - 1);
         barra.style.width = "100%";
         mostrarResultado(dados);
@@ -686,7 +698,20 @@
         await carregarHistorico();
       } catch (e) {
         clearInterval(relogio);
-        App.toast("Falha de comunicação com o servidor.", "erro");
+        clearTimeout(limiteId);
+        caixaEtapas.hidden = true;
+        document.getElementById("progresso-upload").hidden = true;
+        if (e.name === "AbortError") {
+          App.toast(
+            "O envio demorou mais de 8 minutos e foi cancelado. Isso pode acontecer com "
+            + "arquivos muito grandes numa instância gratuita mais lenta — tente novamente, "
+            + "ou divida a planilha em arquivos menores.",
+            "erro", "Tempo esgotado",
+          );
+        } else {
+          App.toast("Falha de comunicação com o servidor. Verifique sua conexão e tente novamente.",
+            "erro");
+        }
       } finally {
         botao.disabled = arquivos.length === 0;
         botao.textContent = "ATUALIZAR DASHBOARD";

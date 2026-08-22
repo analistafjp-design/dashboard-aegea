@@ -3,6 +3,14 @@
 Estratégia: chave única por dataset (definida em `datasets.py`). Registro
 existente é atualizado, registro novo é inserido — reprocessar o mesmo
 arquivo não duplica nada.
+
+Performance: a carga usa INSERT/UPDATE em massa via SQLAlchemy Core
+("ORM bulk INSERT/UPDATE"), não um objeto por linha com `session.add()`.
+Um arquivo de ~60 mil linhas levava ~21s (a maior parte no
+unit-of-work do ORM processando um INSERT por vez); em massa cai para
+poucos segundos — importante porque o upload é uma requisição HTTP
+síncrona e um arquivo grande travando por minutos deixava a tela de
+Atualização de Dados parecendo travada, sem nenhum retorno ao usuário.
 """
 from __future__ import annotations
 
@@ -10,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
 from app.analytics.calendario import gerar_calendario
@@ -70,7 +78,7 @@ class ResolvedorDimensoes:
         return registro.id
 
 
-def _valor(linha: pd.Series, campo: str, padrao=None):
+def _valor(linha: dict, campo: str, padrao=None):
     valor = linha.get(campo, padrao)
     if valor is None:
         return padrao
@@ -79,8 +87,10 @@ def _valor(linha: pd.Series, campo: str, padrao=None):
     return valor
 
 
-def _montar_fato(dataset: Dataset, linha: pd.Series, dim: ResolvedorDimensoes,
-                 arquivo: str) -> object:
+def _montar_fato(dataset: Dataset, linha: dict, dim: ResolvedorDimensoes,
+                 arquivo: str) -> dict:
+    """Monta os campos de UM fato como dicionário simples (não um objeto
+    ORM) — usado tanto para INSERT quanto para UPDATE em massa."""
     comum = {
         "chave_unica": linha["chave_unica"],
         "data": linha["data"],
@@ -90,71 +100,71 @@ def _montar_fato(dataset: Dataset, linha: pd.Series, dim: ResolvedorDimensoes,
     }
 
     if dataset.nome == "termos":
-        return FatoTermos(
+        return {
             **comum,
-            cidade_id=dim.id_de("cidade", _valor(linha, "cidade")),
-            equipe_id=dim.id_de("equipe", _valor(linha, "equipe")),
-            frente_id=dim.id_de("frente", _valor(linha, "frente")),
-            setor_id=dim.id_de("setor", _valor(linha, "setor")),
-            matricula=_valor(linha, "matricula"),
-            tipo=_valor(linha, "tipo", "NAO_CLASSIFICADO"),
-            status_termo=_valor(linha, "status_termo", "Não Informado"),
-            quantidade=float(_valor(linha, "quantidade", 1.0)),
-            valor=_valor(linha, "valor"),
-        )
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "equipe_id": dim.id_de("equipe", _valor(linha, "equipe")),
+            "frente_id": dim.id_de("frente", _valor(linha, "frente")),
+            "setor_id": dim.id_de("setor", _valor(linha, "setor")),
+            "matricula": _valor(linha, "matricula"),
+            "tipo": _valor(linha, "tipo", "NAO_CLASSIFICADO"),
+            "status_termo": _valor(linha, "status_termo", "Não Informado"),
+            "quantidade": float(_valor(linha, "quantidade", 1.0)),
+            "valor": _valor(linha, "valor"),
+        }
     if dataset.nome == "faturamento":
-        return FatoFaturamento(
+        return {
             **comum,
-            inicio_mes=linha["inicio_mes"],
-            cidade_id=dim.id_de("cidade", _valor(linha, "cidade")),
-            situacao=_valor(linha, "situacao", "Outras"),
-            situacao_termo=_valor(linha, "situacao"),
-            numero_termo=_valor(linha, "numero_termo"),
-            quantidade=float(_valor(linha, "quantidade", 1.0)),
-            valor=_valor(linha, "valor"),
-        )
+            "inicio_mes": linha["inicio_mes"],
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "situacao": _valor(linha, "situacao", "Outras"),
+            "situacao_termo": _valor(linha, "situacao"),
+            "numero_termo": _valor(linha, "numero_termo"),
+            "quantidade": float(_valor(linha, "quantidade", 1.0)),
+            "valor": _valor(linha, "valor"),
+        }
     if dataset.nome == "vendas":
-        return FatoVendas(
+        return {
             **comum,
-            cidade_id=dim.id_de("cidade", _valor(linha, "cidade")),
-            equipe_id=dim.id_de("equipe", _valor(linha, "equipe")),
-            frente_id=dim.id_de("frente", _valor(linha, "frente")),
-            canal=_valor(linha, "canal", "OUTROS"),
-            matricula=_valor(linha, "matricula"),
-            quantidade=float(_valor(linha, "quantidade", 1.0)),
-            valor=_valor(linha, "valor"),
-        )
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "equipe_id": dim.id_de("equipe", _valor(linha, "equipe")),
+            "frente_id": dim.id_de("frente", _valor(linha, "frente")),
+            "canal": _valor(linha, "canal", "OUTROS"),
+            "matricula": _valor(linha, "matricula"),
+            "quantidade": float(_valor(linha, "quantidade", 1.0)),
+            "valor": _valor(linha, "valor"),
+        }
     if dataset.nome == "implantacao":
-        return FatoImplantacao(
+        return {
             **comum,
-            cidade_id=dim.id_de("cidade", _valor(linha, "cidade")),
-            equipe_id=dim.id_de("equipe", _valor(linha, "equipe")),
-            frente_id=dim.id_de("frente", _valor(linha, "frente")),
-            tipo=_valor(linha, "tipo", "NAO_CLASSIFICADO"),
-            matricula=_valor(linha, "matricula"),
-            servico=_valor(linha, "servico"),
-            faturado=bool(_valor(linha, "faturado", False)),
-            quantidade=float(_valor(linha, "quantidade", 1.0)),
-            valor=_valor(linha, "valor"),
-        )
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "equipe_id": dim.id_de("equipe", _valor(linha, "equipe")),
+            "frente_id": dim.id_de("frente", _valor(linha, "frente")),
+            "tipo": _valor(linha, "tipo", "NAO_CLASSIFICADO"),
+            "matricula": _valor(linha, "matricula"),
+            "servico": _valor(linha, "servico"),
+            "faturado": bool(_valor(linha, "faturado", False)),
+            "quantidade": float(_valor(linha, "quantidade", 1.0)),
+            "valor": _valor(linha, "valor"),
+        }
     if dataset.nome == "programacao":
         recurso = _valor(linha, "recurso")
-        return FatoProgramacao(
+        return {
             **comum,
-            regiao_id=dim.id_de("regiao", _valor(linha, "regiao")),
-            equipe_id=dim.id_de("equipe", recurso),
-            projeto_id=dim.id_de("projeto", _valor(linha, "projeto")),
-            cidade_id=dim.id_de("cidade", _valor(linha, "cidade")),
-            recurso=recurso,
-            qtd_os=float(_valor(linha, "qtd_os", 1.0)),
-        )
+            "regiao_id": dim.id_de("regiao", _valor(linha, "regiao")),
+            "equipe_id": dim.id_de("equipe", recurso),
+            "projeto_id": dim.id_de("projeto", _valor(linha, "projeto")),
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "recurso": recurso,
+            "qtd_os": float(_valor(linha, "qtd_os", 1.0)),
+        }
     raise KeyError(f"Dataset sem regra de carga: {dataset.nome}")
 
 
 def _carregar_metas(sessao: Session, dados: pd.DataFrame, dim: ResolvedorDimensoes,
                     arquivo: str) -> ResultadoCarga:
     resultado = ResultadoCarga()
-    for _, linha in dados.iterrows():
+    for linha in dados.to_dict("records"):
         cidade_id = dim.id_de("cidade", _valor(linha, "cidade"))
         equipe_id = dim.id_de("equipe", _valor(linha, "equipe"))
         existente = sessao.execute(
@@ -200,31 +210,39 @@ def carregar(sessao: Session, dataset: Dataset, dados: pd.DataFrame,
         "implantacao": FatoImplantacao, "programacao": FatoProgramacao,
     }[dataset.nome]
 
+    # Só id + chave (não o objeto inteiro): mais leve e evita hidratar o
+    # identity map do ORM para registros que talvez nem sejam tocados.
     chaves = dados["chave_unica"].tolist()
-    existentes = {
-        registro.chave_unica: registro
-        for registro in sessao.execute(
-            select(modelo).where(modelo.chave_unica.in_(chaves))
-        ).scalars()
-    }
+    existentes = dict(
+        sessao.execute(
+            select(modelo.chave_unica, modelo.id).where(modelo.chave_unica.in_(chaves))
+        ).all()
+    )
 
     resultado = ResultadoCarga()
-    novos = []
-    for _, linha in dados.iterrows():
-        novo = _montar_fato(dataset, linha, dim, arquivo)
-        anterior = existentes.get(linha["chave_unica"])
-        if anterior is None:
-            novos.append(novo)
+    inserts: list[dict] = []
+    updates: list[dict] = []
+    # to_dict("records") converte o DataFrame inteiro de uma vez; iterar
+    # dicionários simples depois é bem mais rápido que iterrows() linha a
+    # linha (que reconstrói uma Series do pandas a cada iteração).
+    for linha in dados.to_dict("records"):
+        campos = _montar_fato(dataset, linha, dim, arquivo)
+        id_existente = existentes.get(linha["chave_unica"])
+        if id_existente is None:
+            inserts.append(campos)
             resultado.inseridos += 1
         else:
-            for coluna in modelo.__table__.columns.keys():
-                if coluna in ("id", "chave_unica"):
-                    continue
-                setattr(anterior, coluna, getattr(novo, coluna))
+            campos["id"] = id_existente
+            updates.append(campos)
             resultado.atualizados += 1
 
-    if novos:
-        sessao.add_all(novos)
+    # INSERT/UPDATE em massa (um executemany cada) em vez de um objeto ORM
+    # por linha — é isso que faz a diferença em arquivos com dezenas de
+    # milhares de linhas (segundos em vez de dezenas de segundos/minutos).
+    if inserts:
+        sessao.execute(insert(modelo), inserts)
+    if updates:
+        sessao.execute(update(modelo), updates)
     sessao.flush()
 
     if "data" in dados.columns and not dados.empty:
