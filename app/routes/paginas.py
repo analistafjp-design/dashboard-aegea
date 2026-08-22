@@ -15,8 +15,8 @@ from app.utils.formato import data_hora_br
 router = APIRouter(tags=["páginas"])
 templates = Jinja2Templates(directory=str(config.TEMPLATES_DIR))
 
-MENU = [
-    {"rota": "/", "chave": "home", "titulo": "Visão Executiva", "icone": "home", "grupo": "Geral"},
+ROTAS = [
+    {"rota": "/", "chave": "home", "titulo": "Venda e Implantação", "icone": "home", "grupo": "Painéis"},
     {"rota": "/termos", "chave": "termos", "titulo": "Termos Aplicados", "icone": "termos",
      "grupo": "Termos / Faturamento"},
     {"rota": "/faturamento", "chave": "faturamento", "titulo": "Faturamento de Termos",
@@ -42,7 +42,13 @@ MENU = [
      "icone": "config", "grupo": "Sistema"},
 ]
 
-TITULOS = {item["chave"]: item["titulo"] for item in MENU}
+# Menu enxuto para o uso diário. As demais rotas continuam disponíveis por
+# endereço direto e para exportações, mas não poluem a navegação principal.
+MENU = [item for item in ROTAS if item["chave"] in {
+    "home", "termos", "programacao", "atualizacao"
+}]
+
+TITULOS = {item["chave"]: item["titulo"] for item in ROTAS}
 
 
 def _contexto(request: Request, pagina: str, filtros: Filtros, fragmento: bool) -> dict:
@@ -73,7 +79,7 @@ def _pagina(nome: str, template: str):
     return rota
 
 
-for item in MENU:
+for item in ROTAS:
     router.add_api_route(
         item["rota"],
         _pagina(item["chave"], f"paginas/{item['chave']}.html"),

@@ -1,62 +1,26 @@
 {% extends "base.html" %}
 {% block conteudo %}
-<div class="painel" style="margin-bottom:16px">
-  <div class="painel__cabecalho">
-    <div>
-      <div class="painel__titulo">Status Geral — <span id="home-periodo">período</span></div>
-      <div class="painel__descricao">Meta consolidada: Termos + Venda + Implantação.
-        Cada módulo é acompanhado em detalhe nas páginas específicas.</div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" data-exportar="home" data-formato="xlsx">Exportar Excel</button>
-      <button class="btn" data-exportar="home" data-formato="pdf">PDF</button>
+<section class="dashboard-simples">
+  <div class="titulo-faixa">
+    <h1>ACOMPANHAMENTO VENDA E IMPLANTAÇÃO</h1>
+    <div class="titulo-faixa__resumo">
+      <span>Meta Implantação <strong id="simples-meta-implantacao">—</strong></span>
+      <span>Dias Úteis Restantes <strong id="simples-dias-restantes">—</strong></span>
     </div>
   </div>
-  <div class="painel__corpo" id="home-consolidado"></div>
-</div>
-
-<div class="secao-titulo">Indicadores principais</div>
-<div class="grade grade--kpi" id="home-cards"></div>
-
-<div class="secao-titulo">Situação por módulo</div>
-<div class="grade grade--3" id="home-modulos"></div>
-
-<div class="grade grade--2" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho">
-      <div class="painel__titulo">Evolução mensal por módulo</div>
-    </div>
-    <div class="painel__corpo"><div class="grafico grafico--alto" id="graf-home-evolucao"></div></div>
+  <div class="faixa-indicadores" id="simples-implantacao-kpis"></div>
+  <div class="faixa-indicadores" id="simples-vendas-kpis"></div>
+  <div class="grade-roscas">
+    <div class="visual-simples"><h2>Implantação Serviços</h2><div class="grafico grafico--compacto" id="graf-simples-impl-servicos"></div></div>
+    <div class="visual-simples"><h2>Implantação VCG</h2><div class="grafico grafico--compacto" id="graf-simples-impl-vcg"></div></div>
+    <div class="visual-simples"><h2>Venda Comercial</h2><div class="grafico grafico--compacto" id="graf-simples-venda-comercial"></div></div>
+    <div class="visual-simples"><h2>Total Implantação</h2><div class="grafico grafico--compacto" id="graf-simples-impl-total"></div></div>
   </div>
-  <div class="painel">
-    <div class="painel__cabecalho">
-      <div class="painel__titulo">Insights executivos</div>
-      <div class="painel__descricao">Calculados sobre os dados importados</div>
-    </div>
-    <div class="painel__corpo" id="home-insights"></div>
+  <div class="faixa-titulo">RESULTADOS POR CIDADE E EQUIPE</div>
+  <div class="grade-simples-3">
+    <div class="visual-simples"><h2>Venda Geral por Cidade</h2><div class="grafico" id="graf-simples-venda-cidade"></div></div>
+    <div class="visual-simples"><h2>Venda por Equipe</h2><div class="grafico" id="graf-simples-venda-equipe"></div></div>
+    <div class="visual-simples"><h2>Implantação por Cidade</h2><div class="grafico" id="graf-simples-impl-cidade"></div></div>
   </div>
-</div>
-
-<div class="grade grade--2" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Principais alertas</div>
-      <a class="btn" href="/alertas" data-rota="/alertas">Ver todos</a></div>
-    <div class="painel__corpo" id="home-alertas"></div>
-  </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Destaques do período</div></div>
-    <div class="painel__corpo">
-      <div class="grade grade--2">
-        <div>
-          <div class="card__titulo" style="margin-bottom:8px">Cidades com maior implantação</div>
-          <div id="home-top-cidades"></div>
-        </div>
-        <div>
-          <div class="card__titulo" style="margin-bottom:8px">Equipes com maior produção</div>
-          <div id="home-top-equipes"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+</section>
 {% endblock %}

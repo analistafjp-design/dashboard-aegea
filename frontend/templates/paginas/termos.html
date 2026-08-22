@@ -1,55 +1,21 @@
 {% extends "base.html" %}
 {% block conteudo %}
-<div class="painel" style="margin-bottom:16px">
-  <div class="painel__cabecalho">
-    <div>
-      <div class="painel__titulo">Meta x Realizado — <span id="termos-periodo"></span></div>
-      <div class="painel__descricao">Realizado Total, Serviços e VCG conforme a base de termos aplicados</div>
+<section class="dashboard-simples">
+  <div class="titulo-faixa">
+    <span class="titulo-faixa__numero"><strong id="termos-dias">—</strong> Dias Restantes</span>
+    <h1>ACOMPANHAMENTO DE TERMOS APLICADOS</h1>
+    <div class="titulo-faixa__resumo">
+      <span>Realizado Total <strong id="termos-total">—</strong></span>
+      <span>% Atingimento <strong id="termos-atingimento">—</strong></span>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" data-exportar="termos" data-formato="xlsx">Exportar</button>
-    </div>
   </div>
-  <div class="painel__corpo" id="termos-bloco"></div>
-</div>
-
-<div class="grade grade--kpi" id="termos-cards"></div>
-
-<div class="painel" style="margin-top:16px">
-  <div class="painel__cabecalho"><div class="painel__titulo">Meta x Realizado x Falta por frente</div></div>
-  <div class="painel__corpo painel__corpo--limpo" id="termos-matriz"></div>
-</div>
-
-<div class="grade grade--2" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Realizado x Meta por mês</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-termos-mensal"></div></div>
+  <div class="faixa-indicadores" id="termos-resumo"></div>
+  <div class="grade-termos">
+    <div class="visual-simples visual-simples--largo"><h2>Realizado por Dia</h2><div class="grafico" id="graf-termos-diario"></div></div>
+    <div class="visual-simples"><h2>Serviços x Meta</h2><div class="grafico grafico--compacto" id="graf-termos-servicos"></div></div>
+    <div class="visual-simples"><h2>VCG x Meta</h2><div class="grafico grafico--compacto" id="graf-termos-vcg"></div></div>
+    <div class="visual-simples visual-simples--largo"><h2>Realizado por Frente</h2><div class="grafico" id="graf-termos-frente"></div></div>
+    <div class="visual-simples"><h2>Termos Aplicados por Cidade</h2><div class="grafico grafico--alto" id="graf-termos-cidade"></div></div>
   </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Realizado por dia e acumulado</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-termos-diario"></div></div>
-  </div>
-</div>
-
-<div class="grade grade--2" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Distribuição por cidade</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-termos-cidade"></div></div>
-  </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Distribuição por setor do recurso</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-termos-setor"></div></div>
-  </div>
-</div>
-
-<div class="grade grade--2" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Status dos termos</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-termos-status"></div></div>
-  </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">Termos por cidade</div></div>
-    <div class="painel__corpo painel__corpo--limpo" id="termos-tabela-cidade"></div>
-  </div>
-</div>
+</section>
 {% endblock %}

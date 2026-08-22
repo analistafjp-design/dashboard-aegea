@@ -11,23 +11,17 @@
 </head>
 <body data-pagina="{{ pagina }}">
 {% include "componentes/icones.html" %}
-<div class="app">
-
-  <aside class="sidebar">
-    <div class="sidebar__marca">
+<div class="app app--simples">
+  <header class="barra-principal">
+    <div class="sidebar__marca barra-principal__marca">
       <div class="sidebar__logo">DE</div>
       <div>
         <div class="sidebar__nome">Dashboard</div>
         <div class="sidebar__sub">Executivo</div>
       </div>
     </div>
-    <nav class="sidebar__nav">
-      {% set grupos = [] %}
+    <nav class="barra-principal__nav">
       {% for item in menu %}
-        {% if item.grupo not in grupos %}
-          {% set _ = grupos.append(item.grupo) %}
-          <div class="sidebar__grupo">{{ item.grupo }}</div>
-        {% endif %}
         <a class="sidebar__item {% if item.chave == pagina %}ativo{% endif %}"
            href="{{ item.rota }}" data-rota="{{ item.rota }}" data-chave="{{ item.chave }}"
            data-titulo="{{ item.titulo }}">
@@ -36,35 +30,21 @@
         </a>
       {% endfor %}
     </nav>
-    <div class="sidebar__rodape">
-      v{{ app_versao }} · <a href="/dicionario" style="color:#9db6d9">Dicionário de dados</a>
+    <div class="barra-principal__status">
+      <span>Atualizado</span>
+      <strong id="topo-ultima-atualizacao">{{ ultima_atualizacao }}</strong>
+      <button class="btn btn--tema" id="btn-tema" title="Alternar tema" aria-label="Alternar tema"><svg class="icone" aria-hidden="true"><use href="#ic-tema"></use></svg></button>
     </div>
-  </aside>
+  </header>
 
   <main class="principal">
-    <header class="topo">
-      <button class="btn menu-mobile" id="btn-menu" aria-label="Abrir menu"><svg class="icone" aria-hidden="true"><use href="#ic-menu"></use></svg></button>
-      <div>
-        <div class="topo__titulo" id="titulo-pagina">{{ titulo_pagina }}</div>
-        <div class="topo__breadcrumb">{{ app_nome }} · visão consolidada</div>
-      </div>
-      <div class="topo__direita">
-        <div class="topo__atualizacao">
-          Última atualização
-          <strong id="topo-ultima-atualizacao">{{ ultima_atualizacao }}</strong>
-        </div>
-        <button class="btn" id="btn-tema" title="Alternar tema claro/escuro" aria-label="Alternar tema"><svg class="icone" aria-hidden="true"><use href="#ic-tema"></use></svg></button>
-      </div>
-    </header>
-
     <div class="conteudo">
       {% if not tem_dados %}
       <div class="aviso aviso--atencao">
         <span>⚠</span>
         <div>
           <strong>Nenhum dado importado ainda.</strong>
-          Envie as planilhas em <a href="/atualizacao">Atualização de Dados</a> para que os
-          indicadores sejam calculados. Nada é exibido com valores fictícios.
+          Clique no atalho do Windows para carregar as planilhas.
         </div>
       </div>
       {% endif %}
@@ -103,38 +83,9 @@
               {% for frente in opcoes.frentes %}<option value="{{ frente }}">{{ frente }}</option>{% endfor %}
             </select>
           </div>
-          <div class="campo">
-            <label for="f-equipe">Equipe</label>
-            <select id="f-equipe" name="equipe">
-              <option value="">Todas</option>
-              {% for equipe in opcoes.equipes %}<option value="{{ equipe }}">{{ equipe }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="campo">
-            <label for="f-regiao">Região</label>
-            <select id="f-regiao" name="regiao">
-              <option value="">Todas</option>
-              {% for regiao in opcoes.regioes %}<option value="{{ regiao }}">{{ regiao }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="campo">
-            <label for="f-projeto">Projeto</label>
-            <select id="f-projeto" name="projeto">
-              <option value="">Todos</option>
-              {% for projeto in opcoes.projetos %}<option value="{{ projeto }}">{{ projeto }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="campo">
-            <label for="f-inicio">Período de</label>
-            <input type="date" id="f-inicio" name="data_inicio">
-          </div>
-          <div class="campo">
-            <label for="f-fim">até</label>
-            <input type="date" id="f-fim" name="data_fim">
-          </div>
           <div class="filtros__acoes">
             <button type="submit" class="btn btn--primario">Aplicar</button>
-            <button type="button" class="btn" id="btn-limpar-filtros">Limpar filtros</button>
+            <button type="button" class="btn" id="btn-limpar-filtros">Limpar</button>
           </div>
         </div>
         <div class="filtros__resumo" id="resumo-filtros"></div>
