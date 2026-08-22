@@ -57,28 +57,32 @@ CAMPO_DATA = Campo(
     "data", "data", "Data do registro (base para mês, dia útil e acumulados)",
     aliases=("data da atividade", "dt atividade", "data atividade", "data execucao",
              "data da execucao", "data do termo", "data venda", "data da venda",
-             "data implantacao", "data da implantacao", "data base", "dt", "competencia"),
+             "data implantacao", "data da implantacao", "data base", "dt", "competencia",
+             "data do pedido", "data de encerramento"),
     obrigatorio=True, peso=3,
 )
 CAMPO_CIDADE = Campo(
     "cidade", "texto", "Cidade / município do registro",
     aliases=("municipio", "cidade cliente", "d_cadastro cidade", "cidade_cadastro",
-             "localidade", "interior cidade"),
+             "localidade", "interior cidade", "cidade/localidade"),
     peso=2,
 )
 CAMPO_EQUIPE = Campo(
     "equipe", "texto", "Equipe / recurso responsável",
-    aliases=("recurso", "time", "turma", "equipe recurso", "nome da equipe", "colaborador"),
+    aliases=("recurso", "time", "turma", "equipe recurso", "nome da equipe", "colaborador",
+             "executado por", "login do recurso"),
     peso=2,
 )
 CAMPO_FRENTE = Campo(
     "frente", "texto", "Frente de atuação (Comercial, VCG, Serviços, VCG Rio Bonito, VCG SFI)",
-    aliases=("canal", "segmento", "frente de trabalho", "tipo de frente", "origem"),
+    aliases=("canal", "segmento", "frente de trabalho", "tipo de frente", "origem",
+             "classificacao", "categoria"),
     peso=2,
 )
 CAMPO_MATRICULA = Campo(
     "matricula", "texto", "Matrícula / identificador do cliente ou contrato",
-    aliases=("matricula cliente", "contrato", "codigo cliente", "cod cliente", "inscricao"),
+    aliases=("matricula cliente", "contrato", "codigo cliente", "cod cliente", "inscricao",
+             "numero da conta", "n ligacao", "n do pedido", "id da atividade"),
     peso=2,
 )
 CAMPO_QUANTIDADE = Campo(
@@ -88,7 +92,8 @@ CAMPO_QUANTIDADE = Campo(
 )
 CAMPO_VALOR = Campo(
     "valor", "numero", "Valor financeiro em reais, quando disponível",
-    aliases=("valor total", "vlr", "valor faturado", "receita", "valor r$"),
+    aliases=("valor total", "vlr", "valor faturado", "receita", "valor r$",
+             "valor cobrado", "valor total dos debitos"),
 )
 
 # --------------------------------------------------------------------------
@@ -113,12 +118,15 @@ TERMOS = Dataset(
         Campo("tipo", "texto",
               "Classificação Serviços x VCG do termo",
               aliases=("tipo termo", "tipo de termo", "categoria", "tipo servico",
-                       "grupo", "produto"),
+                       "grupo", "produto", "tipo de atividade", "codigo/descricao",
+                       "descricao do servico"),
               peso=2),
         Campo("setor", "texto", "Setor do Recurso (PBIX: Setor do Recurso.Setor do Recurso)",
-              aliases=("setor do recurso", "setor recurso", "area", "gerencia"), peso=2),
+              aliases=("setor do recurso", "setor recurso", "area", "gerencia",
+                       "area de trabalho", "distrito"), peso=2),
         Campo("status_termo", "texto", "Status do termo (PBIX: Termos.Status Termo)",
-              aliases=("status", "situacao termo", "status do termo"), peso=2),
+              aliases=("status", "situacao termo", "status do termo",
+                       "status da atividade", "ocorrencia_encerramento"), peso=2),
         CAMPO_QUANTIDADE,
         CAMPO_VALOR,
     ),
@@ -174,7 +182,7 @@ VENDAS = Dataset(
         Campo("frente", "texto",
               "Canal da venda: Comercial, VCG ou Outros Canais",
               aliases=("canal", "canal de venda", "origem da venda", "segmento",
-                       "tipo de venda", "origem"),
+                       "tipo de venda", "origem", "classificacao", "categoria"),
               obrigatorio=True, peso=3),
         CAMPO_MATRICULA,
         CAMPO_QUANTIDADE,
@@ -201,10 +209,11 @@ IMPLANTACAO = Dataset(
         CAMPO_MATRICULA,
         Campo("tipo", "texto", "Classificação Serviços x VCG da implantação",
               aliases=("tipo implantacao", "tipo de implantacao", "categoria",
-                       "grupo", "produto", "tipo servico"),
+                       "grupo", "produto", "tipo servico", "tipo de atividade"),
               peso=2),
         Campo("servico", "texto", "Serviço executado",
-              aliases=("descricao servico", "atividade", "descricao", "servico executado")),
+              aliases=("descricao servico", "atividade", "descricao", "servico executado",
+                       "descricao do servico", "codigo/descricao", "tipo de atividade")),
         Campo("faturado", "booleano",
               "Indica se a implantação já foi faturada (Sim/Não, Faturado/Não Faturado)",
               aliases=("situacao faturamento", "faturada", "status faturamento",
@@ -235,10 +244,12 @@ PROGRAMACAO = Dataset(
                        "data execucao"),
               obrigatorio=True, peso=3),
         Campo("regiao", "texto", "Região da programação (PBIX: Programação.Regiao)",
-              aliases=("regiao", "polo", "base", "area", "regional"),
+              aliases=("regiao", "polo", "base", "area", "regional",
+                       "area de trabalho", "distrito", "localidade"),
               obrigatorio=True, peso=3),
         Campo("recurso", "texto", "Recurso/equipe programada (PBIX: Programação.Recurso)",
-              aliases=("equipe", "recurso programado", "time", "turma", "colaborador"),
+              aliases=("equipe", "recurso programado", "time", "turma", "colaborador",
+                       "login do recurso", "executado por"),
               obrigatorio=True, peso=3),
         Campo("projeto", "texto", "Projeto principal (PBIX: Medidas.Projeto Principal)",
               aliases=("projeto principal", "obra", "contrato", "programa"),

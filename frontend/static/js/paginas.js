@@ -747,7 +747,31 @@
     // progresso que falha não significa que o processamento morreu, então
     // erramos algumas vezes seguidas antes de desistir.
     const MAX_FALHAS_CONSULTA = 5;
+    // Enviar 15 arquivos de ~1,7 MB numa requisição só (25 MB) falhava antes
+    // de chegar ao servidor. Vão em lotes pequenos: cada requisição é curta,
+    // e um lote que falhe não leva junto os que já entraram.
+    const ARQUIVOS_POR_LOTE = 4;
+    const BYTES_POR_LOTE = 8 * 1024 * 1024;
     const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    function montarLotes(itens) {
+      const lotes = [];
+      let atual = [];
+      let bytes = 0;
+      itens.forEach((item) => {
+        const estouraContagem = atual.length >= ARQUIVOS_POR_LOTE;
+        const estouraTamanho = atual.length > 0 && bytes + item.arquivo.size > BYTES_POR_LOTE;
+        if (estouraContagem || estouraTamanho) {
+          lotes.push(atual);
+          atual = [];
+          bytes = 0;
+        }
+        atual.push(item);
+        bytes += item.arquivo.size;
+      });
+      if (atual.length) lotes.push(atual);
+      return lotes;
+    }
 
     botao.addEventListener("click", async () => {
       if (!arquivos.length) return;
@@ -758,51 +782,23 @@
       botao.disabled = true;
       botao.textContent = "ATUALIZANDO...";
 
-      // Progresso REAL, vindo do servidor: quantos arquivos já terminaram e
-      // qual está sendo processado agora. (A versão anterior era uma
+      // Progresso REAL, vindo do servidor. (A versão original era uma
       // animação por cronômetro que avançava sozinha e parava na penúltima
       // etapa — dava a impressão de "travado em Recalculando indicadores"
-      // mesmo quando o servidor estava trabalhando normalmente.)
-      const render = (estado) => {
-        const { total = arquivos.length, concluidos = 0, arquivo_atual: atual,
-          percentual = 0, enviando = false } = estado;
-        const linhas = [];
-        linhas.push(`
-          <div class="etapa ${enviando ? "ativa" : "concluida"}">
-            <span class="etapa__bolha">${enviando ? "1" : "✓"}</span>
-            <span>Enviando arquivos${enviando ? "..." : ""}</span>
-          </div>`);
-        if (!enviando) {
-          linhas.push(`
-            <div class="etapa ativa">
-              <span class="etapa__bolha">2</span>
-              <span>Processando ${concluidos} de ${total} arquivo(s)${
-                atual ? ` — ${App.escapar(atual)}` : ""}...</span>
-            </div>`);
-        }
-        caixaEtapas.innerHTML = linhas.join("");
-        barra.style.width = `${enviando ? 5 : Math.max(percentual, 5)}%`;
-      };
-
-      const concluir = async (dados) => {
+      // mesmo com o servidor trabalhando normalmente.)
+      const totalGeral = arquivos.length;
+      const render = ({ prontos, atual, rotulo }) => {
+        const pct = Math.max(3, Math.round((prontos / totalGeral) * 100));
         caixaEtapas.innerHTML = `
-          <div class="etapa concluida">
-            <span class="etapa__bolha">✓</span><span>Concluído</span>
+          <div class="etapa ativa">
+            <span class="etapa__bolha">${prontos}</span>
+            <span>${App.escapar(rotulo)}${atual ? ` — ${App.escapar(atual)}` : ""}</span>
+          </div>
+          <div class="etapa">
+            <span class="etapa__bolha">${totalGeral}</span>
+            <span>${prontos} de ${totalGeral} arquivo(s) processado(s)</span>
           </div>`;
-        barra.style.width = "100%";
-        mostrarResultado(dados);
-        if (dados.ok) {
-          App.toast(dados.mensagem, "sucesso", "Dashboard atualizado");
-          arquivos = [];
-          tipoPorArquivo.clear();
-          desenharLista();
-          const topo = document.getElementById("topo-ultima-atualizacao");
-          const st = dados.status_app || dados.status;
-          if (topo && st) topo.textContent = st.ultima_atualizacao || "-";
-        } else {
-          App.toast(dados.mensagem || "Nenhum arquivo importado.", "erro", "Atenção");
-        }
-        await carregarHistorico();
+        barra.style.width = `${pct}%`;
       };
 
       const falhar = (titulo, texto) => {
@@ -811,67 +807,125 @@
         App.toast(texto, "erro", titulo);
       };
 
-      render({ enviando: true });
-
-      const formulario = new FormData();
-      arquivos.forEach((arquivo) => formulario.append("arquivos", arquivo));
-      lista.querySelectorAll("select[data-indice]").forEach((select) =>
-        formulario.append("tipo", select.value));
-
-      try {
-        // O POST agora só grava os arquivos e devolve um identificador —
-        // é rápido mesmo com muitos arquivos, então não corre o risco de
-        // ser cortado no meio por demorar demais.
-        const resposta = await fetch("/api/upload", { method: "POST", body: formulario });
-        const inicial = await resposta.json();
-
-        if (inicial.concluido || !inicial.trabalho_id) {
-          await concluir(inicial);
-          return;
-        }
-
+      // Acompanha um lote já enviado até o servidor terminar de processá-lo.
+      const acompanhar = async (trabalhoId, prontosAntes) => {
         let falhasSeguidas = 0;
         for (;;) {
           await espera(INTERVALO_CONSULTA_MS);
           let estado;
           try {
-            const r = await fetch(`/api/upload/${inicial.trabalho_id}`);
-            if (r.status === 404) {
-              falhar("Atualização não encontrada",
-                "A atualização não pôde mais ser acompanhada. Recarregue a página e "
-                + "confira no histórico se os dados entraram.");
-              return;
-            }
+            const r = await fetch(`/api/upload/${trabalhoId}`);
+            if (r.status === 404) throw new Error("sumiu");
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             estado = await r.json();
             falhasSeguidas = 0;
           } catch (e) {
             falhasSeguidas += 1;
-            if (falhasSeguidas >= MAX_FALHAS_CONSULTA) {
+            if (falhasSeguidas >= MAX_FALHAS_CONSULTA) return null;
+            continue;
+          }
+          if (estado.concluido) return estado;
+          render({
+            prontos: prontosAntes + estado.concluidos,
+            atual: estado.arquivo_atual,
+            rotulo: "Processando",
+          });
+        }
+      };
+
+      const itens = arquivos.map((arquivo, indice) => ({
+        arquivo,
+        tipo: lista.querySelector(`select[data-indice="${indice}"]`)?.value || "",
+      }));
+      const lotes = montarLotes(itens);
+
+      let prontos = 0;
+      const resultados = [];
+      let ultimoStatus = null;
+
+      try {
+        for (let i = 0; i < lotes.length; i += 1) {
+          const lote = lotes[i];
+          const sufixo = lotes.length > 1 ? ` (lote ${i + 1} de ${lotes.length})` : "";
+          render({ prontos, atual: null, rotulo: `Enviando arquivos${sufixo}` });
+
+          const formulario = new FormData();
+          lote.forEach(({ arquivo, tipo }) => {
+            formulario.append("arquivos", arquivo);
+            formulario.append("tipo", tipo);
+          });
+
+          let inicial;
+          try {
+            const resposta = await fetch("/api/upload", { method: "POST", body: formulario });
+            inicial = await resposta.json();
+          } catch (e) {
+            falhar("Falha no envio",
+              `Não foi possível enviar${sufixo || " os arquivos"}. ${resultados.length
+                ? "Os arquivos anteriores já foram importados. " : ""}`
+              + "Verifique sua conexão e tente novamente.");
+            if (resultados.length) await concluirTudo(resultados, ultimoStatus);
+            return;
+          }
+
+          if (inicial.concluido || !inicial.trabalho_id) {
+            resultados.push(...(inicial.resultados || []));
+            ultimoStatus = inicial.status_app || inicial.status || ultimoStatus;
+          } else {
+            render({ prontos, atual: null, rotulo: `Processando${sufixo}` });
+            const final = await acompanhar(inicial.trabalho_id, prontos);
+            if (final === null) {
               falhar("Sem resposta do servidor",
                 "Perdemos contato com o servidor durante o processamento. Ele pode ter "
                 + "continuado mesmo assim — recarregue a página e confira no histórico "
                 + "abaixo antes de enviar de novo.");
               return;
             }
-            continue;
+            resultados.push(...(final.resultados || []));
+            ultimoStatus = final.status_app || ultimoStatus;
           }
-
-          if (estado.concluido) {
-            await concluir(estado);
-            return;
-          }
-          render(estado);
+          prontos += lote.length;
         }
-      } catch (e) {
-        falhar("Falha no envio",
-          "Não foi possível enviar os arquivos. Verifique sua conexão e tente novamente.");
+        await concluirTudo(resultados, ultimoStatus);
       } finally {
         botao.disabled = arquivos.length === 0;
         botao.textContent = "ATUALIZAR DASHBOARD";
       }
-    });
 
+      async function concluirTudo(todos, statusApp) {
+        const sucessos = todos.filter((r) => r.status === "SUCESSO" || r.status === "ATENCAO");
+        const falhas = todos.filter((r) => r.status === "ERRO");
+        const registros = sucessos.reduce(
+          (soma, r) => soma + (r.inseridos || 0) + (r.atualizados || 0), 0);
+        let mensagem;
+        if (sucessos.length && !falhas.length) {
+          mensagem = `Dashboard atualizado: ${registros} registro(s) de ${sucessos.length} arquivo(s).`;
+        } else if (sucessos.length && falhas.length) {
+          mensagem = `${sucessos.length} arquivo(s) importado(s) (${registros} registros) e `
+            + `${falhas.length} com problema.`;
+        } else {
+          mensagem = `Nenhum arquivo pôde ser importado (${falhas.length} com problema).`;
+        }
+
+        caixaEtapas.innerHTML = `
+          <div class="etapa concluida">
+            <span class="etapa__bolha">✓</span><span>Concluído</span>
+          </div>`;
+        barra.style.width = "100%";
+        mostrarResultado({ mensagem, resultados: todos });
+        if (sucessos.length) {
+          App.toast(mensagem, falhas.length ? "aviso" : "sucesso", "Dashboard atualizado");
+          arquivos = [];
+          tipoPorArquivo.clear();
+          desenharLista();
+          const topo = document.getElementById("topo-ultima-atualizacao");
+          if (topo && statusApp) topo.textContent = statusApp.ultima_atualizacao || "-";
+        } else {
+          App.toast(mensagem, "erro", "Atenção");
+        }
+        await carregarHistorico();
+      }
+    });
     await carregarHistorico();
   });
 

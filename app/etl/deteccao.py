@@ -99,7 +99,13 @@ def pontuar(dataset: Dataset, planilha: Planilha, nome_arquivo: str = "") -> Ide
     peso_obtido = sum(c.peso for c in dataset.campos if c.nome in mapeamento)
     pontuacao = peso_obtido / peso_total if peso_total else 0.0
 
-    faltantes = [c.nome for c in dataset.obrigatorios if c.nome not in mapeamento]
+    # Um campo obrigatório COM valor padrão não precisa existir como coluna:
+    # a transformação preenche o padrão (ex.: 'qtd os' num arquivo em que
+    # cada linha já é uma O.S. — a coluna não existe, mas cada linha vale 1).
+    # Sem essa ressalva, arquivos legítimos eram recusados com "a coluna
+    # 'qtd os' não foi encontrada".
+    faltantes = [c.nome for c in dataset.obrigatorios
+                 if c.nome not in mapeamento and c.padrao is None]
     if faltantes:
         pontuacao *= 0.35  # sem coluna obrigatória o dataset dificilmente é este
 
