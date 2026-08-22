@@ -1,11 +1,14 @@
 """Testes de ponta a ponta da API e das páginas HTML."""
+import asyncio
 import base64
 import io
 import time
 
 import pandas as pd
+from starlette.datastructures import UploadFile
 
 from app.config import config
+from app.services.upload import nome_exibicao, salvar
 
 PAGINAS = ["/", "/termos", "/faturamento", "/vendas", "/implantacao", "/programacao",
            "/equipes", "/cidades", "/metas", "/analises", "/alertas", "/atualizacao",
@@ -94,6 +97,24 @@ def test_upload_processa_planilha(cliente, planilhas):
     assert dados["ok"] is True
     assert dados["resultados"][0]["dataset"] == "vendas"
     assert dados["resultados"][0]["inseridos"] > 0
+    assert not list(config.UPLOAD_DIR.iterdir()), "upload temporário não foi removido"
+
+
+def test_uploads_de_mesmo_nome_nao_se_sobrescrevem():
+    primeiro = UploadFile(io.BytesIO(b"primeiro"), filename="venda.xlsx")
+    segundo = UploadFile(io.BytesIO(b"segundo"), filename="venda.xlsx")
+
+    caminho_1 = asyncio.run(salvar(primeiro))
+    caminho_2 = asyncio.run(salvar(segundo))
+    try:
+        assert caminho_1 != caminho_2
+        assert caminho_1.read_bytes() == b"primeiro"
+        assert caminho_2.read_bytes() == b"segundo"
+        assert nome_exibicao(caminho_1.name) == "venda.xlsx"
+        assert nome_exibicao(caminho_2.name) == "venda.xlsx"
+    finally:
+        caminho_1.unlink(missing_ok=True)
+        caminho_2.unlink(missing_ok=True)
 
 
 def test_upload_responde_na_hora_sem_travar_o_servidor(cliente, planilhas):

@@ -103,12 +103,13 @@ revalidada após cada uma (ver seção 4).
 ## 4. Regressão de testes
 
 ```
-103 passed in ~21s   (99 pré-existentes + 4 novos desta auditoria)
+136 passed in ~22s   (suíte completa atual)
 ```
 
 Nenhum teste pré-existente foi removido ou alterado em sua intenção — os
-99 testes da versão anterior continuam cobrindo o mesmo comportamento.
-Os 4 novos cobrem exatamente as correções ETL-01 a ETL-03.
+testes anteriores continuam cobrindo o mesmo comportamento. Os testes
+adicionados cobrem as correções desta auditoria e as melhorias posteriores
+de upload assíncrono, leitura em blocos, Atendimento e deploy.
 
 ## 5. Upload real — duplicidade e atualização
 
@@ -185,8 +186,8 @@ otimizar consultas ou adicionar agregações além do cache já existente.
 | Filtros testados | ✅ `test_indicadores.py`, `test_api.py` |
 | Exportações testadas | ✅ `test_api.py` (xlsx/csv/pdf) |
 | Frontend testado | ✅ Playwright: 14 páginas, SPA, filtros, tema, mobile |
-| Backend testado | ✅ 103 testes automatizados |
-| Testes automatizados passando | ✅ 103/103 |
+| Backend testado | ✅ 136 testes automatizados |
+| Testes automatizados passando | ✅ 136/136 |
 | Documentação atualizada | ✅ Esta seção + README + arquitetura + indicadores + regras + matriz |
 
 **Conclusão**: o sistema está pronto tecnicamente e coberto por testes, mas

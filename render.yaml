@@ -21,7 +21,7 @@ services:
     name: dashboard-executivo
     runtime: python
     plan: free
-    branch: claude/novo-projeto-independente-ao910q
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/status
@@ -43,6 +43,8 @@ services:
       # "Sobre memória"). Aumente se migrar para um plano com mais RAM.
       - key: LIMITE_LINHAS_ARQUIVO
         value: "100000"
+      - key: LINHAS_POR_BLOCO
+        value: "20000"
       - key: CACHE_TTL
         value: "300"
       # AUTH_USUARIO/AUTH_SENHA: login HTTP Basic exigido em toda a

@@ -133,8 +133,19 @@ def _executar(trabalho_id: str, caminhos: list[Path], forcados: dict[str, str],
         for caminho in ordenar_para_carga(caminhos, forcados):
             with _trava:
                 trabalho.arquivo_atual = nome_exibicao(caminho.name)
-            with sessao() as s:
-                resultado = processar_arquivo(s, caminho, forcados.get(caminho.name), usuario)
+            try:
+                with sessao() as s:
+                    resultado = processar_arquivo(
+                        s, caminho, forcados.get(caminho.name), usuario)
+            finally:
+                # O arquivo aceito já foi copiado para data/processed quando
+                # a carga deu certo. A cópia temporária de data/uploads não
+                # pode ficar acumulando indefinidamente e enchendo o disco.
+                try:
+                    caminho.unlink(missing_ok=True)
+                except OSError as erro:  # pragma: no cover - depende do disco/SO
+                    logger.warning("Não foi possível remover upload temporário %s: %s",
+                                   caminho, erro)
             with _trava:
                 trabalho.resultados.append(resultado.to_dict())
                 trabalho.concluidos += 1

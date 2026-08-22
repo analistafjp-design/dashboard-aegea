@@ -142,7 +142,7 @@ A lista completa de sinônimos está na página **Dicionário de dados** e em
 .venv/bin/python -m pytest
 ```
 
-103 testes cobrindo calendário e dias úteis, conversão de tipos, detecção de
+136 testes cobrindo calendário e dias úteis, conversão de tipos, detecção de
 arquivos, importação (duplicidade, datas inválidas, coluna ausente, carga
 incremental, número exato da linha com erro no Excel), regras de indicadores
 (meta, atingimento, projeção, "sem dados" × zero), API, upload, exportação e
@@ -198,9 +198,10 @@ dashboard-aegea/
 - [Arquitetura](docs/arquitetura.md) — camadas, modelo de dados, publicação
 - [Conferência Power BI](docs/validacao_powerbi.md) — como validar os números
 - [Relatório final de validação](docs/relatorio_final_validacao.md) — status real de cada critério de aprovação
+- [Guia do usuário](docs/GUIA_USUARIO.md) — login, atualização, sincronização e solução de problemas
 - API interativa: **http://127.0.0.1:8000/api/docs**
 
-> **Status de validação**: o sistema está funcional, testado (103 testes
+> **Status de validação**: o sistema está funcional, testado (136 testes
 > automatizados) e auditado, mas a comparação numérica com os três Power BI
 > originais está pendente — os arquivos `.pbix` e os Excel reais ainda não
 > foram disponibilizados. Veja o relatório final de validação para o

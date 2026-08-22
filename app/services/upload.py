@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -18,7 +19,7 @@ TAMANHO_BLOCO = 1024 * 1024
 
 # Carimbo AAAAMMDD_HHMMSS_ que `salvar()` põe na frente do arquivo em disco
 # para dois envios do mesmo nome não se sobrescreverem.
-_CARIMBO = re.compile(r"^\d{8}_\d{6}_")
+_CARIMBO = re.compile(r"^\d{8}_\d{6}(?:_[0-9a-f]{8})?_")
 
 
 def nome_exibicao(nome: str) -> str:
@@ -48,8 +49,12 @@ async def salvar(arquivo: UploadFile) -> Path:
         raise ErroValidacaoArquivo(
             f"O arquivo '{nome}' não é aceito. Envie um arquivo {permitidas}.")
 
+    # O relógio sozinho não é suficiente: dois arquivos com o mesmo nome
+    # podem chegar no mesmo segundo (inclusive no mesmo lote). O sufixo
+    # aleatório impede que um upload sobrescreva o outro antes do ETL.
     carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
-    destino = config.UPLOAD_DIR / f"{carimbo}_{nome}"
+    identificador = uuid.uuid4().hex[:8]
+    destino = config.UPLOAD_DIR / f"{carimbo}_{identificador}_{nome}"
     limite = config.TAMANHO_MAXIMO_MB * 1024 * 1024
     total = 0
 

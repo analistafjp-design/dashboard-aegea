@@ -139,10 +139,10 @@ Se um arquivo for recusado por tamanho:
 O Render reimplanta automaticamente a cada push na branch configurada em
 `render.yaml` (`branch:`). Não é necessário nenhum passo manual.
 
-Quando o PR #1 for mesclado na `main`, edite `render.yaml` trocando
-`branch: claude/novo-projeto-independente-ao910q` para `branch: main` (ou
-remova a linha — o Render usa a branch padrão do repositório por padrão) e
-reconecte o serviço a essa branch nas configurações do Render.
+O `render.yaml` acompanha a branch `main`. Depois que o PR #1 for mesclado,
+confirme uma única vez em **Settings > Build & Deploy > Branch** que o serviço
+também aponta para `main`. A partir daí, cada novo push nessa branch inicia um
+deploy automático.
 
 ## 6. Próximo passo: atualização automática das planilhas
 

@@ -9,7 +9,15 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# O README orienta o uso de um arquivo .env na raiz. Carregá-lo aqui torna
+# essa configuração efetiva tanto nos scripts de inicialização quanto ao
+# executar o Uvicorn diretamente. Variáveis já definidas pelo ambiente (por
+# exemplo, os segredos do Render) sempre têm prioridade.
+load_dotenv(BASE_DIR / ".env", override=False)
 
 
 def _env(nome: str, padrao: str) -> str:
