@@ -26,8 +26,20 @@ class Campo:
     padrao: object = None          # valor quando a coluna não existe no arquivo
 
     @property
-    def chaves(self) -> set[str]:
-        return {chave_comparacao(a) for a in (self.nome, *self.aliases)}
+    def chaves(self) -> tuple[str, ...]:
+        """Nome e apelidos na ORDEM de declaração, sem repetição.
+
+        A ordem importa: quando a planilha tem mais de uma coluna que casa
+        com o campo, vence a primeira declarada. Isso era um `set`, cuja
+        ordem de iteração é indefinida — o campo `data` do Atendimento, por
+        exemplo, podia casar tanto com "Data do Pedido" quanto com "Data de
+        Encerramento" (vazia enquanto a O.S. está aberta), e qual delas
+        vencia mudava sem motivo aparente.
+        """
+        vistos: dict[str, None] = {}
+        for apelido in (self.nome, *self.aliases):
+            vistos.setdefault(chave_comparacao(apelido), None)
+        return tuple(vistos)
 
 
 @dataclass(frozen=True)
@@ -41,6 +53,14 @@ class Dataset:
     chave_unica: tuple[str, ...]
     dicas_nome_arquivo: tuple[str, ...] = ()
     campos_derivados: tuple[str, ...] = field(default=())
+    # Base que NÃO participa da identificação automática: só é usada quando
+    # escolhida de propósito (aba da tela ou "= base" na pasta monitorada).
+    # É o caso do Atendimento, cujas colunas se parecem com as de várias
+    # outras bases — mandar um arquivo para lá é decisão de negócio, não
+    # algo que dê para deduzir pela estrutura. Sem isso, ela concorreria na
+    # detecção e ainda tiraria a "exclusividade" de colunas que hoje
+    # identificam Implantação (ex.: Serviço).
+    somente_manual: bool = False
 
     @property
     def obrigatorios(self) -> list[Campo]:
@@ -295,11 +315,64 @@ METAS = Dataset(
     dicas_nome_arquivo=("meta",),
 )
 
+# --------------------------------------------------------------------------
+# Atendimento — vendas vindas de outros canais
+# --------------------------------------------------------------------------
+# Base "Analitico - acomp de solicitação". Não vira uma tabela própria:
+# alimenta fato_vendas com canal "Outros Canais", contando uma venda por
+# linha que sobrevive aos filtros da medida do Power BI (ver
+# app/etl/regras_atendimento.py).
+ATENDIMENTO = Dataset(
+    nome="atendimento",
+    titulo="Atendimento (Vendas Outros Canais)",
+    modulo="VENDA",
+    tabela="fato_vendas",
+    descricao=(
+        "Solicitações de atendimento. Cada linha executada de implantação de "
+        "ligação de água, nas localidades do Interior, conta como uma venda "
+        "por Outros Canais — mesma regra da medida 'Vendas Outros Canais' do "
+        "Power BI."
+    ),
+    campos=(
+        Campo("data", "data", "Data do pedido",
+              aliases=("data do pedido", "data de encerramento", "data"),
+              obrigatorio=True, peso=3),
+        Campo("cidade", "texto", "Localidade da solicitação",
+              aliases=("localidade", "municipio"), obrigatorio=True, peso=3),
+        Campo("servico", "texto", "Descrição do serviço solicitado",
+              aliases=("descricao do servico", "servico"), obrigatorio=True, peso=3),
+        # Não é obrigatório de propósito: uma O.S. ainda em aberto vem com a
+        # ocorrência vazia, e quem deve explicar esse descarte é a regra
+        # ("fora de 0-Executado"), não a validação genérica de coluna vazia.
+        Campo("ocorrencia", "texto", "Ocorrência de encerramento da O.S.",
+              aliases=("ocorrencia_encerramento", "ocorrencia encerramento"),
+              peso=3),
+        Campo("ligacao", "texto", "Número da ligação (vazio = não conta como venda)",
+              aliases=("n ligacao", "no ligacao", "numero da ligacao"), peso=3),
+        Campo("usuario_emissor", "texto", "Usuário que emitiu a O.S.",
+              aliases=("usuario emitiu o s", "usuario emitiu os",
+                       "usuario emitiu a o s"), peso=2),
+        Campo("matricula", "texto", "Número do pedido",
+              aliases=("n do pedido", "no do pedido", "numero do pedido"), peso=2),
+        Campo("equipe", "texto", "Quem executou a O.S.",
+              aliases=("executado por", "usuario concluiu o s")),
+        Campo("valor", "numero", "Valor cobrado",
+              aliases=("valor cobrado", "valor")),
+    ),
+    # Nº do pedido identifica a solicitação; data entra na chave porque o
+    # mesmo pedido pode aparecer em recortes diferentes do relatório.
+    chave_unica=("data", "matricula", "servico"),
+    dicas_nome_arquivo=("analitico", "solicitacao", "atendimento"),
+    somente_manual=True,
+)
+
 DATASETS: dict[str, Dataset] = {
-    d.nome: d for d in (TERMOS, FATURAMENTO, VENDAS, IMPLANTACAO, PROGRAMACAO, METAS)
+    d.nome: d for d in (TERMOS, FATURAMENTO, VENDAS, IMPLANTACAO, PROGRAMACAO,
+                        METAS, ATENDIMENTO)
 }
 
-ORDEM_CARGA = ("metas", "termos", "faturamento", "vendas", "implantacao", "programacao")
+ORDEM_CARGA = ("metas", "termos", "faturamento", "vendas", "implantacao",
+               "programacao", "atendimento")
 
 
 def get_dataset(nome: str) -> Dataset:

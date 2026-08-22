@@ -587,7 +587,7 @@
     ["", "Detectar automaticamente"], ["termos", "Termos Aplicados"],
     ["faturamento", "Faturamento de Termos"], ["vendas", "Venda"],
     ["implantacao", "Implantação"], ["programacao", "Programação Diária"],
-    ["metas", "Metas"],
+    ["atendimento", "Atendimento (Vendas Outros Canais)"], ["metas", "Metas"],
   ];
 
   // Três módulos = os três Power BI originais (Venda/Implantação, Termos,
@@ -630,10 +630,12 @@
         + "é a versão do dia da mesma base de Termos/Interior.",
     },
     "atendimento": {
-      tipo: "",
-      dica: "Arquivos soltos aqui ficam em <strong>Detecção automática</strong> — a base "
-        + "\"Analítico - Acomp. de Solicitação\" ainda não tem um tipo fixo definido; "
-        + "confira o tipo identificado na lista abaixo antes de atualizar.",
+      tipo: "atendimento",
+      dica: "Arquivos soltos aqui (\"Analítico - Acomp. de Solicitação\") entram como "
+        + "<strong>Vendas por Outros Canais</strong>: cada solicitação executada de "
+        + "implantação de ligação de água, nas localidades do Interior, conta como uma "
+        + "venda — mesma regra da medida do Power BI. O que fica de fora é listado no "
+        + "resultado, com o motivo.",
     },
     "programacao-diaria": {
       tipo: "programacao",

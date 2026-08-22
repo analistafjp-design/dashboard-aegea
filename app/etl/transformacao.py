@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.etl import dominio
+from app.etl import dominio, regras_atendimento
 from app.etl.datasets import Dataset
 from app.etl.deteccao import Identificacao
 from app.etl.tipos import CONVERSORES, esta_vazio
@@ -164,7 +164,16 @@ def _rotulo(campo: str) -> str:
     return campo.replace("_", " ")
 
 
-def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioValidacao]:
+def transformar(identificacao: Identificacao,
+                permitir_vazio: bool = False) -> tuple[pd.DataFrame, RelatorioValidacao]:
+    """Converte a planilha no DataFrame padronizado.
+
+    `permitir_vazio` é usado na leitura em blocos: um bloco sem nenhuma
+    linha aproveitável é normal (a base Atendimento, por exemplo, aprova
+    poucas linhas entre centenas de milhares) e não pode abortar o arquivo
+    inteiro — quem decide se o arquivo como um todo ficou vazio é o
+    pipeline, depois de somar todos os blocos.
+    """
     dataset = identificacao.dataset
     if dataset is None:
         raise ErroValidacaoArquivo(
@@ -256,14 +265,34 @@ def transformar(identificacao: Identificacao) -> tuple[pd.DataFrame, RelatorioVa
         linhas.append(registro)
 
     if not linhas:
-        raise ErroValidacaoArquivo(
-            f"Nenhum registro válido foi encontrado na base {dataset.titulo}.",
-            relatorio.mensagens(),
-        )
+        if not permitir_vazio:
+            raise ErroValidacaoArquivo(
+                f"Nenhum registro válido foi encontrado na base {dataset.titulo}.",
+                relatorio.mensagens(),
+            )
+        return pd.DataFrame(), relatorio
 
     dados = pd.DataFrame(linhas)
     dados = _derivar(dataset, dados)
-    dados = _remover_duplicadas(dataset, dados, relatorio)
+
+    # Atendimento: só as linhas que a medida "Vendas Outros Canais" contaria
+    # entram como venda. O que fica de fora é contabilizado com o motivo,
+    # para o número não vir menor sem explicação.
+    if dataset.nome == "atendimento":
+        antes = len(dados)
+        dados, motivos = regras_atendimento.filtrar(dados)
+        for descricao, quantidade in motivos.items():
+            relatorio.problemas[descricao] = \
+                relatorio.problemas.get(descricao, 0) + quantidade
+        if antes and not len(dados) and not permitir_vazio:
+            raise ErroValidacaoArquivo(
+                f"Nenhuma linha do arquivo se enquadra na regra de Vendas por "
+                f"Outros Canais (das {antes} linhas lidas).",
+                relatorio.mensagens(),
+            )
+
+    if not dados.empty:
+        dados = _remover_duplicadas(dataset, dados, relatorio)
 
     relatorio.linhas_validas = len(dados)
     logger.info("Transformação %s: %s", dataset.nome, relatorio.resumo())
@@ -286,6 +315,13 @@ def _derivar(dataset: Dataset, dados: pd.DataFrame) -> pd.DataFrame:
 
     if dataset.nome == "vendas":
         dados["canal"] = dados["frente"].map(dominio.canal_venda)
+
+    if dataset.nome == "atendimento":
+        # Toda linha desta base é, por definição da medida, uma venda por
+        # Outros Canais — e cada linha vale 1 (a medida usa COUNTROWS).
+        dados["frente"] = dominio.OUTROS_CANAIS
+        dados["canal"] = dominio.CANAL_OUTROS
+        dados["quantidade"] = 1.0
 
     if dataset.nome in ("termos", "implantacao"):
         colunas_tipo = [c for c in ("tipo", "frente", "servico") if c in dados.columns]

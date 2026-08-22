@@ -147,6 +147,18 @@ def _montar_fato(dataset: Dataset, linha: dict, dim: ResolvedorDimensoes,
             "quantidade": float(_valor(linha, "quantidade", 1.0)),
             "valor": _valor(linha, "valor"),
         }
+    if dataset.nome == "atendimento":
+        # Grava como venda por Outros Canais (ver regras_atendimento).
+        return {
+            **comum,
+            "cidade_id": dim.id_de("cidade", _valor(linha, "cidade")),
+            "equipe_id": dim.id_de("equipe", _valor(linha, "equipe")),
+            "frente_id": dim.id_de("frente", _valor(linha, "frente")),
+            "canal": _valor(linha, "canal", "OUTROS"),
+            "matricula": _valor(linha, "matricula"),
+            "quantidade": float(_valor(linha, "quantidade", 1.0)),
+            "valor": _valor(linha, "valor"),
+        }
     if dataset.nome == "programacao":
         recurso = _valor(linha, "recurso")
         return {
@@ -208,6 +220,8 @@ def carregar(sessao: Session, dataset: Dataset, dados: pd.DataFrame,
     modelo = {
         "termos": FatoTermos, "faturamento": FatoFaturamento, "vendas": FatoVendas,
         "implantacao": FatoImplantacao, "programacao": FatoProgramacao,
+        # Atendimento não tem tabela própria: alimenta fato_vendas.
+        "atendimento": FatoVendas,
     }[dataset.nome]
 
     # Só id + chave (não o objeto inteiro): mais leve e evita hidratar o

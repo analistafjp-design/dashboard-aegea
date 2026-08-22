@@ -8,7 +8,8 @@
 # para cada uma (é o caso da pasta Interior, cujos arquivos servem para
 # Venda, Implantação e Termos).
 #
-# Bases aceitas: termos, faturamento, vendas, implantacao, programacao, metas
+# Bases aceitas: termos, faturamento, vendas, implantacao, programacao,
+#                metas, atendimento
 # Sem "= base", o sistema tenta identificar pelas colunas do arquivo.
 #
 # Subpastas entram automaticamente. Linhas com # são ignoradas.
@@ -27,8 +28,9 @@
 # C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Faturamento = faturamento
 # C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Programação Diaria = programacao
 
-# Atendimento ("Analitico - acomp de solicitação"): implantações vindas de
-# outros canais de atendimento. O arquivo tem ~153 mil linhas e é lido em
-# blocos automaticamente, então pode ser monitorado normalmente — só leve
-# em conta que ele demora mais que os demais.
-# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Atendimento = implantacao
+# Atendimento ("Analitico - acomp de solicitação"): entra como Vendas por
+# Outros Canais, aplicando a mesma regra da medida do Power BI (só as
+# solicitações executadas de implantação de ligação de água, nas
+# localidades do Interior). O arquivo tem ~153 mil linhas e é lido em
+# blocos automaticamente — só leve em conta que demora mais que os demais.
+# C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Atendimento = atendimento

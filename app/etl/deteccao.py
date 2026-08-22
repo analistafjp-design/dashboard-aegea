@@ -75,13 +75,18 @@ def _campos_exclusivos() -> dict[str, dict[str, set[str]]]:
     """Campos cujas chaves só existem em um dataset — são o que diferencia
     bases parecidas (ex.: 'Serviço' e 'Situação Faturamento' só existem em
     Implantação, então uma planilha com essas colunas não é Venda)."""
+    # Bases somente-manual ficam de fora da contagem: elas não competem na
+    # detecção, então não faz sentido que suas colunas tirem a
+    # exclusividade das que realmente identificam as demais.
+    automaticos = {n: d for n, d in DATASETS.items() if not d.somente_manual}
+
     contagem: dict[str, int] = {}
-    for dataset in DATASETS.values():
+    for dataset in automaticos.values():
         for chave in {c for campo in dataset.campos for c in campo.chaves}:
             contagem[chave] = contagem.get(chave, 0) + 1
 
     exclusivos: dict[str, dict[str, set[str]]] = {}
-    for nome, dataset in DATASETS.items():
+    for nome, dataset in automaticos.items():
         exclusivos[nome] = {
             campo.nome: {c for c in campo.chaves if contagem.get(c) == 1}
             for campo in dataset.campos
@@ -119,7 +124,7 @@ def pontuar(dataset: Dataset, planilha: Planilha, nome_arquivo: str = "") -> Ide
     for outro, campos in exclusivos.items():
         if outro == dataset.nome:
             continue
-        marcas = sum(1 for chaves in campos.values() if chaves & chaves_colunas)
+        marcas = sum(1 for chaves in campos.values() if set(chaves) & chaves_colunas)
         if marcas:
             pontuacao -= PENALIDADE_EXCLUSIVO_ALHEIO * marcas
 
@@ -137,7 +142,8 @@ def identificar(planilhas: list[Planilha], nome_arquivo: str = "",
     """Escolhe o par (dataset, planilha) com melhor aderência."""
     candidatos: list[Identificacao] = []
     datasets = (
-        [DATASETS[dataset_forcado]] if dataset_forcado in DATASETS else list(DATASETS.values())
+        [DATASETS[dataset_forcado]] if dataset_forcado in DATASETS
+        else [d for d in DATASETS.values() if not d.somente_manual]
     )
     for planilha in planilhas:
         for dataset in datasets:

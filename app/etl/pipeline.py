@@ -101,12 +101,12 @@ def _processar_em_blocos(sessao: Session, caminho: Path, dataset_forcado: str | 
         else:
             atual = replace(identificacao_base, planilha=planilha)
 
-        dados, validacao = transformar(atual)
-        carga = carregar(sessao, atual.dataset, dados, caminho.name)
-
-        carga_total.inseridos += carga.inseridos
-        carga_total.atualizados += carga.atualizados
-        carga_total.ignorados += carga.ignorados
+        dados, validacao = transformar(atual, permitir_vazio=True)
+        if not dados.empty:
+            carga = carregar(sessao, atual.dataset, dados, caminho.name)
+            carga_total.inseridos += carga.inseridos
+            carga_total.atualizados += carga.atualizados
+            carga_total.ignorados += carga.ignorados
         if validacao_total is None:
             validacao_total = validacao
         else:
@@ -123,8 +123,17 @@ def _processar_em_blocos(sessao: Session, caminho: Path, dataset_forcado: str | 
         raise ErroValidacaoArquivo(
             f"O arquivo '{caminho.name}' não possui nenhuma planilha com dados.")
 
-    logger.info("Arquivo %s processado em %s bloco(s): %s linhas lidas",
-                caminho.name, blocos, validacao_total.linhas_lidas)
+    if validacao_total.linhas_validas == 0:
+        raise ErroValidacaoArquivo(
+            f"Nenhum registro do arquivo '{caminho.name}' pôde ser aproveitado na base "
+            f"{identificacao_base.dataset.titulo} (das "
+            f"{validacao_total.linhas_lidas} linhas lidas).",
+            validacao_total.mensagens(),
+        )
+
+    logger.info("Arquivo %s processado em %s bloco(s): %s linhas lidas, %s válidas",
+                caminho.name, blocos, validacao_total.linhas_lidas,
+                validacao_total.linhas_validas)
     return identificacao_base, validacao_total, carga_total
 
 
