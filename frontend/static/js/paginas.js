@@ -590,12 +590,35 @@
     ["metas", "Metas"],
   ];
 
-  // Uma aba por pasta que o usuário já usa hoje (mesma organização do
-  // Power BI antigo) — só decide o tipo PADRÃO marcado para os arquivos
-  // soltos enquanto aquela aba está ativa; a identificação automática (ou a
-  // troca manual na lista abaixo) continua valendo se o padrão estiver
-  // errado para um arquivo específico.
+  // Três módulos = os três Power BI originais (Venda/Implantação, Termos,
+  // Programação Diária). Dentro de cada um, uma aba por pasta que o
+  // usuário já usa hoje — só decide o tipo PADRÃO marcado para os
+  // arquivos soltos enquanto aquela aba está ativa; a identificação
+  // automática (ou a troca manual na lista abaixo) continua valendo se o
+  // padrão estiver errado para um arquivo específico.
+  const MODULOS_UPLOAD = [
+    { modulo: "venda-implantacao", categoriaPadrao: "venda" },
+    { modulo: "termos", categoriaPadrao: "termos-interior" },
+    { modulo: "programacao", categoriaPadrao: "programacao-diaria" },
+  ];
+
   const CATEGORIAS_UPLOAD = {
+    "venda": {
+      tipo: "vendas",
+      dica: "Arquivos soltos aqui são marcados como <strong>Venda</strong>.",
+    },
+    "implantacao": {
+      tipo: "implantacao",
+      dica: "Arquivos soltos aqui são marcados como <strong>Implantação</strong>.",
+    },
+    "faturamento-implantacao": {
+      tipo: "implantacao",
+      dica: "Arquivos soltos aqui (base \"Solicitação Geral\") também são marcados como "
+        + "<strong>Implantação</strong> — servem para trazer o valor faturado de cada "
+        + "implantação de Ligação Nova, atualizando os registros já existentes (mesma "
+        + "matrícula/serviço/data/equipe). Depois de enviar, confira no resultado se apareceu "
+        + "\"atualizado(s)\" — se aparecer só \"novo(s)\", avise que as colunas não bateram.",
+    },
     "termos-interior": {
       tipo: "termos",
       dica: "Arquivos soltos aqui são marcados como <strong>Termos Aplicados</strong> — "
@@ -606,16 +629,15 @@
       dica: "Arquivos soltos aqui também são marcados como <strong>Termos Aplicados</strong> — "
         + "é a versão do dia da mesma base de Termos/Interior.",
     },
-    "faturamento": {
-      tipo: "faturamento",
-      dica: "Arquivos soltos aqui são marcados como <strong>Faturamento de Termos</strong> — "
-        + "a base \"Solicitação Geral\".",
-    },
     "atendimento": {
       tipo: "",
       dica: "Arquivos soltos aqui ficam em <strong>Detecção automática</strong> — a base "
         + "\"Analítico - Acomp. de Solicitação\" ainda não tem um tipo fixo definido; "
         + "confira o tipo identificado na lista abaixo antes de atualizar.",
+    },
+    "programacao-diaria": {
+      tipo: "programacao",
+      dica: "Arquivos soltos aqui são marcados como <strong>Programação Diária</strong>.",
     },
   };
 
@@ -624,13 +646,14 @@
     const input = document.getElementById("input-arquivos");
     const lista = document.getElementById("lista-arquivos");
     const botao = document.getElementById("btn-atualizar");
+    const abasModulo = document.getElementById("abas-modulo");
     const abas = document.getElementById("abas-categoria");
     const dicaAbas = document.getElementById("abas-categoria-dica");
     if (!area || area.dataset.pronto) { await carregarHistorico(); return; }
     area.dataset.pronto = "1";
 
     let arquivos = [];
-    let categoriaAtiva = "termos-interior";
+    let categoriaAtiva = MODULOS_UPLOAD[0].categoriaPadrao;
     const tipoPorArquivo = new Map(); // "nome|tamanho" -> tipo padrão da aba no momento do envio
 
     function chaveArquivo(arquivo) { return `${arquivo.name}|${arquivo.size}`; }
@@ -639,19 +662,41 @@
       if (dicaAbas) dicaAbas.innerHTML = CATEGORIAS_UPLOAD[categoriaAtiva].dica;
     }
 
-    if (abas) {
-      abas.querySelectorAll("[data-categoria]").forEach((botaoAba) => {
-        botaoAba.addEventListener("click", () => {
-          categoriaAtiva = botaoAba.dataset.categoria;
-          abas.querySelectorAll("[data-categoria]").forEach((b) => {
-            const ativa = b === botaoAba;
-            b.classList.toggle("aba-categoria--ativa", ativa);
-            b.setAttribute("aria-selected", String(ativa));
-          });
-          atualizarDicaAba();
-        });
+    function marcarCategoriaAtiva(botaoAba) {
+      categoriaAtiva = botaoAba.dataset.categoria;
+      abas.querySelectorAll("[data-categoria]").forEach((b) => {
+        const ativa = b === botaoAba;
+        b.classList.toggle("aba-categoria--ativa", ativa);
+        b.setAttribute("aria-selected", String(ativa));
       });
       atualizarDicaAba();
+    }
+
+    if (abasModulo && abas) {
+      abasModulo.querySelectorAll("[data-modulo]").forEach((botaoModulo) => {
+        botaoModulo.addEventListener("click", () => {
+          const modulo = botaoModulo.dataset.modulo;
+          abasModulo.querySelectorAll("[data-modulo]").forEach((b) => {
+            const ativa = b === botaoModulo;
+            b.classList.toggle("aba-modulo--ativa", ativa);
+            b.setAttribute("aria-selected", String(ativa));
+          });
+          let primeiraDoModulo = null;
+          abas.querySelectorAll("[data-categoria]").forEach((botaoAba) => {
+            const pertence = botaoAba.dataset.modulo === modulo;
+            botaoAba.hidden = !pertence;
+            if (pertence && !primeiraDoModulo) primeiraDoModulo = botaoAba;
+          });
+          if (primeiraDoModulo) marcarCategoriaAtiva(primeiraDoModulo);
+        });
+      });
+      let botaoInicial = null;
+      abas.querySelectorAll("[data-categoria]").forEach((botaoAba) => {
+        botaoAba.hidden = botaoAba.dataset.modulo !== MODULOS_UPLOAD[0].modulo;
+        botaoAba.addEventListener("click", () => marcarCategoriaAtiva(botaoAba));
+        if (botaoAba.dataset.categoria === categoriaAtiva) botaoInicial = botaoAba;
+      });
+      if (botaoInicial) marcarCategoriaAtiva(botaoInicial);
     }
 
     function desenharLista() {

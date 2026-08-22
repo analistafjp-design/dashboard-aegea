@@ -382,6 +382,19 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
 .alerta-item__descricao { font-size: 12.5px; color: var(--text-2); margin-top: 3px; }
 
 /* ---------------------------------------------------------------- upload */
+.abas-modulo {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  border-bottom: 2px solid var(--border); padding-bottom: 12px;
+}
+.aba-modulo {
+  padding: 10px 16px; border-radius: var(--raio-sm) var(--raio-sm) 0 0; border: 1px solid var(--border);
+  border-bottom: none; background: var(--surface-2); color: var(--text-2);
+  font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all var(--transicao);
+}
+.aba-modulo:hover { color: var(--primary); }
+.aba-modulo--ativa, .aba-modulo--ativa:hover {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
 .abas-categoria {
   display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;
 }
@@ -390,6 +403,7 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
   background: var(--surface); color: var(--text-2); font-size: 12.5px; font-weight: 600;
   cursor: pointer; transition: all var(--transicao);
 }
+.aba-categoria[hidden] { display: none; }
 .aba-categoria:hover { border-color: var(--primary); color: var(--primary); }
 .aba-categoria--ativa, .aba-categoria--ativa:hover {
   background: var(--primary); border-color: var(--primary); color: #fff;

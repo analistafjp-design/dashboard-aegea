@@ -4,21 +4,38 @@
   <div class="painel">
     <div class="painel__cabecalho">
       <div><div class="painel__titulo">Atualização de Dados</div>
-        <div class="painel__descricao">Envie os arquivos Excel. Escolha a aba correspondente à
-          pasta de origem — Termos/Interior, Base Arquivos, Faturamento ou Atendimento — antes de
+        <div class="painel__descricao">Envie os arquivos Excel. Escolha primeiro o módulo
+          (Venda/Implantação, Termos ou Programação Diária) e depois a pasta de origem, antes de
           soltar os arquivos, para que cada um vá para a base certa. Todos são enviados juntos,
           de uma vez só, no botão abaixo.</div></div>
     </div>
     <div class="painel__corpo">
+      <div class="abas-modulo" id="abas-modulo" role="tablist">
+        <button type="button" class="aba-modulo aba-modulo--ativa"
+                data-modulo="venda-implantacao" role="tab" aria-selected="true">① Venda e Implantação</button>
+        <button type="button" class="aba-modulo"
+                data-modulo="termos" role="tab" aria-selected="false">② Termos</button>
+        <button type="button" class="aba-modulo"
+                data-modulo="programacao" role="tab" aria-selected="false">③ Programação Diária</button>
+      </div>
+
       <div class="abas-categoria" id="abas-categoria" role="tablist">
-        <button type="button" class="aba-categoria aba-categoria--ativa"
-                data-categoria="termos-interior" role="tab" aria-selected="true">Termos / Interior</button>
-        <button type="button" class="aba-categoria"
-                data-categoria="base-arquivos" role="tab" aria-selected="false">Base Arquivos (dia)</button>
-        <button type="button" class="aba-categoria"
-                data-categoria="faturamento" role="tab" aria-selected="false">Faturamento</button>
-        <button type="button" class="aba-categoria"
-                data-categoria="atendimento" role="tab" aria-selected="false">Atendimento</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="venda">Venda</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="implantacao">Implantação</button>
+        <button type="button" class="aba-categoria" data-modulo="venda-implantacao"
+                data-categoria="faturamento-implantacao">Faturamento (Solicitação Geral)</button>
+
+        <button type="button" class="aba-categoria" data-modulo="termos"
+                data-categoria="termos-interior">Termos / Interior</button>
+        <button type="button" class="aba-categoria" data-modulo="termos"
+                data-categoria="base-arquivos">Base Arquivos (dia)</button>
+        <button type="button" class="aba-categoria" data-modulo="termos"
+                data-categoria="atendimento">Atendimento</button>
+
+        <button type="button" class="aba-categoria" data-modulo="programacao"
+                data-categoria="programacao-diaria">Programação Diária</button>
       </div>
       <div class="painel__descricao" id="abas-categoria-dica" style="margin:6px 0 12px"></div>
 
