@@ -393,7 +393,8 @@
         const rota = item.dataset.rota;
         if (item.dataset.chave === App.estado.pagina) return;
         App.navegar(rota, item.dataset.chave);
-        document.querySelector(".sidebar").classList.remove("aberta");
+        const barra = document.querySelector(".sidebar");
+        if (barra) barra.classList.remove("aberta");
         const overlay = document.querySelector(".overlay-mobile");
         if (overlay) overlay.remove();
       });

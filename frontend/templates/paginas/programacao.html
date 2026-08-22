@@ -1,45 +1,21 @@
 {% extends "base.html" %}
 {% block conteudo %}
-<div class="grade grade--kpi" id="programacao-cards"></div>
-
-<div class="painel" style="margin-top:16px">
-  <div class="painel__cabecalho">
-    <div><div class="painel__titulo">Agenda operacional — <span id="programacao-data"></span></div>
-      <div class="painel__descricao">Data, região, equipe, projeto e quantidade de O.S.</div></div>
-    <div style="display:flex;gap:8px;align-items:flex-end">
-      <div class="campo" style="min-width:150px">
-        <label for="programacao-seletor-data">Data da programação</label>
-        <select id="programacao-seletor-data"></select>
-      </div>
-      <button class="btn" data-exportar="programacao" data-formato="xlsx">Exportar</button>
+<section class="dashboard-simples">
+  <div class="titulo-faixa titulo-faixa--central">
+    <h1>PROGRAMAÇÃO DIÁRIA</h1>
+    <small>Monitoramento Operacional</small>
+  </div>
+  <div class="programacao-resumo">
+    <div><span>Qtd O.S Programada</span><strong id="programacao-os">—</strong></div>
+    <div><span>Qtd Equipes</span><strong id="programacao-equipes">—</strong></div>
+    <div class="programacao-data-campo">
+      <label for="programacao-seletor-data">Data da Programação</label>
+      <select id="programacao-seletor-data"></select>
     </div>
   </div>
-  <div class="painel__corpo painel__corpo--limpo" id="programacao-agenda"></div>
-</div>
-
-<div class="painel" style="margin-top:16px">
-  <div class="painel__cabecalho"><div class="painel__titulo">Desequilíbrios de carga</div>
-    <div class="painel__descricao">Equipes 50% acima ou abaixo da média do dia</div></div>
-  <div class="painel__corpo" id="programacao-desequilibrios"></div>
-</div>
-
-<div class="grade grade--3" style="margin-top:16px">
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">O.S. por equipe</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-programacao-equipe"></div></div>
+  <div class="grade-programacao">
+    <div class="visual-simples"><h2>EQUIPES DE RECADASTRO</h2><div id="programacao-recadastro"></div></div>
+    <div class="visual-simples"><h2>EQUIPES DE VENDAS</h2><div id="programacao-vendas"></div></div>
   </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">O.S. por região</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-programacao-regiao"></div></div>
-  </div>
-  <div class="painel">
-    <div class="painel__cabecalho"><div class="painel__titulo">O.S. por projeto</div></div>
-    <div class="painel__corpo"><div class="grafico" id="graf-programacao-projeto"></div></div>
-  </div>
-</div>
-
-<div class="painel" style="margin-top:16px">
-  <div class="painel__cabecalho"><div class="painel__titulo">O.S. programadas por dia no mês</div></div>
-  <div class="painel__corpo"><div class="grafico" id="graf-programacao-dia"></div></div>
-</div>
+</section>
 {% endblock %}

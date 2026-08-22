@@ -53,129 +53,95 @@
     ], blocos, { vazio: "Sem metas ou realizado para o período." });
   }
 
+  function porChave(indicadores, chave) {
+    return (indicadores || []).find((item) => item.chave === chave) || {};
+  }
+
+  function faixaIndicadores(seletor, itens) {
+    const alvo = document.querySelector(seletor);
+    if (!alvo) return;
+    alvo.innerHTML = itens.map((item) => `
+      <div class="indicador-faixa">
+        <strong>${App.escapar(item.valor)}</strong>
+        <span>${App.escapar(item.rotulo)}</span>
+      </div>`).join("");
+  }
+
+  function roscaMeta(id, bloco) {
+    bloco = bloco || {};
+    const realizado = bloco.realizado || 0;
+    const falta = bloco.meta === null || bloco.meta === undefined
+      ? 0 : Math.max(bloco.meta - realizado, 0);
+    G.rosca(id, ["Realizado", "A realizar"], [realizado, falta]);
+  }
+
   /* ------------------------------------------------------------------ HOME */
   App.registrar("home", async function () {
-    App.carregando("#home-cards");
     try {
-      const dados = await App.buscar("home");
-      periodoTexto(dados, "#home-periodo");
-
-      const c = dados.consolidado;
-      document.getElementById("home-consolidado").innerHTML = App.blocoMeta({
-        meta: c.meta, realizado: c.realizado, falta: c.falta, atingimento: c.atingimento,
-        status: c.status, projecao: c.projecao, diferenca_projetada: c.diferenca_projetada,
-        media_dia: c.realizado !== null && dados.periodo.dias_uteis_decorridos
-          ? c.realizado / dados.periodo.dias_uteis_decorridos : null,
-        necessario_por_dia: (c.meta !== null && c.realizado !== null && c.dias_uteis_restantes)
-          ? Math.max(c.meta - c.realizado, 0) / c.dias_uteis_restantes : null,
-        meta_acumulada: c.meta !== null && dados.periodo.dias_uteis_totais
-          ? c.meta * (dados.periodo.dias_uteis_decorridos / dados.periodo.dias_uteis_totais) : null,
-        mensagem_meta: c.mensagem_meta,
-        dias_uteis_decorridos: dados.periodo.dias_uteis_decorridos,
-      });
-
-      App.renderKpis("#home-cards", dados.cards);
-
-      document.getElementById("home-modulos").innerHTML = dados.modulos.map((m) => `
-        <div class="card card--${m.status}">
-          <div class="card__faixa"></div>
-          <div class="card__topo">
-            <div class="card__titulo">${App.escapar(m.rotulo)}</div>
-            <span class="selo selo--${m.status}">${m.atingimento === null ? "Sem meta"
-              : App.percentual(m.atingimento)}</span>
-          </div>
-          <div class="card__valor">${m.realizado === null ? "Sem dados" : App.numero(m.realizado)}</div>
-          <div class="card__explicacao">
-            Meta: ${m.meta === null ? (m.mensagem_meta || "não cadastrada") : App.numero(m.meta)} ·
-            Falta: ${m.falta === null ? "—" : App.numero(m.falta)} ·
-            Projeção: ${m.projecao === null ? "—" : App.numero(m.projecao)}
-          </div>
-        </div>`).join("");
-
-      const meses = {};
-      Object.values(dados.evolucao).forEach((lista) =>
-        (lista || []).forEach((r) => { meses[r.ano_mes] = r.rotulo; }));
-      const chaves = Object.keys(meses).sort();
-      const rotulos = chaves.map((k) => meses[k]);
-      const linha = (lista) => {
-        const mapa = {};
-        (lista || []).forEach((r) => { mapa[r.ano_mes] = r.total; });
-        return chaves.map((k) => (k in mapa ? mapa[k] : null));
-      };
-      G.linhas("graf-home-evolucao", rotulos, [
-        { nome: "Termos", valores: linha(dados.evolucao.termos) },
-        { nome: "Venda", valores: linha(dados.evolucao.vendas) },
-        { nome: "Implantação", valores: linha(dados.evolucao.implantacao) },
+      const [dados, vendas, implantacao] = await Promise.all([
+        App.buscar("home"), App.buscar("modulo/vendas"), App.buscar("modulo/implantacao"),
       ]);
-
-      const icones = { positivo: "▲", alerta: "▼", info: "•" };
-      document.getElementById("home-insights").innerHTML = dados.insights.length
-        ? dados.insights.slice(0, 8).map((i) => `
-            <div class="insight insight--${i.tipo}">
-              <span class="insight__icone">${icones[i.tipo] || "•"}</span>
-              <div>${App.escapar(i.texto)}</div>
-            </div>`).join("")
-        : `<div class="vazio">Sem insights: não há dados suficientes no período.</div>`;
-
-      document.getElementById("home-alertas").innerHTML = dados.alertas.length
-        ? dados.alertas.map((a) => `
-            <div class="alerta-item alerta-item--${a.categoria}">
-              <span>${a.icone}</span>
-              <div><div class="alerta-item__titulo">${App.escapar(a.titulo)}</div>
-                <div class="alerta-item__descricao">${App.escapar(a.descricao)}</div></div>
-            </div>`).join("")
-        : `<div class="vazio">Nenhum alerta no período.</div>`;
-
-      App.tabela("#home-top-cidades", [
-        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
-        { chave: "total", titulo: "Implantação", tipo: "numero" },
-      ], dados.top_cidades);
-
-      App.tabela("#home-top-equipes", [
-        { chave: "equipe", titulo: "Equipe", clique: "equipe" },
-        { chave: "total", titulo: "Produção", tipo: "numero" },
-      ], dados.top_equipes);
+      const vi = (chave, casas) => App.numero(porChave(vendas.indicadores, chave).valor, casas);
+      const ii = (chave, casas) => App.numero(porChave(implantacao.indicadores, chave).valor, casas);
+      document.getElementById("simples-meta-implantacao").textContent =
+        App.numero(implantacao.bloco_principal.meta);
+      document.getElementById("simples-dias-restantes").textContent =
+        App.numero(dados.periodo.dias_uteis_restantes);
+      const implVcg = porChave(implantacao.indicadores, "impl_vcg").valor;
+      const dias = dados.periodo.dias_uteis_decorridos || 0;
+      faixaIndicadores("#simples-implantacao-kpis", [
+        { rotulo: "Implantação Geral", valor: ii("total_implantacao") },
+        { rotulo: "Implantação Serviços", valor: ii("impl_servicos") },
+        { rotulo: "Implantação Serviços / Dia", valor: ii("media_dia", 1) },
+        { rotulo: "Implantação Mês - VCG", valor: ii("impl_vcg") },
+        { rotulo: "Implantação VCG / Dia", valor: implVcg === null || !dias ? "—" : App.numero(implVcg / dias, 1) },
+      ]);
+      faixaIndicadores("#simples-vendas-kpis", [
+        { rotulo: "Total Venda", valor: vi("total_venda") },
+        { rotulo: "Venda Comercial", valor: vi("venda_comercial") },
+        { rotulo: "Venda VCG", valor: vi("venda_vcg") },
+        { rotulo: "Vendas Outros Canais", valor: vi("venda_outros") },
+        { rotulo: "Média Venda - Dia", valor: vi("venda_dia", 1) },
+      ]);
+      const bloco = (lista, rotulo) => (lista || []).find((b) => b.rotulo === rotulo);
+      roscaMeta("graf-simples-impl-servicos", bloco(implantacao.blocos_meta, "Serviços"));
+      roscaMeta("graf-simples-impl-vcg", bloco(implantacao.blocos_meta, "VCG"));
+      roscaMeta("graf-simples-venda-comercial", bloco(vendas.blocos_meta, "Comercial"));
+      roscaMeta("graf-simples-impl-total", implantacao.bloco_principal);
+      const cidadeVenda = ranking(vendas.top_cidades, "cidade");
+      G.barras("graf-simples-venda-cidade", cidadeVenda.rotulos, cidadeVenda.valores,
+        { mostrarValores: true });
+      const equipeVenda = ranking(vendas.top_equipes, "equipe");
+      G.barras("graf-simples-venda-equipe", equipeVenda.rotulos, equipeVenda.valores,
+        { mostrarValores: true });
+      const cidadeImpl = ranking(implantacao.por_cidade.slice(0, 10), "cidade");
+      G.barras("graf-simples-impl-cidade", cidadeImpl.rotulos, cidadeImpl.valores,
+        { mostrarValores: true });
     } catch (e) {
-      erro("#home-cards", e.message);
+      erro("#simples-implantacao-kpis", e.message);
     }
   });
 
   /* ---------------------------------------------------------------- TERMOS */
   App.registrar("termos", async function () {
-    App.carregando("#termos-cards");
     try {
       const dados = await App.buscar("modulo/termos");
-      periodoTexto(dados, "#termos-periodo");
-      document.getElementById("termos-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
-      App.renderKpis("#termos-cards", dados.indicadores);
-      matrizMeta("#termos-matriz", dados.blocos_meta);
-
-      const mensal = serieMensal(dados.evolucao_mensal);
-      G.realizadoMeta("graf-termos-mensal", mensal.rotulos, mensal.valores, null);
-
+      document.getElementById("termos-dias").textContent = App.numero(dados.periodo.dias_uteis_restantes);
+      document.getElementById("termos-total").textContent = App.numero(dados.bloco_principal.realizado);
+      document.getElementById("termos-atingimento").textContent = App.percentual(dados.bloco_principal.atingimento);
+      faixaIndicadores("#termos-resumo", (dados.blocos_meta || []).map((b) => ({
+        rotulo: b.rotulo, valor: `${App.numero(b.realizado)} de ${App.numero(b.meta)}`,
+      })));
       const diario = serieDiaria(dados.evolucao_diaria);
-      const metaAcum = dados.bloco_principal.meta
-        ? diario.datas.map((_, i) => dados.bloco_principal.meta *
-            ((i + 1) / Math.max(diario.datas.length, 1)))
-        : null;
-      G.diarioAcumulado("graf-termos-diario", diario.datas, diario.diario, diario.acumulado, metaAcum);
-
+      G.barras("graf-termos-diario", diario.datas, diario.diario, { mostrarValores: true });
+      roscaMeta("graf-termos-servicos", (dados.blocos_meta || []).find((b) => b.rotulo === "Serviços"));
+      roscaMeta("graf-termos-vcg", (dados.blocos_meta || []).find((b) => b.rotulo === "VCG"));
+      const frente = ranking(dados.por_frente, "frente");
+      G.barras("graf-termos-frente", frente.rotulos, frente.valores, { mostrarValores: true });
       const cidade = ranking(dados.por_cidade, "cidade");
       G.barrasHorizontais("graf-termos-cidade", cidade.rotulos, cidade.valores);
-
-      const setor = ranking(dados.por_setor, "setor");
-      G.barrasHorizontais("graf-termos-setor", setor.rotulos, setor.valores);
-
-      const status = ranking(dados.por_status, "status_termo");
-      G.rosca("graf-termos-status", status.rotulos, status.valores);
-
-      App.tabela("#termos-tabela-cidade", [
-        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
-        { chave: "total", titulo: "Termos", tipo: "numero" },
-        { chave: "participacao", titulo: "Participação", tipo: "percentual" },
-      ], dados.por_cidade);
     } catch (e) {
-      erro("#termos-cards", e.message);
+      erro("#termos-resumo", e.message);
     }
   });
 
@@ -308,13 +274,12 @@
 
   /* ----------------------------------------------------------- PROGRAMAÇÃO */
   App.registrar("programacao", async function () {
-    App.carregando("#programacao-cards");
     try {
       const dados = await App.buscar("modulo/programacao");
-      const alvoData = document.getElementById("programacao-data");
-      if (alvoData) alvoData.textContent = dados.data_referencia_br || dados.periodo.rotulo;
-
-      App.renderKpis("#programacao-cards", dados.indicadores);
+      document.getElementById("programacao-os").textContent =
+        App.numero(porChave(dados.indicadores, "os_programadas_dia").valor);
+      document.getElementById("programacao-equipes").textContent =
+        App.numero(porChave(dados.indicadores, "equipes_programadas").valor);
 
       const seletor = document.getElementById("programacao-seletor-data");
       if (seletor && !seletor.dataset.pronto) {
@@ -333,35 +298,25 @@
         });
       }
 
-      App.tabela("#programacao-agenda", [
-        { chave: "data", titulo: "Data" },
+      const agenda = dados.agenda || [];
+      const comTotal = (registros) => registros.concat([{
+        regiao: "Total", equipe: "", projeto: "",
+        qtd_os: registros.reduce((soma, item) => soma + (Number(item.qtd_os) || 0), 0),
+      }]);
+      const recadastro = agenda.filter((item) => /REC/i.test(item.equipe || ""));
+      const vendas = agenda.filter((item) => !/REC/i.test(item.equipe || ""));
+      const colunas = [
         { chave: "regiao", titulo: "Região", clique: "regiao" },
         { chave: "equipe", titulo: "Equipe", clique: "equipe" },
+        { chave: "qtd_os", titulo: "Qtd Programada", tipo: "numero" },
         { chave: "projeto", titulo: "Projeto", clique: "projeto" },
-        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
-        { chave: "qtd_os", titulo: "O.S.", tipo: "numero" },
-      ], dados.agenda, { vazio: "Sem programação para a data selecionada." });
-
-      const desequilibrios = dados.desequilibrios || [];
-      document.getElementById("programacao-desequilibrios").innerHTML = desequilibrios.length
-        ? desequilibrios.map((d) => `
-            <div class="insight insight--${d.tipo === "sobrecarregada" ? "alerta" : "info"}">
-              <span class="insight__icone">${d.tipo === "sobrecarregada" ? "▲" : "▼"}</span>
-              <div>${App.escapar(d.texto)}</div>
-            </div>`).join("")
-        : `<div class="vazio">Carga equilibrada entre as equipes programadas.</div>`;
-
-      const equipe = ranking(dados.por_equipe, "equipe");
-      G.barrasHorizontais("graf-programacao-equipe", equipe.rotulos, equipe.valores);
-      const regiao = ranking(dados.por_regiao, "regiao");
-      G.barras("graf-programacao-regiao", regiao.rotulos, regiao.valores, { mostrarValores: true });
-      const projeto = ranking(dados.por_projeto, "projeto");
-      G.barrasHorizontais("graf-programacao-projeto", projeto.rotulos, projeto.valores);
-
-      const dia = serieDiaria(dados.por_dia);
-      G.barras("graf-programacao-dia", dia.datas, dia.diario, { nome: "O.S." });
+      ];
+      App.tabela("#programacao-recadastro", colunas, comTotal(recadastro),
+        { vazio: "Sem equipes de recadastro para a data." });
+      App.tabela("#programacao-vendas", colunas, comTotal(vendas),
+        { vazio: "Sem equipes de vendas para a data." });
     } catch (e) {
-      erro("#programacao-cards", e.message);
+      erro("#programacao-recadastro", e.message);
     }
   });
 
