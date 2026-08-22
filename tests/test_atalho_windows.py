@@ -38,3 +38,8 @@ def test_sincronizador_aceita_atendimento_e_url_configuravel():
 
     assert '"atendimento")' in sincronizador
     assert "URL\\s*=\\s*(.*)" in sincronizador
+
+
+def test_scripts_powershell_sao_ascii_para_windows_51():
+    for caminho in SCRIPTS.glob("*.ps1"):
+        caminho.read_text(encoding="utf-8").encode("ascii")

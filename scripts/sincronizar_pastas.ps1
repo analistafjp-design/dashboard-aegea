@@ -10,7 +10,7 @@
     "~$") e arquivos abertos/travados no momento.
 
     ENVIO INCREMENTAL (padrao): so envia arquivos novos ou modificados
-    desde a ultima sincronizacao bem-sucedida — controlado por um
+    desde a ultima sincronizacao bem-sucedida - controlado por um
     "manifesto" local (logs\manifesto_sincronizacao.json), que guarda
     tamanho e data de modificacao de cada arquivo ja enviado. Pastas com
     centenas de planilhas historicas (uma por dia, por exemplo) nao
@@ -19,7 +19,7 @@
     ENVIO COMPLETO (-Completo): ignora o manifesto e reenvia tudo. Como o
     dashboard identifica cada registro por uma chave unica, reenviar um
     arquivo que nao mudou apenas atualiza os mesmos registros (nunca
-    duplica) — use isso na primeira execucao, ou de vez em quando, para
+    duplica) - use isso na primeira execucao, ou de vez em quando, para
     repor dados caso a instancia gratuita do Render tenha "dormido" e
     perdido o banco (ver docs/sincronizacao_pastas.md).
 
@@ -82,7 +82,7 @@ function Escrever-Log {
 }
 
 # ------------------------------------------------------------- manifesto
-# Compatível com PowerShell 5.1 (sem -AsHashtable, que só existe no PS 6+).
+# Compativel com PowerShell 5.1 (sem -AsHashtable, que so existe no PS 6+).
 function Carregar-Manifesto {
     $tabela = @{}
     if (Test-Path $ArquivoManifesto) {
@@ -98,7 +98,7 @@ function Carregar-Manifesto {
                 }
             }
         } catch {
-            Escrever-Log "Manifesto de sincronizacao corrompido ou ilegivel — sera recriado do zero." "AVISO"
+            Escrever-Log "Manifesto de sincronizacao corrompido ou ilegivel - sera recriado do zero." "AVISO"
         }
     }
     return $tabela
@@ -117,7 +117,7 @@ function Salvar-Manifesto {
 # problema.
 # A chave inclui a base de destino: a MESMA planilha pode alimentar mais de
 # uma base (a pasta Interior alimenta Venda, Implantacao e Termos), e cada
-# destino precisa ser controlado em separado — senao, enviar para Venda
+# destino precisa ser controlado em separado - senao, enviar para Venda
 # marcaria o arquivo como "ja enviado" e Implantacao/Termos nunca o
 # receberiam.
 function Chave-Manifesto {
@@ -179,7 +179,7 @@ foreach ($linha in (Get-Content $PastasArquivo -Encoding UTF8)) {
     $texto = $linha.Trim()
     if (-not $texto -or $texto.StartsWith("#")) { continue }
 
-    # Aceita "CAMINHO = tipo" e tambem "CAMINHO = tipo1, tipo2, tipo3" — a
+    # Aceita "CAMINHO = tipo" e tambem "CAMINHO = tipo1, tipo2, tipo3" - a
     # mesma pasta pode alimentar varias bases (a pasta Interior tem os
     # mesmos arquivos usados por Venda, Implantacao e Termos).
     $tipos = @("")
@@ -290,7 +290,7 @@ if ($Completo) {
         Where-Object { Arquivo-Mudou -Info $_.Info -Tipo $_.Tipo -Manifesto $Manifesto }
     $puladosPorManifesto = $ArquivosProntos.Count - $ArquivosParaEnviar.Count
     if ($puladosPorManifesto -gt 0) {
-        Escrever-Log "$puladosPorManifesto arquivo(s) sem alteracao desde o ultimo envio — nao serao reenviados."
+        Escrever-Log "$puladosPorManifesto arquivo(s) sem alteracao desde o ultimo envio - nao serao reenviados."
     }
 }
 
@@ -429,7 +429,7 @@ foreach ($lote in $Lotes) {
         # Casa cada resultado do servidor (nome vem com prefixo de data/hora,
         # ex.: "20260822_003000_venda.xlsx") com o arquivo local pelo final
         # do nome. Em caso de nome ambiguo (dois arquivos iguais no mesmo
-        # lote), o arquivo NAO e marcado como enviado — sera reenviado na
+        # lote), o arquivo NAO e marcado como enviado - sera reenviado na
         # proxima execucao, o que e seguro (nunca duplica).
         foreach ($par in $lote) {
             $f = $par.Info
@@ -454,7 +454,7 @@ foreach ($lote in $Lotes) {
             }
         }
 
-        # Salva o manifesto apos cada lote — se um lote mais adiante falhar,
+        # Salva o manifesto apos cada lote - se um lote mais adiante falhar,
         # o progresso dos lotes anteriores nao se perde.
         Salvar-Manifesto $Manifesto
     } finally {
