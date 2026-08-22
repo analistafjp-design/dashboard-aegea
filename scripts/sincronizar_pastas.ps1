@@ -39,14 +39,15 @@
 .EXEMPLO
     .\sincronizar_pastas.ps1
     .\sincronizar_pastas.ps1 -Completo
-    .\sincronizar_pastas.ps1 -Url "https://dashboard-executivo.onrender.com" -TimeoutSegundos 600
+    .\sincronizar_pastas.ps1 -Url "https://dashboard-executivo.onrender.com" -TimeoutProcessamentoSegundos 7200
 #>
 
 param(
     [string]$Url = "",
     [string]$PastasArquivo = "",
     [string]$CredenciaisArquivo = "",
-    [int]$TimeoutSegundos = 180,
+    [int]$TimeoutSegundos = 300,
+    [int]$TimeoutProcessamentoSegundos = 3600,
     [int]$ArquivosPorLote = 20,
     [double]$MegabytesPorLote = 40,
     [switch]$Completo
@@ -280,49 +281,7 @@ if ($ArquivosProntos.Count -eq 0) {
     exit 0
 }
 
-# ---------------------------------------------------- filtrar por manifesto
 $Manifesto = Carregar-Manifesto
-if ($Completo) {
-    $ArquivosParaEnviar = $ArquivosProntos
-    Escrever-Log "Modo -Completo: reenviando todos os $($ArquivosProntos.Count) arquivo(s), ignorando o manifesto."
-} else {
-    $ArquivosParaEnviar = $ArquivosProntos |
-        Where-Object { Arquivo-Mudou -Info $_.Info -Tipo $_.Tipo -Manifesto $Manifesto }
-    $puladosPorManifesto = $ArquivosProntos.Count - $ArquivosParaEnviar.Count
-    if ($puladosPorManifesto -gt 0) {
-        Escrever-Log "$puladosPorManifesto arquivo(s) sem alteracao desde o ultimo envio - nao serao reenviados."
-    }
-}
-
-if (-not $ArquivosParaEnviar -or $ArquivosParaEnviar.Count -eq 0) {
-    Escrever-Log "Nada novo para enviar. Sincronizacao concluida (nenhuma alteracao)."
-    exit 0
-}
-
-# ------------------------------------------------------------- montar lotes
-# Os lotes sao montados POR BASE de destino: assim um lote nunca tem o
-# mesmo nome de arquivo duas vezes (o que tornaria ambiguo o casamento
-# entre o resultado devolvido pelo servidor e o arquivo local).
-$Lotes = New-Object System.Collections.Generic.List[System.Object]
-
-foreach ($grupo in ($ArquivosParaEnviar | Group-Object -Property Tipo)) {
-    $loteAtual = New-Object System.Collections.Generic.List[object]
-    $tamanhoLoteAtual = 0L
-    foreach ($par in $grupo.Group) {
-        $estouraQuantidade = $loteAtual.Count -ge $ArquivosPorLote
-        $estouraTamanho = ($tamanhoLoteAtual + $par.Info.Length) -gt $LimiteBytesPorLote -and $loteAtual.Count -gt 0
-        if ($estouraQuantidade -or $estouraTamanho) {
-            $Lotes.Add($loteAtual)
-            $loteAtual = New-Object System.Collections.Generic.List[object]
-            $tamanhoLoteAtual = 0L
-        }
-        $loteAtual.Add($par)
-        $tamanhoLoteAtual += $par.Info.Length
-    }
-    if ($loteAtual.Count -gt 0) { $Lotes.Add($loteAtual) }
-}
-
-Escrever-Log "Enviando $($ArquivosParaEnviar.Count) arquivo(s) novo(s)/alterado(s) em $($Lotes.Count) lote(s)."
 
 # --------------------------------------------------------- cliente HTTP
 Add-Type -AssemblyName System.Net.Http
@@ -337,19 +296,95 @@ if ($Usuario -and $Senha) {
         New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Basic", $credencial)
 }
 
-# Acorda a instancia antes do primeiro lote (plano gratuito do Render
-# "dorme" apos ~15 min sem acesso; o primeiro request depois disso pode
-# levar ate 50s ou mais).
+# Acorda e consulta a instancia ANTES de aplicar o manifesto. Se o banco do
+# servidor estiver vazio (por exemplo, depois de um redeploy do Render), o
+# manifesto local nao pode fazer o script pular arquivos que o dashboard ja
+# nao possui. Nesse caso, a recuperacao completa ocorre automaticamente.
 try {
     Escrever-Log "Verificando o servidor ($Url)..."
     $resposta = $cliente.GetAsync("$Url/api/status").Result
     if (-not $resposta.IsSuccessStatusCode) {
         Escrever-Log "Servidor respondeu com status $($resposta.StatusCode). Tentando enviar mesmo assim." "AVISO"
+    } else {
+        try {
+            $estadoServidor = $resposta.Content.ReadAsStringAsync().Result | ConvertFrom-Json
+            $informaSeTemDados = $estadoServidor.PSObject.Properties.Name -contains "tem_dados"
+            if ($informaSeTemDados -and -not [bool]$estadoServidor.tem_dados -and
+                $Manifesto.Count -gt 0 -and -not $Completo) {
+                $Completo = $true
+                Escrever-Log "O servidor esta sem dados, mas existe historico local. Recuperacao completa ativada automaticamente." "AVISO"
+            }
+        } catch {
+            Escrever-Log "Nao foi possivel interpretar o status do servidor. O envio incremental continuara normalmente." "AVISO"
+        }
     }
 } catch {
+    $cliente.Dispose()
     Escrever-Log "Nao foi possivel contatar $Url. Verifique a URL e a internet. Detalhe: $($_.Exception.Message)" "ERRO"
     exit 1
 }
+
+# ---------------------------------------------------- filtrar por manifesto
+if ($Completo) {
+    $ArquivosParaEnviar = $ArquivosProntos
+    Escrever-Log "Modo -Completo: reenviando todos os $($ArquivosProntos.Count) arquivo(s), ignorando o manifesto."
+} else {
+    $ArquivosParaEnviar = $ArquivosProntos |
+        Where-Object { Arquivo-Mudou -Info $_.Info -Tipo $_.Tipo -Manifesto $Manifesto }
+    $puladosPorManifesto = $ArquivosProntos.Count - $ArquivosParaEnviar.Count
+    if ($puladosPorManifesto -gt 0) {
+        Escrever-Log "$puladosPorManifesto arquivo(s) sem alteracao desde o ultimo envio - nao serao reenviados."
+    }
+}
+
+if (-not $ArquivosParaEnviar -or $ArquivosParaEnviar.Count -eq 0) {
+    Escrever-Log "Nada novo para enviar. Sincronizacao concluida (nenhuma alteracao)."
+    $cliente.Dispose()
+    exit 0
+}
+
+# ------------------------------------------------------------- montar lotes
+# Os lotes sao montados POR BASE de destino: assim um lote nunca tem o
+# mesmo nome de arquivo duas vezes (o que tornaria ambiguo o casamento
+# entre o resultado devolvido pelo servidor e o arquivo local).
+$Lotes = New-Object System.Collections.Generic.List[System.Object]
+
+# Primeiro carrega as bases menores, que alimentam imediatamente as telas.
+# Atendimento fica por ultimo porque sua planilha real e muito maior e pode
+# levar varios minutos. Dentro de cada base, os arquivos mais recentes vao
+# primeiro para o dashboard mostrar o periodo atual o quanto antes.
+$PrioridadeBase = @{
+    "programacao" = 10
+    "faturamento" = 20
+    "vendas" = 30
+    "implantacao" = 40
+    "termos" = 50
+    "metas" = 60
+    "" = 70
+    "atendimento" = 90
+}
+$GruposOrdenados = $ArquivosParaEnviar | Group-Object -Property Tipo | Sort-Object {
+    if ($PrioridadeBase.ContainsKey($_.Name)) { $PrioridadeBase[$_.Name] } else { 80 }
+}
+
+foreach ($grupo in $GruposOrdenados) {
+    $loteAtual = New-Object System.Collections.Generic.List[object]
+    $tamanhoLoteAtual = 0L
+    foreach ($par in ($grupo.Group | Sort-Object { $_.Info.LastWriteTimeUtc } -Descending)) {
+        $estouraQuantidade = $loteAtual.Count -ge $ArquivosPorLote
+        $estouraTamanho = ($tamanhoLoteAtual + $par.Info.Length) -gt $LimiteBytesPorLote -and $loteAtual.Count -gt 0
+        if ($estouraQuantidade -or $estouraTamanho) {
+            $Lotes.Add($loteAtual)
+            $loteAtual = New-Object System.Collections.Generic.List[object]
+            $tamanhoLoteAtual = 0L
+        }
+        $loteAtual.Add($par)
+        $tamanhoLoteAtual += $par.Info.Length
+    }
+    if ($loteAtual.Count -gt 0) { $Lotes.Add($loteAtual) }
+}
+
+Escrever-Log "Enviando $($ArquivosParaEnviar.Count) arquivo(s) novo(s)/alterado(s) em $($Lotes.Count) lote(s)."
 
 $totalErros = 0
 $totalOk = 0
@@ -404,8 +439,8 @@ foreach ($lote in $Lotes) {
             while ($true) {
                 Start-Sleep -Seconds 3
                 $espera += 3
-                if ($espera -gt $TimeoutSegundos) {
-                    Escrever-Log "Lote ${numeroLote}: o servidor ainda processava apos $TimeoutSegundos s. Sera conferido na proxima execucao." "AVISO"
+                if ($espera -gt $TimeoutProcessamentoSegundos) {
+                    Escrever-Log "Lote ${numeroLote}: o servidor ainda processava apos $TimeoutProcessamentoSegundos s. Sera conferido na proxima execucao." "AVISO"
                     $totalErros += $lote.Count
                     $dados = $null
                     break
@@ -419,7 +454,9 @@ foreach ($lote in $Lotes) {
                     continue
                 }
                 if ($estado.concluido) { $dados = $estado; break }
-                Escrever-Log "  ... processando $($estado.concluidos)/$($estado.total) $($estado.arquivo_atual)"
+                if (($espera % 15) -eq 0) {
+                    Escrever-Log "  ... processando $($estado.concluidos)/$($estado.total) $($estado.arquivo_atual) (aguardando ha $espera s)"
+                }
             }
             if ($null -eq $dados) { continue }
         }
