@@ -8,9 +8,7 @@
     "Atualizar Dashboard AEGEA". Nao cria tarefas agendadas.
 #>
 
-param(
-    [string]$RaizOneDrive = "C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior"
-)
+param([string]$RaizOneDrive = "")
 
 $ErrorActionPreference = "Stop"
 $PastaScript = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -20,6 +18,16 @@ $Botao = Join-Path $PastaScript "ATUALIZAR_DASHBOARD.cmd"
 
 Write-Host "Configuracao do botao Atualizar Dashboard AEGEA" -ForegroundColor Cyan
 Write-Host ""
+
+# Descobre a pasta pelo perfil do Windows. Isso evita depender do nome do
+# usuario e tambem contorna a leitura incorreta de acentos no Windows
+# PowerShell 5.1 quando um arquivo UTF-8 sem BOM vem do GitHub.
+if (-not $RaizOneDrive) {
+    $RaizOneDrive = Get-ChildItem -Path $env:USERPROFILE -Directory -Filter "OneDrive*" -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName "DashBoard - Interior" } |
+        Where-Object { Test-Path $_ -PathType Container } |
+        Select-Object -First 1
+}
 
 if (-not (Test-Path $RaizOneDrive -PathType Container)) {
     Write-Host "A pasta padrao nao foi encontrada:" -ForegroundColor Yellow
@@ -33,11 +41,21 @@ if (-not (Test-Path $RaizOneDrive -PathType Container)) {
     exit 1
 }
 
+$PastaProgramacao = Get-ChildItem -Path $RaizOneDrive -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like "Programa*Di*ria" } |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $PastaProgramacao) {
+    # Monta "Programacao" com cedilha e til sem caracteres nao ASCII no
+    # codigo-fonte, mantendo compatibilidade com o PowerShell antigo.
+    $NomeProgramacao = "Programa{0}{1}o Diaria" -f [char]0x00E7, [char]0x00E3
+    $PastaProgramacao = Join-Path $RaizOneDrive $NomeProgramacao
+}
+
 $Mapeamentos = @(
     "$(Join-Path $RaizOneDrive 'Atendimento') = atendimento",
     "$(Join-Path $RaizOneDrive 'Faturamento') = faturamento",
     "$(Join-Path $RaizOneDrive 'Interior') = vendas, implantacao, termos",
-    "$(Join-Path $RaizOneDrive 'Programação Diaria') = programacao"
+    "$PastaProgramacao = programacao"
 )
 
 $PastasAusentes = @($Mapeamentos | ForEach-Object {

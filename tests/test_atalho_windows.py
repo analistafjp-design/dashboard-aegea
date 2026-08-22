@@ -26,7 +26,9 @@ def test_configurador_mapeia_as_quatro_pastas_do_onedrive():
     assert "Atendimento') = atendimento" in configurador
     assert "Faturamento') = faturamento" in configurador
     assert "Interior') = vendas, implantacao, termos" in configurador
-    assert "Programação Diaria') = programacao" in configurador
+    assert 'Filter "OneDrive*"' in configurador
+    assert 'Name -like "Programa*Di*ria"' in configurador
+    assert '"$PastaProgramacao = programacao"' in configurador
     assert "CreateShortcut" in configurador
     assert "Register-ScheduledTask" not in configurador
 
