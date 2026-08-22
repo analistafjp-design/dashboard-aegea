@@ -52,10 +52,10 @@ if (-not $PastaProgramacao) {
 }
 
 $Mapeamentos = @(
-    "$(Join-Path $RaizOneDrive 'Atendimento') = atendimento",
+    "$PastaProgramacao = programacao",
     "$(Join-Path $RaizOneDrive 'Faturamento') = faturamento",
     "$(Join-Path $RaizOneDrive 'Interior') = vendas, implantacao, termos",
-    "$PastaProgramacao = programacao"
+    "$(Join-Path $RaizOneDrive 'Atendimento') = atendimento"
 )
 
 $PastasAusentes = @($Mapeamentos | ForEach-Object {
