@@ -1,11 +1,24 @@
-# Uma pasta ou um arquivo por linha. Linhas com # no início são ignoradas.
-# Pastas são lidas com subpastas incluídas. Copie este arquivo para
-# "pastas-monitoradas.txt" (sem ".exemplo") e edite os caminhos abaixo com
-# os locais reais das suas planilhas.
+# Pastas que o dashboard vai monitorar — uma por linha.
 #
-# Dica: para pegar o caminho certo, abra a pasta no Explorer, clique na
-# barra de endereço (fica azul e selecionada) e copie o texto — cole aqui.
+# COMO PEGAR O CAMINHO: abra a pasta no Explorer do Windows, clique uma vez
+# na barra de endereço no topo (o texto fica azul), Ctrl+C, e cole aqui.
+#
+# OPCIONAL — fixar a base de cada pasta com "= tipo" no fim da linha, do
+# mesmo jeito que as abas fazem na tela de Atualização de Dados:
+#
+#     C:\Caminho\Da\Pasta = vendas
+#
+# Tipos aceitos: termos, faturamento, vendas, implantacao, programacao, metas
+# Sem "= tipo", o sistema identifica a base pelas colunas do arquivo.
+#
+# Subpastas são incluídas automaticamente.
+# Linhas começando com # são ignoradas.
 
-C:\Users\SeuUsuario\Documents\Acompanhamento Venda e Implantação
-C:\Users\SeuUsuario\Documents\Acompanhamento de Termos Aplicados - Versão
-C:\Users\SeuUsuario\Documents\Programação Interior
+# --- Exemplo baseado numa estrutura de pastas típica -------------------
+# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Interior = vendas
+# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Termos = termos
+# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Faturamento = faturamento
+# C:\Users\SeuUsuario\OneDrive\Acompanhamento\Atendimento = implantacao
+# C:\Users\SeuUsuario\OneDrive\Programação Interior = programacao
+
+# Escreva as suas abaixo:

@@ -151,19 +151,57 @@ if (-not (Test-Path $PastasArquivo)) {
     exit 1
 }
 
-$CaminhosMonitorados = Get-Content $PastasArquivo -Encoding UTF8 |
-    ForEach-Object { $_.Trim() } |
-    Where-Object { $_ -and -not $_.StartsWith("#") }
+# Cada linha pode ser so o caminho, ou "CAMINHO = tipo" para fixar a base
+# daquela pasta (mesma ideia das abas na tela de Atualizacao de Dados).
+# Tipos aceitos: termos, faturamento, vendas, implantacao, programacao, metas.
+# Sem "= tipo", o sistema identifica a base pelas colunas do arquivo.
+$TiposValidos = @("termos", "faturamento", "vendas", "implantacao", "programacao", "metas")
+$CaminhosMonitorados = New-Object System.Collections.Generic.List[object]
 
-if (-not $CaminhosMonitorados) {
+foreach ($linha in (Get-Content $PastasArquivo -Encoding UTF8)) {
+    $texto = $linha.Trim()
+    if (-not $texto -or $texto.StartsWith("#")) { continue }
+
+    $tipo = ""
+    $caminho = $texto
+    $separador = $texto.LastIndexOf("=")
+    if ($separador -gt 0) {
+        $possivel = $texto.Substring($separador + 1).Trim().ToLower()
+        if ($TiposValidos -contains $possivel) {
+            $tipo = $possivel
+            $caminho = $texto.Substring(0, $separador).Trim()
+        } else {
+            Escrever-Log "Tipo '$possivel' desconhecido em '$texto'. Use um de: $($TiposValidos -join ', '). A base sera identificada automaticamente." "AVISO"
+        }
+    }
+    $CaminhosMonitorados.Add([pscustomobject]@{ Caminho = $caminho; Tipo = $tipo })
+}
+
+if ($CaminhosMonitorados.Count -eq 0) {
     Escrever-Log "Nenhuma pasta configurada em $PastasArquivo. Nada a fazer." "AVISO"
     exit 0
 }
 
 # ------------------------------------------------------- coletar arquivos
-$Arquivos = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+$Arquivos = New-Object System.Collections.Generic.List[object]
+$TipoPorArquivo = @{}
+$SomenteNuvem = 0
 
-foreach ($caminho in $CaminhosMonitorados) {
+function Registrar-Arquivo {
+    param($Info, [string]$Tipo)
+    # OneDrive/Drive com "Arquivos Sob Demanda": o arquivo aparece na pasta
+    # mas o conteudo ainda esta na nuvem. Ler dispara o download automatico,
+    # entao da certo - so pode demorar na primeira vez.
+    $atributos = $Info.Attributes.ToString()
+    if ($atributos -match "Offline" -or $atributos -match "RecallOn") {
+        $script:SomenteNuvem++
+    }
+    $script:Arquivos.Add($Info)
+    $script:TipoPorArquivo[$Info.FullName] = $Tipo
+}
+
+foreach ($entrada in $CaminhosMonitorados) {
+    $caminho = $entrada.Caminho
     if (-not (Test-Path $caminho)) {
         Escrever-Log "Caminho nao encontrado (verifique pastas-monitoradas.txt): $caminho" "AVISO"
         continue
@@ -175,10 +213,14 @@ foreach ($caminho in $CaminhosMonitorados) {
                 $ExtensoesAceitas -contains $_.Extension.ToLower() -and
                 -not $_.Name.StartsWith("~$")
             }
-        foreach ($f in $encontrados) { $Arquivos.Add($f) }
+        foreach ($f in $encontrados) { Registrar-Arquivo -Info $f -Tipo $entrada.Tipo }
     } elseif ($ExtensoesAceitas -contains $item.Extension.ToLower() -and -not $item.Name.StartsWith("~$")) {
-        $Arquivos.Add($item)
+        Registrar-Arquivo -Info $item -Tipo $entrada.Tipo
     }
+}
+
+if ($SomenteNuvem -gt 0) {
+    Escrever-Log "$SomenteNuvem arquivo(s) estao apenas na nuvem (OneDrive/Drive Sob Demanda). Serao baixados automaticamente ao ler - a primeira sincronizacao pode demorar mais." "AVISO"
 }
 
 if ($Arquivos.Count -eq 0) {
@@ -288,6 +330,14 @@ foreach ($lote in $Lotes) {
             $streamContent.Headers.ContentType =
                 New-Object System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream")
             $conteudoMultipart.Add($streamContent, "arquivos", $f.Name)
+
+            # O campo "tipo" vai na MESMA ordem dos arquivos: o servidor
+            # casa tipo[i] com arquivos[i]. String vazia = identificar
+            # automaticamente pelas colunas.
+            $tipoDoArquivo = $TipoPorArquivo[$f.FullName]
+            if ($null -eq $tipoDoArquivo) { $tipoDoArquivo = "" }
+            $conteudoMultipart.Add(
+                (New-Object System.Net.Http.StringContent($tipoDoArquivo)), "tipo")
         }
 
         Escrever-Log "Lote $numeroLote/$($Lotes.Count): enviando $($lote.Count) arquivo(s) para $Url/api/upload ..."
@@ -306,6 +356,35 @@ foreach ($lote in $Lotes) {
             Escrever-Log "Resposta do servidor nao veio em JSON (status $($respostaUpload.StatusCode)). Corpo: $($corpo.Substring(0, [Math]::Min(300, $corpo.Length)))" "ERRO"
             $totalErros += $lote.Count
             continue
+        }
+
+        # O envio agora so AGENDA o processamento (o servidor responde na
+        # hora com um trabalho_id e processa em segundo plano, para nao
+        # travar). Aqui acompanhamos ate terminar, senao marcariamos como
+        # enviado algo que ainda nem foi processado.
+        if ($dados.trabalho_id -and -not $dados.concluido) {
+            $espera = 0
+            while ($true) {
+                Start-Sleep -Seconds 3
+                $espera += 3
+                if ($espera -gt $TimeoutSegundos) {
+                    Escrever-Log "Lote ${numeroLote}: o servidor ainda processava apos $TimeoutSegundos s. Sera conferido na proxima execucao." "AVISO"
+                    $totalErros += $lote.Count
+                    $dados = $null
+                    break
+                }
+                try {
+                    $rProg = $cliente.GetAsync("$Url/api/upload/$($dados.trabalho_id)").Result
+                    $corpoProg = $rProg.Content.ReadAsStringAsync().Result
+                    $estado = $corpoProg | ConvertFrom-Json
+                } catch {
+                    Escrever-Log "Falha ao consultar o progresso do lote $numeroLote; tentando de novo." "AVISO"
+                    continue
+                }
+                if ($estado.concluido) { $dados = $estado; break }
+                Escrever-Log "  ... processando $($estado.concluidos)/$($estado.total) $($estado.arquivo_atual)"
+            }
+            if ($null -eq $dados) { continue }
         }
 
         Escrever-Log "Lote $numeroLote resposta: $($dados.mensagem)"

@@ -29,14 +29,30 @@ uma pasta no seu PC, por exemplo `C:\DashboardExecutivo\scripts`.
 
 Na pasta `scripts`, copie o arquivo **`pastas-monitoradas.exemplo.txt`** e
 renomeie a cópia para **`pastas-monitoradas.txt`**. Abra com o Bloco de
-Notas e coloque uma pasta por linha, com o caminho completo — por exemplo,
-baseado nas suas pastas atuais:
+Notas e coloque uma pasta por linha, com o caminho completo.
+
+**Funciona com OneDrive e Google Drive**: a pasta sincronizada deles é uma
+pasta normal no seu PC, então basta apontar para ela — não precisa de
+senha nem configuração extra. Arquivos que estejam "somente na nuvem"
+(Arquivos Sob Demanda) são baixados automaticamente na hora da leitura; a
+primeira sincronização pode demorar mais por causa disso, e o script avisa
+no log quando encontra esse caso.
+
+Você pode fixar a base de cada pasta acrescentando `= tipo` no fim da
+linha — é o mesmo efeito de escolher a aba na tela de Atualização de
+Dados, e evita depender da identificação automática:
 
 ```text
-C:\Users\SeuUsuario\Documents\Acompanhamento Venda e Implantação
-C:\Users\SeuUsuario\Documents\Acompanhamento de Termos Aplicados - Versão
-C:\Users\SeuUsuario\Documents\Programação Interior
+C:\Users\SeuUsuario\OneDrive\Acompanhamento\Interior = vendas
+C:\Users\SeuUsuario\OneDrive\Acompanhamento\Termos = termos
+C:\Users\SeuUsuario\OneDrive\Acompanhamento\Faturamento = faturamento
+C:\Users\SeuUsuario\OneDrive\Acompanhamento\Atendimento = implantacao
+C:\Users\SeuUsuario\OneDrive\Programação Interior = programacao
 ```
+
+Tipos aceitos: `termos`, `faturamento`, `vendas`, `implantacao`,
+`programacao`, `metas`. Sem o `= tipo`, o sistema identifica a base pelas
+colunas do arquivo.
 
 **Dica para pegar o caminho certo**: abra a pasta no Explorer do Windows,
 clique uma vez na barra de endereço no topo (o texto fica selecionado em
