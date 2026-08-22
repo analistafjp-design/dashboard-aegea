@@ -16,6 +16,20 @@ logger = get_logger("upload")
 
 TAMANHO_BLOCO = 1024 * 1024
 
+# Carimbo AAAAMMDD_HHMMSS_ que `salvar()` põe na frente do arquivo em disco
+# para dois envios do mesmo nome não se sobrescreverem.
+_CARIMBO = re.compile(r"^\d{8}_\d{6}_")
+
+
+def nome_exibicao(nome: str) -> str:
+    """Nome como o usuário conhece — sem o carimbo de data/hora interno.
+
+    O arquivo em disco precisa do carimbo para não colidir, mas mostrar
+    "20260822_102235_Atividades-INTERIOR_01_08_26.xlsx" na tela de
+    progresso e no histórico só confunde quem enviou.
+    """
+    return _CARIMBO.sub("", nome)
+
 
 def nome_seguro(nome: str) -> str:
     """Remove caminho, acentos e caracteres perigosos do nome do arquivo."""

@@ -13,11 +13,11 @@ from app.analytics.periodo import resolver
 from app.config import config
 from app.etl.datasets import DATASETS
 from app.etl.leitura import estimar_linhas_arquivo
-from app.etl.pipeline import ETAPAS, processar_lote
-from app.models.db import sessao
+from app.etl.pipeline import ETAPAS
 from app.schemas.filtros import filtros_da_query
 from app.services import configuracoes as servico_config
 from app.services import exportacao as servico_exportacao
+from app.services import processamento as servico_processamento
 from app.services import upload as servico_upload
 from app.utils.erros import ErroDashboard
 from app.utils.formato import data_hora_br, numero
@@ -139,10 +139,30 @@ def etapas() -> dict:
     return {"etapas": list(ETAPAS)}
 
 
+def _resultado_erro(arquivo: str, mensagem: str, detalhes: list[str] | None = None) -> dict:
+    """Resultado no mesmo formato de `ResultadoArquivo.to_dict()`, para a tela
+    conseguir exibir erro e sucesso pela mesma estrutura."""
+    return {
+        "arquivo": arquivo, "status": "ERRO", "mensagem": mensagem,
+        "detalhes": detalhes or [], "dataset": None, "titulo_dataset": None,
+        "lidos": 0, "inseridos": 0, "atualizados": 0, "descartados": 0,
+        "validacao": None, "confianca_deteccao": None, "campos_detectados": [],
+        "qualidade_dados": None,
+    }
+
+
 @router.post("/upload")
 async def upload(arquivos: list[UploadFile] = File(...),
                  tipo: list[str] | None = Form(None)) -> JSONResponse:
-    """Recebe os arquivos, processa e devolve o relatório de cada um."""
+    """Recebe os arquivos e AGENDA o processamento, devolvendo na hora.
+
+    O processamento em si é síncrono e pesado (pandas/openpyxl/SQLAlchemy):
+    fazê-lo aqui dentro travaria o event loop e, com ele, todas as outras
+    requisições — inclusive o health check do Render, que então reinicia a
+    instância no meio do upload. Por isso a rota só grava os arquivos em
+    disco (rápido, em streaming) e devolve um `trabalho_id`; a tela
+    acompanha o andamento em `GET /api/upload/{trabalho_id}`.
+    """
     if not arquivos:
         return JSONResponse(status_code=400,
                             content={"ok": False, "mensagem": "Nenhum arquivo enviado."})
@@ -159,72 +179,66 @@ async def upload(arquivos: list[UploadFile] = File(...),
             if escolhido and escolhido in DATASETS:
                 forcados[caminho.name] = escolhido
         except ErroDashboard as erro:
-            erros.append({"arquivo": arquivo.filename, "status": "ERRO",
-                          "mensagem": erro.mensagem, "detalhes": erro.detalhes})
+            erros.append(_resultado_erro(arquivo.filename or "arquivo",
+                                         erro.mensagem, erro.detalhes))
 
-    resultados: list[dict] = []
-    if salvos:
-        # Cada arquivo sozinho já é validado dentro de `processar_arquivo`
-        # (ver app/etl/leitura.py), mas um LOTE de vários arquivos pequenos
-        # processados na mesma requisição soma memória do mesmo jeito — por
-        # isso o total do lote também é checado ANTES de processar
-        # qualquer um, mesmo que nenhum arquivo isolado ultrapasse o limite.
-        total_estimado = sum(estimar_linhas_arquivo(c) for c in salvos)
-        if total_estimado > config.LIMITE_LINHAS_ARQUIVO:
-            for caminho in salvos:
-                caminho.unlink(missing_ok=True)
-            mensagem = (
-                f"Os {len(salvos)} arquivos somam aproximadamente {numero(total_estimado)} "
-                f"linhas juntos — acima do limite de {numero(config.LIMITE_LINHAS_ARQUIVO)} "
-                "linhas que esta instância suporta processar de uma vez, mesmo com cada "
-                "arquivo sendo pequeno sozinho. Envie em lotes menores (menos arquivos por vez)."
-            )
-            logger.warning("Lote de upload recusado: %s arquivo(s), %s linhas estimadas",
-                           len(salvos), total_estimado)
-            erro_lote = [{"arquivo": c.name, "status": "ERRO", "mensagem": mensagem,
-                         "detalhes": [], "dataset": None, "titulo_dataset": None, "lidos": 0,
-                         "inseridos": 0, "atualizados": 0, "descartados": 0, "validacao": None,
-                         "confianca_deteccao": None, "campos_detectados": [],
-                         "qualidade_dados": None} for c in salvos]
-            return JSONResponse(content={
-                "ok": False, "mensagem": mensagem,
-                "resultados": erro_lote + erros, "status": status(),
-            })
+    if not salvos:
+        return JSONResponse(content={
+            "ok": False, "concluido": True,
+            "mensagem": servico_processamento.resumo_do_lote(erros),
+            "resultados": erros, "status": status(),
+        })
 
-        try:
-            with sessao() as s:
-                resultados = [r.to_dict() for r in processar_lote(s, salvos, forcados)]
-        except Exception:  # noqa: BLE001 - erro de banco vira mensagem amigável
-            logger.exception("Falha ao processar lote de upload")
-            return JSONResponse(status_code=500, content={
-                "ok": False,
-                "mensagem": "Não foi possível concluir a atualização. "
-                            "O erro foi registrado no log do sistema.",
-            })
-        cache.invalidar()
+    # Cada arquivo sozinho já é validado dentro de `processar_arquivo` (ver
+    # app/etl/leitura.py), mas um LOTE de vários arquivos pequenos soma
+    # memória do mesmo jeito — por isso o total do lote também é checado
+    # antes, mesmo que nenhum arquivo isolado ultrapasse o limite.
+    total_estimado = sum(estimar_linhas_arquivo(c) for c in salvos)
+    if total_estimado > config.LIMITE_LINHAS_ARQUIVO:
+        for caminho in salvos:
+            caminho.unlink(missing_ok=True)
+        mensagem = (
+            f"Os {len(salvos)} arquivos somam aproximadamente {numero(total_estimado)} "
+            f"linhas juntos — acima do limite de {numero(config.LIMITE_LINHAS_ARQUIVO)} "
+            "linhas que esta instância suporta processar de uma vez, mesmo com cada "
+            "arquivo sendo pequeno sozinho. Envie em lotes menores (menos arquivos por vez)."
+        )
+        logger.warning("Lote de upload recusado: %s arquivo(s), %s linhas estimadas",
+                       len(salvos), total_estimado)
+        return JSONResponse(content={
+            "ok": False, "concluido": True, "mensagem": mensagem,
+            "resultados": [_resultado_erro(c.name, mensagem) for c in salvos] + erros,
+            "status": status(),
+        })
 
-    todos_resultados = resultados + erros
-    houve_sucesso = any(r["status"] in ("SUCESSO", "ATENCAO") for r in todos_resultados)
-    return JSONResponse(content={
-        "ok": houve_sucesso,
-        "mensagem": _mensagem_lote(todos_resultados),
-        "resultados": todos_resultados,
-        "status": status(),
+    trabalho = servico_processamento.agendar(salvos, forcados, erros_iniciais=erros)
+    return JSONResponse(status_code=202, content={
+        "ok": True, "concluido": False,
+        "mensagem": f"Processando {len(salvos)} arquivo(s)...",
+        **trabalho.to_dict(),
     })
 
 
-def _mensagem_lote(resultados: list[dict]) -> str:
-    if not resultados:
-        return "Nenhum arquivo processado."
-    sucessos = [r for r in resultados if r["status"] in ("SUCESSO", "ATENCAO")]
-    falhas = [r for r in resultados if r["status"] == "ERRO"]
-    registros = sum(r.get("inseridos", 0) + r.get("atualizados", 0) for r in sucessos)
-    if sucessos and not falhas:
-        return f"Dashboard atualizado: {registros} registro(s) de {len(sucessos)} arquivo(s)."
-    if sucessos and falhas:
-        return (f"{len(sucessos)} arquivo(s) importado(s) ({registros} registros) e "
-                f"{len(falhas)} com problema.")
-    return f"Nenhum arquivo pôde ser importado ({len(falhas)} com problema)."
+@router.get("/upload/{trabalho_id}")
+def progresso_upload(trabalho_id: str) -> JSONResponse:
+    """Andamento de um upload agendado — consultado pela tela em intervalos."""
+    trabalho = servico_processamento.obter(trabalho_id)
+    if trabalho is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Esta atualização não está mais disponível para consulta. "
+                   "Recarregue a página e confira o histórico abaixo.",
+        )
+    concluido = trabalho.status != servico_processamento.PROCESSANDO
+    corpo = {
+        **trabalho.to_dict(),
+        "concluido": concluido,
+        "ok": concluido and any(
+            r.get("status") in ("SUCESSO", "ATENCAO") for r in trabalho.resultados),
+    }
+    if concluido:
+        corpo["status_app"] = status()
+    return JSONResponse(content=corpo)
 
 
 @router.get("/exportar/{nome}")

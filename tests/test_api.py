@@ -1,6 +1,7 @@
 """Testes de ponta a ponta da API e das páginas HTML."""
 import base64
 import io
+import time
 
 import pandas as pd
 
@@ -66,32 +67,76 @@ def test_opcoes_de_filtro_vem_dos_dados(cliente, base_carregada):
     assert "Não Informado" not in opcoes["cidades"]
 
 
+def enviar_e_aguardar(cliente, **kwargs) -> dict:
+    """POST /api/upload + espera o processamento em segundo plano terminar.
+
+    O upload é assíncrono: a rota devolve 202 com um `trabalho_id` e o
+    processamento roda numa thread (para não travar o event loop). Os
+    testes acompanham o mesmo caminho que a tela usa.
+    """
+    resposta = cliente.post("/api/upload", **kwargs)
+    dados = resposta.json()
+    if dados.get("concluido", True) or not dados.get("trabalho_id"):
+        return dados
+
+    for _ in range(200):  # ~20s de teto, muito acima do necessário nos testes
+        estado = cliente.get(f"/api/upload/{dados['trabalho_id']}").json()
+        if estado["concluido"]:
+            return estado
+        time.sleep(0.1)
+    raise AssertionError("Processamento em segundo plano não terminou a tempo")
+
+
 def test_upload_processa_planilha(cliente, planilhas):
     with planilhas["vendas"].open("rb") as arquivo:
-        resposta = cliente.post("/api/upload", files={"arquivos": ("venda.xlsx", arquivo.read())})
-    dados = resposta.json()
+        dados = enviar_e_aguardar(
+            cliente, files={"arquivos": ("venda.xlsx", arquivo.read())})
     assert dados["ok"] is True
     assert dados["resultados"][0]["dataset"] == "vendas"
     assert dados["resultados"][0]["inseridos"] > 0
 
 
+def test_upload_responde_na_hora_sem_travar_o_servidor(cliente, planilhas):
+    """A rota não pode processar dentro da requisição: isso travaria o event
+    loop e, com ele, o health check que o Render usa para decidir se a
+    instância está viva (era a causa do upload 'travado' + 502)."""
+    with planilhas["vendas"].open("rb") as arquivo:
+        resposta = cliente.post("/api/upload",
+                                files={"arquivos": ("venda.xlsx", arquivo.read())})
+    assert resposta.status_code == 202
+    corpo = resposta.json()
+    assert corpo["concluido"] is False
+    assert corpo["trabalho_id"]
+    # O servidor continua atendendo normalmente enquanto o lote processa.
+    assert cliente.get("/api/status").status_code == 200
+
+    for _ in range(200):  # deixa o trabalho terminar antes do teardown do banco
+        if cliente.get(f"/api/upload/{corpo['trabalho_id']}").json()["concluido"]:
+            break
+        time.sleep(0.1)
+
+
+def test_progresso_de_trabalho_inexistente_da_404(cliente):
+    resposta = cliente.get("/api/upload/naoexiste123")
+    assert resposta.status_code == 404
+    assert "Traceback" not in resposta.text
+
+
 def test_upload_de_arquivo_invalido_devolve_mensagem_amigavel(cliente):
-    resposta = cliente.post("/api/upload",
-                            files={"arquivos": ("virus.exe", b"MZ conteudo binario")})
-    dados = resposta.json()
+    dados = enviar_e_aguardar(
+        cliente, files={"arquivos": ("virus.exe", b"MZ conteudo binario")})
     assert dados["ok"] is False
     assert "não é aceito" in dados["resultados"][0]["mensagem"]
-    assert "Traceback" not in resposta.text
 
 
 def test_upload_com_tipo_forcado(cliente, planilhas):
     with planilhas["implantacao"].open("rb") as arquivo:
-        resposta = cliente.post(
-            "/api/upload",
+        dados = enviar_e_aguardar(
+            cliente,
             files={"arquivos": ("qualquer_nome.xlsx", arquivo.read())},
             data={"tipo": "implantacao"},
         )
-    assert resposta.json()["resultados"][0]["dataset"] == "implantacao"
+    assert dados["resultados"][0]["dataset"] == "implantacao"
 
 
 def test_lote_de_arquivos_pequenos_que_somam_muito_e_recusado(cliente, planilhas, monkeypatch):

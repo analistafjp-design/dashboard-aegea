@@ -15,6 +15,7 @@ from app.etl.datasets import DATASETS, ORDEM_CARGA
 from app.etl.deteccao import analisar_arquivo
 from app.etl.transformacao import transformar
 from app.models.tabelas import HistoricoUpload
+from app.services.upload import nome_exibicao
 from app.utils.erros import ErroDashboard, ErroImportacao
 from app.utils.log import get_logger
 
@@ -68,7 +69,7 @@ class ResultadoArquivo:
 def processar_arquivo(sessao: Session, caminho: Path, dataset_forcado: str | None = None,
                       usuario: str = "local", arquivar: bool = True) -> ResultadoArquivo:
     """Processa um arquivo do início ao fim e registra o histórico."""
-    resultado = ResultadoArquivo(arquivo=caminho.name)
+    resultado = ResultadoArquivo(arquivo=nome_exibicao(caminho.name))
     try:
         identificacao = analisar_arquivo(caminho, dataset_forcado)
         if identificacao.dataset is None:
@@ -133,10 +134,14 @@ def processar_arquivo(sessao: Session, caminho: Path, dataset_forcado: str | Non
     return resultado
 
 
-def processar_lote(sessao: Session, caminhos: list[Path],
-                   datasets_forcados: dict[str, str] | None = None,
-                   usuario: str = "local") -> list[ResultadoArquivo]:
-    """Processa vários arquivos na ordem correta (metas antes dos fatos)."""
+def ordenar_para_carga(caminhos: list[Path],
+                       datasets_forcados: dict[str, str] | None = None) -> list[Path]:
+    """Ordena os arquivos na ordem correta de carga (metas antes dos fatos).
+
+    Separado de `processar_lote` porque o processamento em segundo plano
+    (`app.services.processamento`) percorre os arquivos um a um, com uma
+    sessão de banco por arquivo, mas precisa da mesma ordem.
+    """
     datasets_forcados = datasets_forcados or {}
 
     def prioridade(caminho: Path) -> int:
@@ -149,12 +154,18 @@ def processar_lote(sessao: Session, caminhos: list[Path],
                 return indice
         return len(ORDEM_CARGA)
 
-    resultados = []
-    for caminho in sorted(caminhos, key=prioridade):
-        resultados.append(
-            processar_arquivo(sessao, caminho, datasets_forcados.get(caminho.name), usuario)
-        )
-    return resultados
+    return sorted(caminhos, key=prioridade)
+
+
+def processar_lote(sessao: Session, caminhos: list[Path],
+                   datasets_forcados: dict[str, str] | None = None,
+                   usuario: str = "local") -> list[ResultadoArquivo]:
+    """Processa vários arquivos na ordem correta (metas antes dos fatos)."""
+    datasets_forcados = datasets_forcados or {}
+    return [
+        processar_arquivo(sessao, caminho, datasets_forcados.get(caminho.name), usuario)
+        for caminho in ordenar_para_carga(caminhos, datasets_forcados)
+    ]
 
 
 def _arquivar(caminho: Path, dataset: str) -> None:

@@ -742,9 +742,15 @@
       area.addEventListener(evento, (e) => { e.preventDefault(); area.classList.remove("arrastando"); }));
     area.addEventListener("drop", (e) => adicionar(e.dataTransfer.files));
 
+    const INTERVALO_CONSULTA_MS = 2000;
+    // A instância gratuita pode ficar lenta ou "dormir" — uma consulta de
+    // progresso que falha não significa que o processamento morreu, então
+    // erramos algumas vezes seguidas antes de desistir.
+    const MAX_FALHAS_CONSULTA = 5;
+    const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
     botao.addEventListener("click", async () => {
       if (!arquivos.length) return;
-      const etapas = await App.api("/api/etapas");
       const caixaEtapas = document.getElementById("etapas-processo");
       const barra = document.getElementById("barra-upload");
       document.getElementById("progresso-upload").hidden = false;
@@ -752,43 +758,37 @@
       botao.disabled = true;
       botao.textContent = "ATUALIZANDO...";
 
-      const render = (indice) => {
-        caixaEtapas.innerHTML = etapas.etapas.map((etapa, i) => `
-          <div class="etapa ${i < indice ? "concluida" : (i === indice ? "ativa" : "")}">
-            <span class="etapa__bolha">${i < indice ? "✓" : i + 1}</span>
-            <span>${App.escapar(etapa)}${i === indice ? "..." : ""}</span>
-          </div>`).join("");
-        barra.style.width = `${Math.round(((indice + 1) / etapas.etapas.length) * 100)}%`;
+      // Progresso REAL, vindo do servidor: quantos arquivos já terminaram e
+      // qual está sendo processado agora. (A versão anterior era uma
+      // animação por cronômetro que avançava sozinha e parava na penúltima
+      // etapa — dava a impressão de "travado em Recalculando indicadores"
+      // mesmo quando o servidor estava trabalhando normalmente.)
+      const render = (estado) => {
+        const { total = arquivos.length, concluidos = 0, arquivo_atual: atual,
+          percentual = 0, enviando = false } = estado;
+        const linhas = [];
+        linhas.push(`
+          <div class="etapa ${enviando ? "ativa" : "concluida"}">
+            <span class="etapa__bolha">${enviando ? "1" : "✓"}</span>
+            <span>Enviando arquivos${enviando ? "..." : ""}</span>
+          </div>`);
+        if (!enviando) {
+          linhas.push(`
+            <div class="etapa ativa">
+              <span class="etapa__bolha">2</span>
+              <span>Processando ${concluidos} de ${total} arquivo(s)${
+                atual ? ` — ${App.escapar(atual)}` : ""}...</span>
+            </div>`);
+        }
+        caixaEtapas.innerHTML = linhas.join("");
+        barra.style.width = `${enviando ? 5 : Math.max(percentual, 5)}%`;
       };
 
-      let etapaAtual = 0;
-      render(0);
-      const relogio = setInterval(() => {
-        if (etapaAtual < etapas.etapas.length - 2) render(++etapaAtual);
-      }, 700);
-
-      const formulario = new FormData();
-      arquivos.forEach((arquivo) => formulario.append("arquivos", arquivo));
-      lista.querySelectorAll("select[data-indice]").forEach((select) =>
-        formulario.append("tipo", select.value));
-
-      // Sem isso, um arquivo muito grande (ou uma instância gratuita lenta
-      // após "acordar") deixa a tela parada para sempre em "Recalculando
-      // indicadores...", sem nenhum retorno ao usuário — o fetch nunca
-      // rejeita sozinho. 8 minutos é generoso o bastante para arquivos
-      // grandes, mas garante que a tela sempre volte a responder.
-      const TEMPO_LIMITE_MS = 8 * 60 * 1000;
-      const controlador = new AbortController();
-      const limiteId = setTimeout(() => controlador.abort(), TEMPO_LIMITE_MS);
-
-      try {
-        const resposta = await fetch("/api/upload", {
-          method: "POST", body: formulario, signal: controlador.signal,
-        });
-        const dados = await resposta.json();
-        clearInterval(relogio);
-        clearTimeout(limiteId);
-        render(etapas.etapas.length - 1);
+      const concluir = async (dados) => {
+        caixaEtapas.innerHTML = `
+          <div class="etapa concluida">
+            <span class="etapa__bolha">✓</span><span>Concluído</span>
+          </div>`;
         barra.style.width = "100%";
         mostrarResultado(dados);
         if (dados.ok) {
@@ -797,27 +797,75 @@
           tipoPorArquivo.clear();
           desenharLista();
           const topo = document.getElementById("topo-ultima-atualizacao");
-          if (topo && dados.status) topo.textContent = dados.status.ultima_atualizacao || "-";
+          const st = dados.status_app || dados.status;
+          if (topo && st) topo.textContent = st.ultima_atualizacao || "-";
         } else {
           App.toast(dados.mensagem || "Nenhum arquivo importado.", "erro", "Atenção");
         }
         await carregarHistorico();
-      } catch (e) {
-        clearInterval(relogio);
-        clearTimeout(limiteId);
+      };
+
+      const falhar = (titulo, texto) => {
         caixaEtapas.hidden = true;
         document.getElementById("progresso-upload").hidden = true;
-        if (e.name === "AbortError") {
-          App.toast(
-            "O envio demorou mais de 8 minutos e foi cancelado. Isso pode acontecer com "
-            + "arquivos muito grandes numa instância gratuita mais lenta — tente novamente, "
-            + "ou divida a planilha em arquivos menores.",
-            "erro", "Tempo esgotado",
-          );
-        } else {
-          App.toast("Falha de comunicação com o servidor. Verifique sua conexão e tente novamente.",
-            "erro");
+        App.toast(texto, "erro", titulo);
+      };
+
+      render({ enviando: true });
+
+      const formulario = new FormData();
+      arquivos.forEach((arquivo) => formulario.append("arquivos", arquivo));
+      lista.querySelectorAll("select[data-indice]").forEach((select) =>
+        formulario.append("tipo", select.value));
+
+      try {
+        // O POST agora só grava os arquivos e devolve um identificador —
+        // é rápido mesmo com muitos arquivos, então não corre o risco de
+        // ser cortado no meio por demorar demais.
+        const resposta = await fetch("/api/upload", { method: "POST", body: formulario });
+        const inicial = await resposta.json();
+
+        if (inicial.concluido || !inicial.trabalho_id) {
+          await concluir(inicial);
+          return;
         }
+
+        let falhasSeguidas = 0;
+        for (;;) {
+          await espera(INTERVALO_CONSULTA_MS);
+          let estado;
+          try {
+            const r = await fetch(`/api/upload/${inicial.trabalho_id}`);
+            if (r.status === 404) {
+              falhar("Atualização não encontrada",
+                "A atualização não pôde mais ser acompanhada. Recarregue a página e "
+                + "confira no histórico se os dados entraram.");
+              return;
+            }
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            estado = await r.json();
+            falhasSeguidas = 0;
+          } catch (e) {
+            falhasSeguidas += 1;
+            if (falhasSeguidas >= MAX_FALHAS_CONSULTA) {
+              falhar("Sem resposta do servidor",
+                "Perdemos contato com o servidor durante o processamento. Ele pode ter "
+                + "continuado mesmo assim — recarregue a página e confira no histórico "
+                + "abaixo antes de enviar de novo.");
+              return;
+            }
+            continue;
+          }
+
+          if (estado.concluido) {
+            await concluir(estado);
+            return;
+          }
+          render(estado);
+        }
+      } catch (e) {
+        falhar("Falha no envio",
+          "Não foi possível enviar os arquivos. Verifique sua conexão e tente novamente.");
       } finally {
         botao.disabled = arquivos.length === 0;
         botao.textContent = "ATUALIZAR DASHBOARD";

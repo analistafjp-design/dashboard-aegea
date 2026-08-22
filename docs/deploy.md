@@ -73,6 +73,31 @@ uploads são perdidos**. Isso é normal e esperado no plano gratuito.
 | Banco Postgres gerenciado | Descomentar o bloco `databases:` e a variável `DATABASE_URL` no `render.yaml`; o app já suporta Postgres nativamente (SQLAlchemy) | Free por 30 dias, depois pago |
 | Rodar localmente/servidor próprio | Ver `README.md` — sem custo de hospedagem, dado fica no seu disco | Grátis |
 
+## Como o upload funciona (e por que ele não trava a instância)
+
+Processar planilha é trabalho pesado e demorado, ainda mais nos **0.1 de
+CPU** do plano gratuito. Por isso o upload é feito em duas partes:
+
+1. `POST /api/upload` só **grava os arquivos em disco** e devolve na hora um
+   `trabalho_id` (resposta HTTP 202). É rápido mesmo com muitos arquivos.
+2. O processamento roda numa **thread separada**, um arquivo por vez, com
+   uma sessão de banco por arquivo. A tela acompanha em
+   `GET /api/upload/{trabalho_id}` e mostra progresso real ("arquivo 3 de
+   12").
+
+Isso não é preciosismo: se o processamento acontecesse dentro da
+requisição, ele bloquearia o event loop e o servidor pararia de responder
+**tudo** enquanto durasse — inclusive o health check (`/api/status`) que o
+Render usa para saber se a instância está viva. O Render então mata e
+reinicia o container no meio do upload, e o navegador mostra "Falha de
+comunicação com o servidor" (ou 502 em qualquer outra página aberta na
+mesma hora). Foi exatamente esse o comportamento observado antes desta
+mudança.
+
+Efeito colateral bom: como cada arquivo tem a própria sessão de banco, a
+memória fica **constante** ao longo do lote em vez de crescer a cada
+arquivo, e um arquivo já processado não se perde se algo falhar depois.
+
 ## ⚠️ Sobre memória (RAM) no plano Free
 
 O plano **Free** do Render tem só **512 MB de RAM**. A aplicação sozinha
