@@ -176,10 +176,18 @@ ao dashboard é apagado.
 - **Envio incremental**: o script guarda um "manifesto" local
   (`logs\manifesto_sincronizacao.json`) com o tamanho e a data de
   modificação de cada arquivo já enviado. A cada execução, só envia o que é
-  **novo ou mudou** desde a última vez — se nada mudou, ele nem chega a
-  contatar o servidor. Isso é o que permite monitorar pastas com centenas
-  de planilhas históricas (uma por dia, por exemplo) sem reenviar tudo a
-  cada 15 minutos.
+  **novo ou mudou** desde a última vez. Antes disso, ele faz apenas uma
+  consulta rápida de status, sem enviar planilhas. Isso é o que permite
+  monitorar pastas com centenas de planilhas históricas (uma por dia, por
+  exemplo) sem reenviar tudo a cada 15 minutos.
+- **Ordem inteligente**: Programação, Faturamento, Venda, Implantação e
+  Termos são enviados antes de Atendimento. Dentro de cada base, os arquivos
+  mais recentes vão primeiro. Assim, o painel atual aparece rapidamente e a
+  planilha grande de Atendimento não bloqueia todas as demais.
+- **Recuperação automática**: se o servidor informar que o banco está vazio,
+  mas o manifesto local tiver arquivos já enviados, o script ignora o
+  manifesto somente nessa execução e recompõe os dados. Nas execuções
+  normais, continua enviando apenas arquivos novos ou alterados.
 - **Envio em lotes**: quando há muitos arquivos para enviar (ex.: a
   primeira sincronização, com meses de histórico), eles vão em grupos de
   até 20 arquivos ou 40 MB por vez — não tudo numa única requisição gigante,
@@ -194,9 +202,8 @@ ao dashboard é apagado.
 
 ### Forçar um reenvio completo
 
-Às vezes você precisa reenviar tudo de novo, ignorando o manifesto — por
-exemplo, se desconfia que a instância gratuita do Render "dormiu" e perdeu
-os dados (ver aviso abaixo). Abra o PowerShell na pasta `scripts` e rode:
+Se precisar reenviar tudo manualmente por qualquer motivo, ignorando o
+manifesto, abra o PowerShell na pasta `scripts` e rode:
 
 ```powershell
 .\sincronizar_pastas.ps1 -Completo
@@ -208,16 +215,11 @@ seguro, só demora mais.
 
 ## ⚠️ Sobre o plano gratuito do Render
 
-Como o [`deploy.md`](deploy.md) já explica: no plano Free, a instância
-"dorme" após ~15 minutos sem acesso e perde os dados ao acordar. Diferente
-da primeira versão deste script, a sincronização automática **não repõe
-isso sozinha a cada ciclo** (agora ela só envia o que mudou, para não
-sobrecarregar pastas com muito histórico) — então, se desconfiar que a
-instância dormiu e perdeu dados, rode manualmente:
-
-```powershell
-.\sincronizar_pastas.ps1 -Completo
-```
+Como o [`deploy.md`](deploy.md) já explica: no plano Free, a instância pode
+perder os dados locais. O script detecta o banco vazio e faz uma recuperação
+completa automaticamente no próximo clique. Isso resolve a indisponibilidade,
+mas a primeira recuperação volta a demorar porque todos os dados precisam ser
+recompostos.
 
 Para acompanhamento operacional sério, sem se preocupar com isso, o ideal é
 migrar para um plano com persistência (disco pago ou Postgres — ver
