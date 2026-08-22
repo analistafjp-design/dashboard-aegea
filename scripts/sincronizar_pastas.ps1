@@ -47,7 +47,7 @@ param(
     [string]$PastasArquivo = "",
     [string]$CredenciaisArquivo = "",
     [int]$TimeoutSegundos = 300,
-    [int]$TimeoutProcessamentoSegundos = 3600,
+    [int]$TimeoutProcessamentoSegundos = 300,
     [int]$ArquivosPorLote = 20,
     [double]$MegabytesPorLote = 40,
     [switch]$Completo
@@ -71,6 +71,7 @@ $PastaLogs = Join-Path $PastaScript "logs"
 if (-not (Test-Path $PastaLogs)) { New-Item -ItemType Directory -Path $PastaLogs | Out-Null }
 $ArquivoLog = Join-Path $PastaLogs ("sincronizacao_{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 $ArquivoManifesto = Join-Path $PastaLogs "manifesto_sincronizacao.json"
+$ArquivoTrabalhoPendente = Join-Path $PastaLogs "trabalho_pendente.json"
 
 $ExtensoesAceitas = @(".xlsx", ".xlsm", ".xls", ".csv")
 $LimiteBytesPorLote = [long]($MegabytesPorLote * 1MB)
@@ -142,6 +143,40 @@ function Marcar-Enviado {
         Tamanho = $Info.Length
         Ticks   = $Info.LastWriteTimeUtc.Ticks
     }
+}
+
+# ---------------------------------------------------- trabalho pendente
+# Se o servidor continuar processando depois que a janela parar de esperar,
+# guarda o identificador do trabalho. No proximo clique o script consulta o
+# MESMO trabalho, em vez de reenviar a planilha e recomecar do zero.
+function Salvar-TrabalhoPendente {
+    param([string]$TrabalhoId, $Lote)
+    $itens = @($Lote | ForEach-Object {
+        [pscustomobject]@{
+            Caminho = $_.Info.FullName
+            Tipo = $_.Tipo
+            Tamanho = $_.Info.Length
+            Ticks = $_.Info.LastWriteTimeUtc.Ticks
+        }
+    })
+    [pscustomobject]@{
+        TrabalhoId = $TrabalhoId
+        Itens = $itens
+    } | ConvertTo-Json -Depth 5 | Set-Content -Path $ArquivoTrabalhoPendente -Encoding UTF8
+}
+
+function Carregar-TrabalhoPendente {
+    if (-not (Test-Path $ArquivoTrabalhoPendente)) { return $null }
+    try {
+        return Get-Content $ArquivoTrabalhoPendente -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        Remove-Item $ArquivoTrabalhoPendente -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+}
+
+function Remover-TrabalhoPendente {
+    Remove-Item $ArquivoTrabalhoPendente -Force -ErrorAction SilentlyContinue
 }
 
 # ------------------------------------------------------------ credenciais
@@ -324,6 +359,54 @@ try {
     exit 1
 }
 
+# Retoma a consulta de um trabalho que ficou processando no clique anterior.
+# Nao envia o arquivo novamente enquanto o servidor ainda conhece o trabalho.
+$PendenteAnterior = Carregar-TrabalhoPendente
+if ($PendenteAnterior -and $PendenteAnterior.TrabalhoId) {
+    try {
+        Escrever-Log "Retomando a verificacao do trabalho pendente $($PendenteAnterior.TrabalhoId)..."
+        $rPendente = $cliente.GetAsync("$Url/api/upload/$($PendenteAnterior.TrabalhoId)").Result
+        if ($rPendente.StatusCode -eq 404) {
+            Escrever-Log "O servidor perdeu o trabalho pendente. Somente esse lote voltara para a fila; os lotes concluidos permanecem salvos." "AVISO"
+            Remover-TrabalhoPendente
+        } elseif (-not $rPendente.IsSuccessStatusCode) {
+            Escrever-Log "O servidor nao conseguiu informar o trabalho pendente (status $($rPendente.StatusCode)). Nenhum arquivo sera reenviado agora." "AVISO"
+            $cliente.Dispose()
+            exit 0
+        } else {
+            $EstadoPendente = $rPendente.Content.ReadAsStringAsync().Result | ConvertFrom-Json
+            if (-not $EstadoPendente.concluido) {
+                Escrever-Log "O trabalho anterior ainda esta processando no servidor. Nenhum arquivo foi reenviado. Clique novamente mais tarde para conferir." "AVISO"
+                $cliente.Dispose()
+                exit 0
+            }
+
+            foreach ($itemPendente in @($PendenteAnterior.Itens)) {
+                $parAtual = $ArquivosProntos | Where-Object {
+                    $_.Info.FullName -eq $itemPendente.Caminho -and $_.Tipo -eq $itemPendente.Tipo
+                } | Select-Object -First 1
+                if (-not $parAtual) { continue }
+                $arquivoIgual = $parAtual.Info.Length -eq [int64]$itemPendente.Tamanho -and
+                    $parAtual.Info.LastWriteTimeUtc.Ticks -eq [int64]$itemPendente.Ticks
+                $resultadoPendente = @($EstadoPendente.resultados | Where-Object {
+                    $_.arquivo.EndsWith($parAtual.Info.Name)
+                })
+                if ($arquivoIgual -and $resultadoPendente.Count -eq 1 -and
+                    $resultadoPendente[0].status -ne "ERRO") {
+                    Marcar-Enviado -Info $parAtual.Info -Tipo $parAtual.Tipo -Manifesto $Manifesto
+                }
+            }
+            Salvar-Manifesto $Manifesto
+            Remover-TrabalhoPendente
+            Escrever-Log "Trabalho pendente concluido e incorporado ao historico local."
+        }
+    } catch {
+        Escrever-Log "Nao foi possivel conferir o trabalho pendente. Nenhum arquivo sera reenviado agora." "AVISO"
+        $cliente.Dispose()
+        exit 0
+    }
+}
+
 # ---------------------------------------------------- filtrar por manifesto
 if ($Completo) {
     $ArquivosParaEnviar = $ArquivosProntos
@@ -435,22 +518,50 @@ foreach ($lote in $Lotes) {
         # travar). Aqui acompanhamos ate terminar, senao marcariamos como
         # enviado algo que ainda nem foi processado.
         if ($dados.trabalho_id -and -not $dados.concluido) {
+            Salvar-TrabalhoPendente -TrabalhoId $dados.trabalho_id -Lote $lote
             $espera = 0
+            $trabalhoAindaAtivo = $false
+            $falhasProgresso = 0
             while ($true) {
                 Start-Sleep -Seconds 3
                 $espera += 3
                 if ($espera -gt $TimeoutProcessamentoSegundos) {
-                    Escrever-Log "Lote ${numeroLote}: o servidor ainda processava apos $TimeoutProcessamentoSegundos s. Sera conferido na proxima execucao." "AVISO"
+                    Escrever-Log "Lote ${numeroLote}: o servidor continua processando em segundo plano. A janela nao ficara presa; no proximo clique sera consultado o mesmo trabalho, sem reenviar o arquivo." "AVISO"
                     $totalErros += $lote.Count
+                    $trabalhoAindaAtivo = $true
                     $dados = $null
                     break
                 }
                 try {
                     $rProg = $cliente.GetAsync("$Url/api/upload/$($dados.trabalho_id)").Result
+                    if ($rProg.StatusCode -eq 404) {
+                        Escrever-Log "Lote ${numeroLote}: o servidor perdeu este trabalho. Os lotes anteriores continuam salvos; somente este lote ficara pendente para o proximo clique." "ERRO"
+                        Remover-TrabalhoPendente
+                        $totalErros += $lote.Count
+                        $dados = $null
+                        break
+                    }
+                    if (-not $rProg.IsSuccessStatusCode) {
+                        throw "Status HTTP $($rProg.StatusCode)"
+                    }
                     $corpoProg = $rProg.Content.ReadAsStringAsync().Result
                     $estado = $corpoProg | ConvertFrom-Json
+                    $camposValidos = $estado.PSObject.Properties.Name -contains "concluido" -and
+                        $estado.PSObject.Properties.Name -contains "total" -and
+                        $estado.PSObject.Properties.Name -contains "concluidos"
+                    if (-not $camposValidos) {
+                        throw "Resposta de progresso incompleta"
+                    }
+                    $falhasProgresso = 0
                 } catch {
+                    $falhasProgresso++
                     Escrever-Log "Falha ao consultar o progresso do lote $numeroLote; tentando de novo." "AVISO"
+                    if ($falhasProgresso -ge 5) {
+                        Escrever-Log "O servidor deixou de fornecer o andamento. A janela sera liberada e o mesmo trabalho sera consultado no proximo clique, sem novo envio." "AVISO"
+                        $trabalhoAindaAtivo = $true
+                        $dados = $null
+                        break
+                    }
                     continue
                 }
                 if ($estado.concluido) { $dados = $estado; break }
@@ -458,7 +569,10 @@ foreach ($lote in $Lotes) {
                     Escrever-Log "  ... processando $($estado.concluidos)/$($estado.total) $($estado.arquivo_atual) (aguardando ha $espera s)"
                 }
             }
-            if ($null -eq $dados) { continue }
+            if ($null -eq $dados) {
+                if ($trabalhoAindaAtivo) { break }
+                continue
+            }
         }
 
         Escrever-Log "Lote $numeroLote resposta: $($dados.mensagem)"
@@ -494,6 +608,7 @@ foreach ($lote in $Lotes) {
         # Salva o manifesto apos cada lote - se um lote mais adiante falhar,
         # o progresso dos lotes anteriores nao se perde.
         Salvar-Manifesto $Manifesto
+        Remover-TrabalhoPendente
     } finally {
         foreach ($s in $streamsAbertos) { $s.Dispose() }
         $conteudoMultipart.Dispose()

@@ -46,7 +46,7 @@ def test_sincronizador_prioriza_bases_rapidas_e_espera_arquivo_grande():
     assert '"programacao" = 10' in sincronizador
     assert '"atendimento" = 90' in sincronizador
     assert "Sort-Object { $_.Info.LastWriteTimeUtc } -Descending" in sincronizador
-    assert "[int]$TimeoutProcessamentoSegundos = 3600" in sincronizador
+    assert "[int]$TimeoutProcessamentoSegundos = 300" in sincronizador
 
 
 def test_sincronizador_recupera_servidor_vazio_sem_perder_incremental():
@@ -56,6 +56,17 @@ def test_sincronizador_recupera_servidor_vazio_sem_perder_incremental():
     assert '$Completo = $true' in sincronizador
     assert "Marcar-Enviado -Info $f -Tipo $par.Tipo -Manifesto $Manifesto" in sincronizador
     assert "Salvar-Manifesto $Manifesto" in sincronizador
+
+
+def test_sincronizador_retoma_trabalho_sem_reenviar_lote():
+    sincronizador = _texto("sincronizar_pastas.ps1")
+
+    assert '"trabalho_pendente.json"' in sincronizador
+    assert "Salvar-TrabalhoPendente -TrabalhoId $dados.trabalho_id -Lote $lote" in sincronizador
+    assert "Retomando a verificacao do trabalho pendente" in sincronizador
+    assert "Nenhum arquivo foi reenviado" in sincronizador
+    assert "$rProg.StatusCode -eq 404" in sincronizador
+    assert "Remover-TrabalhoPendente" in sincronizador
 
 
 def test_scripts_powershell_sao_ascii_para_windows_51():

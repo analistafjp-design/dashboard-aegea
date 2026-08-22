@@ -188,6 +188,12 @@ ao dashboard é apagado.
   mas o manifesto local tiver arquivos já enviados, o script ignora o
   manifesto somente nessa execução e recompõe os dados. Nas execuções
   normais, continua enviando apenas arquivos novos ou alterados.
+- **Retomada sem reenvio**: a janela espera no máximo cinco minutos por um
+  lote. Se o servidor ainda estiver trabalhando, o identificador fica salvo
+  em `logs\trabalho_pendente.json`. No próximo clique, o botão consulta esse
+  mesmo trabalho e não reenvia a planilha. Se o Render tiver perdido o
+  trabalho, somente aquele lote volta para a fila; tudo que já foi concluído
+  permanece registrado no manifesto.
 - **Envio em lotes**: quando há muitos arquivos para enviar (ex.: a
   primeira sincronização, com meses de histórico), eles vão em grupos de
   até 20 arquivos ou 40 MB por vez — não tudo numa única requisição gigante,
