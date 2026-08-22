@@ -15,6 +15,7 @@ from app.analytics import cache
 from app.config import config
 from app.models.db import criar_banco
 from app.routes import api, paginas
+from app.utils.autenticacao import AutenticacaoBasicaMiddleware
 from app.utils.erros import ErroDashboard
 from app.utils.ativos import garantir_plotly
 from app.utils.log import configurar_logs, get_logger
@@ -26,6 +27,13 @@ logger = get_logger("main")
 async def ciclo_de_vida(app: FastAPI):
     configurar_logs()
     logger.info("Iniciando %s v%s", config.APP_NOME, config.APP_VERSAO)
+    if config.AUTENTICACAO_ATIVA:
+        logger.info("Autenticação HTTP Basic ativa (usuário '%s')", config.AUTH_USUARIO)
+    else:
+        logger.warning(
+            "Autenticação desativada — defina AUTH_USUARIO e AUTH_SENHA para exigir "
+            "login (recomendado sempre que a URL for acessível publicamente)."
+        )
     criar_banco()
     garantir_plotly()
     cache.invalidar()
@@ -43,6 +51,7 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.add_middleware(AutenticacaoBasicaMiddleware)
 app.mount("/static", StaticFiles(directory=str(config.STATIC_DIR)), name="static")
 app.include_router(api.router)
 app.include_router(paginas.router)

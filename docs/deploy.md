@@ -11,11 +11,30 @@ gratuito, para visualização e demonstração.
    no GitHub, se ainda não tiver feito isso.
 4. Selecione o repositório **`dashboard-aegea`**.
 
-## 2. Deploy
+## 2. Definir o login (obrigatório — a URL é pública)
 
-O Render encontra automaticamente o arquivo `render.yaml` na raiz do
-repositório e propõe criar o serviço `dashboard-executivo` já configurado
-(build, start, variáveis de ambiente). Só confirme em **Apply**.
+Antes de clicar em **Deploy Blueprint**, o Render mostra dois campos para
+preencher porque `render.yaml` os marca como segredo (`sync: false`):
+
+| Variável | O que colocar |
+|---|---|
+| `AUTH_USUARIO` | Um nome de usuário à sua escolha (ex.: `admin`) |
+| `AUTH_SENHA` | Uma senha forte à sua escolha |
+
+**Sem isso, qualquer pessoa com o link consegue ver os dados da empresa e
+até enviar arquivos** — o dashboard não tem outra proteção. Preencha os
+dois campos antes de continuar. Guarde essa senha: você vai usá-la para
+entrar pelo navegador e também no script de sincronização automática (ver
+[`sincronizacao_pastas.md`](sincronizacao_pastas.md)).
+
+Se algum dia quiser trocar a senha, edite as duas variáveis em
+**Environment**, na página do serviço no painel do Render — o Render
+reimplanta sozinho depois de salvar.
+
+## 3. Deploy
+
+Clique em **Deploy Blueprint**. O Render cria o serviço `dashboard-executivo`
+já configurado (build, start, variáveis de ambiente, login).
 
 O primeiro build leva de 2 a 5 minutos. Quando terminar, o Render mostra a
 URL pública, algo como:
@@ -25,9 +44,10 @@ https://dashboard-executivo.onrender.com
 ```
 
 Essa URL já funciona no navegador, celular, etc. — sem precisar instalar
-nada.
+nada. Ao abrir, o navegador pede o usuário/senha que você definiu no
+passo 2.
 
-## 3. Importar os dados
+## 4. Importar os dados
 
 O deploy sobe com o banco **vazio**. Acesse a URL, vá em
 **Atualização de Dados** e envie as planilhas (ou gere dados de exemplo
@@ -53,7 +73,7 @@ uploads são perdidos**. Isso é normal e esperado no plano gratuito.
 | Banco Postgres gerenciado | Descomentar o bloco `databases:` e a variável `DATABASE_URL` no `render.yaml`; o app já suporta Postgres nativamente (SQLAlchemy) | Free por 30 dias, depois pago |
 | Rodar localmente/servidor próprio | Ver `README.md` — sem custo de hospedagem, dado fica no seu disco | Grátis |
 
-## 4. Atualizando o deploy depois de um novo `git push`
+## 5. Atualizando o deploy depois de um novo `git push`
 
 O Render reimplanta automaticamente a cada push na branch configurada em
 `render.yaml` (`branch:`). Não é necessário nenhum passo manual.
@@ -62,3 +82,9 @@ Quando o PR #1 for mesclado na `main`, edite `render.yaml` trocando
 `branch: claude/novo-projeto-independente-ao910q` para `branch: main` (ou
 remova a linha — o Render usa a branch padrão do repositório por padrão) e
 reconecte o serviço a essa branch nas configurações do Render.
+
+## 6. Próximo passo: atualização automática das planilhas
+
+Em vez de enviar os arquivos manualmente pelo navegador toda vez, dá para
+automatizar a partir das mesmas pastas que você já usa hoje — ver
+[`sincronizacao_pastas.md`](sincronizacao_pastas.md).

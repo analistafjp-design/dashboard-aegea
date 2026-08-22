@@ -1,7 +1,10 @@
 """Testes de ponta a ponta da API e das páginas HTML."""
+import base64
 import io
 
 import pandas as pd
+
+from app.config import config
 
 PAGINAS = ["/", "/termos", "/faturamento", "/vendas", "/implantacao", "/programacao",
            "/equipes", "/cidades", "/metas", "/analises", "/alertas", "/atualizacao",
@@ -155,3 +158,49 @@ def test_banco_vazio_nao_quebra_nenhuma_rota(cliente):
     for nome in MODULOS:
         assert cliente.get(f"/api/modulo/{nome}").status_code == 200, nome
     assert cliente.get("/api/home").json()["tem_dados"] is False
+
+
+# ---------------------------------------------------------- autenticação
+def _cabecalho_basic(usuario: str, senha: str) -> dict[str, str]:
+    valor = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
+    return {"Authorization": f"Basic {valor}"}
+
+
+def test_sem_credenciais_configuradas_nao_pede_login(cliente):
+    """Padrão de desenvolvimento local: sem AUTH_USUARIO/AUTH_SENHA, sem login."""
+    assert config.AUTENTICACAO_ATIVA is False
+    assert cliente.get("/").status_code == 200
+    assert cliente.get("/api/status").status_code == 200
+
+
+def test_com_credenciais_configuradas_exige_login(cliente, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_USUARIO", "admin")
+    monkeypatch.setattr(config, "AUTH_SENHA", "segredo123")
+    assert config.AUTENTICACAO_ATIVA is True
+
+    sem_credencial = cliente.get("/")
+    assert sem_credencial.status_code == 401
+    assert "Basic" in sem_credencial.headers["www-authenticate"]
+
+    credencial_errada = cliente.get("/", headers=_cabecalho_basic("admin", "errada"))
+    assert credencial_errada.status_code == 401
+
+    credencial_certa = cliente.get("/", headers=_cabecalho_basic("admin", "segredo123"))
+    assert credencial_certa.status_code == 200
+
+
+def test_status_continua_publico_mesmo_com_login_ativo(cliente, monkeypatch):
+    """O healthcheck do Render precisa responder sem credenciais."""
+    monkeypatch.setattr(config, "AUTH_USUARIO", "admin")
+    monkeypatch.setattr(config, "AUTH_SENHA", "segredo123")
+
+    resposta = cliente.get("/api/status")
+    assert resposta.status_code == 200
+    assert resposta.json()["aplicacao"]
+
+
+def test_upload_exige_login_quando_ativo(cliente, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_USUARIO", "admin")
+    monkeypatch.setattr(config, "AUTH_SENHA", "segredo123")
+
+    assert cliente.post("/api/upload").status_code == 401

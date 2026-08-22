@@ -40,6 +40,15 @@ services:
         value: "50"
       - key: CACHE_TTL
         value: "300"
+      # AUTH_USUARIO/AUTH_SENHA: login HTTP Basic exigido em toda a
+      # aplicação (a URL do Render é pública — qualquer um com o link
+      # consegue ver e enviar dados sem isso). `sync: false` faz o Render
+      # pedir esses dois valores na hora do deploy, em vez de gravá-los no
+      # render.yaml (que fica no Git) — nunca coloque a senha aqui em texto.
+      - key: AUTH_USUARIO
+        sync: false
+      - key: AUTH_SENHA
+        sync: false
       # Descomente para usar o Postgres definido abaixo em vez do SQLite local:
       # - key: DATABASE_URL
       #   fromDatabase:

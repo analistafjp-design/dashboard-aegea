@@ -36,6 +36,18 @@ class Config:
 
     DATABASE_URL = _env("DATABASE_URL", f"sqlite:///{DATABASE_DIR / 'dashboard.db'}")
 
+    # Autenticação HTTP Basic — opcional. Quando AUTH_USUARIO e AUTH_SENHA
+    # estão definidas (ex.: em produção, via variável de ambiente do
+    # Render), o sistema exige login em toda a aplicação, inclusive na API
+    # de upload. Sem as duas definidas, roda sem login — é o padrão em
+    # desenvolvimento local, para não travar quem só quer testar.
+    AUTH_USUARIO = _env("AUTH_USUARIO", "")
+    AUTH_SENHA = _env("AUTH_SENHA", "")
+
+    @property
+    def AUTENTICACAO_ATIVA(self) -> bool:
+        return bool(self.AUTH_USUARIO and self.AUTH_SENHA)
+
     # Segurança do upload
     EXTENSOES_PERMITIDAS = {".xlsx", ".xlsm", ".xls", ".csv"}
     TAMANHO_MAXIMO_MB = int(_env("TAMANHO_MAXIMO_MB", "50"))
