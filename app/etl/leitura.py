@@ -253,3 +253,79 @@ def ler_planilhas(caminho: Path) -> list[Planilha]:
             f"O arquivo '{caminho.name}' não possui nenhuma planilha com dados."
         )
     return planilhas
+
+
+# --------------------------------------------------------------------------
+# Leitura em blocos (arquivos grandes)
+# --------------------------------------------------------------------------
+# Um .xlsx com ~150 mil linhas carregado de uma vez soma uns 350 MB ao
+# consumo do processo — perto demais do teto de 512 MB de uma instância
+# pequena. Lendo em blocos, a memória fica limitada ao tamanho do bloco,
+# independentemente do tamanho do arquivo.
+
+def ler_em_blocos(caminho: Path, tamanho_bloco: int | None = None):
+    """Gera `Planilha`s sucessivas com no máximo `tamanho_bloco` linhas cada.
+
+    Todas compartilham o mesmo cabeçalho (detectado no primeiro bloco) e
+    mantêm o índice original da linha na planilha, para que uma mensagem de
+    erro continue apontando o número de linha que o usuário vê no Excel.
+
+    Só funciona para .xlsx/.xlsm (openpyxl em modo streaming). Para os
+    demais formatos, `ler_planilhas` continua sendo o caminho.
+    """
+    tamanho_bloco = tamanho_bloco or config.LINHAS_POR_BLOCO
+    livro = openpyxl.load_workbook(caminho, read_only=True, data_only=True)
+    try:
+        for aba in livro.worksheets:
+            linhas = aba.iter_rows(values_only=True)
+
+            # Cabeçalho: as primeiras linhas bastam para descobrir onde ele
+            # está, sem carregar a aba inteira.
+            topo = []
+            for linha in linhas:
+                topo.append(linha)
+                if len(topo) >= MAX_LINHAS_CABECALHO:
+                    break
+            if not topo:
+                continue
+
+            bruto_topo = pd.DataFrame(topo, dtype=object)
+            indice_cabecalho = _detectar_cabecalho(bruto_topo)
+            colunas = list(bruto_topo.iloc[indice_cabecalho])
+
+            # O que sobrou do topo depois do cabeçalho já é dado.
+            pendentes = topo[indice_cabecalho + 1:]
+            proxima_linha = indice_cabecalho + 1  # índice 0-based na aba
+
+            def montar(registros: list, inicio: int) -> Planilha | None:
+                if not registros:
+                    return None
+                quadro = pd.DataFrame(registros, dtype=object)
+                quadro.columns = colunas[:quadro.shape[1]] + \
+                    [f"coluna_{i}" for i in range(quadro.shape[1] - len(colunas))]
+                # Índice = posição real na aba, igual ao de ler_planilhas.
+                quadro.index = range(inicio, inicio + len(quadro))
+                limpo = _limpar(quadro)
+                if limpo.empty:
+                    return None
+                return Planilha(str(aba.title), limpo, indice_cabecalho)
+
+            bloco = list(pendentes)
+            inicio_bloco = proxima_linha
+            posicao = proxima_linha + len(bloco)
+
+            for linha in linhas:
+                bloco.append(linha)
+                posicao += 1
+                if len(bloco) >= tamanho_bloco:
+                    planilha = montar(bloco, inicio_bloco)
+                    if planilha is not None:
+                        yield planilha
+                    bloco = []
+                    inicio_bloco = posicao
+
+            planilha = montar(bloco, inicio_bloco)
+            if planilha is not None:
+                yield planilha
+    finally:
+        livro.close()

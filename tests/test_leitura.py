@@ -1,10 +1,16 @@
-"""Trava de tamanho: recusa arquivo grande demais ANTES de ler tudo na memória."""
+"""Leitura de arquivos: contagem de linhas, dimensão fantasma e leitura em blocos.
+
+Arquivo grande não é recusado — é lido em pedaços (`ler_em_blocos`), o que
+mantém a memória constante. `ler_planilhas` (que carrega tudo de uma vez)
+continua recusando, e é o pipeline que decide qual caminho usar.
+"""
 import openpyxl
 import pandas as pd
 import pytest
 
 from app.config import config
-from app.etl.leitura import estimar_linhas_arquivo, estimar_linhas_xlsx, ler_planilhas
+from app.etl.leitura import (estimar_linhas_arquivo, estimar_linhas_xlsx,
+                             ler_em_blocos, ler_planilhas)
 from app.utils.erros import ErroValidacaoArquivo
 
 
@@ -102,3 +108,60 @@ def test_estimar_linhas_arquivo_despacha_por_extensao(planilhas, tmp_path):
     xls_desconhecido = tmp_path / "legado.xls"
     xls_desconhecido.write_bytes(b"nao e um xls de verdade")
     assert estimar_linhas_arquivo(xls_desconhecido) == 0
+
+
+def _planilha_grande(caminho, linhas: int):
+    """Arquivo com cabeçalho de Venda e `linhas` registros válidos."""
+    livro = openpyxl.Workbook()
+    aba = livro.active
+    for coluna, nome in enumerate(
+            ["Data", "Cidade", "Equipe", "Canal", "Matrícula", "Quantidade", "Valor"], start=1):
+        aba.cell(row=1, column=coluna, value=nome)
+    for i in range(linhas):
+        linha = i + 2
+        aba.cell(row=linha, column=1, value="01/08/2026")
+        aba.cell(row=linha, column=2, value="Rio Bonito")
+        aba.cell(row=linha, column=3, value=f"Equipe {i % 5:02d}")
+        aba.cell(row=linha, column=4, value="Comercial")
+        aba.cell(row=linha, column=5, value=f"M{i}")
+        aba.cell(row=linha, column=6, value=1)
+        aba.cell(row=linha, column=7, value=10.0)
+    livro.save(caminho)
+
+
+def test_ler_em_blocos_cobre_todas_as_linhas_sem_perder_nem_repetir(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LINHAS_POR_BLOCO", 400)
+    caminho = tmp_path / "grande.xlsx"
+    _planilha_grande(caminho, 1000)
+
+    blocos = list(ler_em_blocos(caminho))
+    assert len(blocos) > 1, "deveria ter sido dividido em vários blocos"
+    assert sum(len(b.dados) for b in blocos) == 1000
+
+    # O índice preservado é o que permite apontar a linha real do Excel.
+    indices = [i for b in blocos for i in b.dados.index]
+    assert len(set(indices)) == len(indices), "índices repetidos entre blocos"
+    assert min(indices) == 1 and max(indices) == 1000
+
+    # Todos os blocos enxergam o mesmo cabeçalho.
+    for bloco in blocos:
+        assert "Matrícula" in list(bloco.dados.columns)
+
+
+def test_arquivo_acima_do_limite_e_processado_em_blocos_e_nao_recusado(tmp_path, monkeypatch):
+    """Regressão: antes, um arquivo grande era recusado. Agora ele deve
+    carregar por completo, lido em pedaços."""
+    from app.etl.pipeline import processar_arquivo
+    from app.models.db import sessao
+
+    monkeypatch.setattr(config, "LIMITE_LINHAS_ARQUIVO", 300)
+    monkeypatch.setattr(config, "LINHAS_POR_BLOCO", 200)
+    caminho = tmp_path / "venda_grande.xlsx"
+    _planilha_grande(caminho, 900)
+
+    with sessao() as s:
+        resultado = processar_arquivo(s, caminho, dataset_forcado="vendas", arquivar=False)
+
+    assert resultado.status in ("SUCESSO", "ATENCAO"), resultado.mensagem
+    assert resultado.lidos == 900
+    assert resultado.inseridos == 900

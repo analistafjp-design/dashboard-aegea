@@ -2,21 +2,23 @@
 banco -> recálculo dos indicadores -> histórico."""
 from __future__ import annotations
 
+import gc
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from app.config import config
-from app.etl.carga import carregar
+from app.etl.carga import ResultadoCarga, carregar
 from app.etl.datasets import DATASETS, ORDEM_CARGA
-from app.etl.deteccao import analisar_arquivo
-from app.etl.transformacao import transformar
+from app.etl.deteccao import Identificacao, analisar_arquivo, identificar
+from app.etl.leitura import estimar_linhas_xlsx, ler_em_blocos
+from app.etl.transformacao import RelatorioValidacao, transformar
 from app.models.tabelas import HistoricoUpload
 from app.services.upload import nome_exibicao
-from app.utils.erros import ErroDashboard, ErroImportacao
+from app.utils.erros import ErroDashboard, ErroImportacao, ErroValidacaoArquivo
 from app.utils.log import get_logger
 
 logger = get_logger("etl.pipeline")
@@ -66,21 +68,84 @@ class ResultadoArquivo:
         }
 
 
+def _em_blocos(caminho: Path) -> bool:
+    """Arquivo grande demais para caber na memória de uma vez."""
+    if caminho.suffix.lower() not in (".xlsx", ".xlsm"):
+        return False
+    return estimar_linhas_xlsx(caminho) > config.LIMITE_LINHAS_ARQUIVO
+
+
+def _processar_em_blocos(sessao: Session, caminho: Path, dataset_forcado: str | None):
+    """Lê o arquivo em pedaços e carrega cada um, mantendo a memória constante.
+
+    O primeiro bloco decide a base e o mapa de colunas; os seguintes
+    reaproveitam a mesma decisão (todos têm o mesmo cabeçalho). Cada bloco é
+    gravado antes de o próximo ser lido, então o consumo de memória não
+    depende do tamanho do arquivo.
+    """
+    identificacao_base: Identificacao | None = None
+    validacao_total: RelatorioValidacao | None = None
+    carga_total = ResultadoCarga()
+    blocos = 0
+
+    for planilha in ler_em_blocos(caminho):
+        if identificacao_base is None:
+            identificacao_base = identificar([planilha], caminho.name, dataset_forcado)
+            if identificacao_base.dataset is None:
+                raise ErroImportacao(
+                    f"Não foi possível identificar o tipo de base do arquivo "
+                    f"'{caminho.name}'. Selecione o tipo manualmente na tela de atualização.",
+                    [f"Aderência máxima encontrada: {identificacao_base.pontuacao:.0%}"],
+                )
+            atual = identificacao_base
+        else:
+            atual = replace(identificacao_base, planilha=planilha)
+
+        dados, validacao = transformar(atual)
+        carga = carregar(sessao, atual.dataset, dados, caminho.name)
+
+        carga_total.inseridos += carga.inseridos
+        carga_total.atualizados += carga.atualizados
+        carga_total.ignorados += carga.ignorados
+        if validacao_total is None:
+            validacao_total = validacao
+        else:
+            validacao_total.somar(validacao)
+        blocos += 1
+
+        # Libera o bloco antes de ler o próximo — é isso que mantém o
+        # consumo de memória estável num arquivo de centenas de milhares
+        # de linhas.
+        del dados, validacao
+        gc.collect()
+
+    if identificacao_base is None or validacao_total is None:
+        raise ErroValidacaoArquivo(
+            f"O arquivo '{caminho.name}' não possui nenhuma planilha com dados.")
+
+    logger.info("Arquivo %s processado em %s bloco(s): %s linhas lidas",
+                caminho.name, blocos, validacao_total.linhas_lidas)
+    return identificacao_base, validacao_total, carga_total
+
+
 def processar_arquivo(sessao: Session, caminho: Path, dataset_forcado: str | None = None,
                       usuario: str = "local", arquivar: bool = True) -> ResultadoArquivo:
     """Processa um arquivo do início ao fim e registra o histórico."""
     resultado = ResultadoArquivo(arquivo=nome_exibicao(caminho.name))
     try:
-        identificacao = analisar_arquivo(caminho, dataset_forcado)
-        if identificacao.dataset is None:
-            raise ErroImportacao(
-                f"Não foi possível identificar o tipo de base do arquivo '{caminho.name}'. "
-                "Selecione o tipo manualmente na tela de atualização.",
-                [f"Aderência máxima encontrada: {identificacao.pontuacao:.0%}"],
-            )
-
-        dados, validacao = transformar(identificacao)
-        carga = carregar(sessao, identificacao.dataset, dados, caminho.name)
+        if _em_blocos(caminho):
+            identificacao, validacao, carga = _processar_em_blocos(
+                sessao, caminho, dataset_forcado)
+        else:
+            identificacao = analisar_arquivo(caminho, dataset_forcado)
+            if identificacao.dataset is None:
+                raise ErroImportacao(
+                    f"Não foi possível identificar o tipo de base do arquivo "
+                    f"'{caminho.name}'. Selecione o tipo manualmente na tela de atualização.",
+                    [f"Aderência máxima encontrada: {identificacao.pontuacao:.0%}"],
+                )
+            dados, validacao = transformar(identificacao)
+            carga = carregar(sessao, identificacao.dataset, dados, caminho.name)
 
         resultado.dataset = identificacao.dataset.nome
         resultado.titulo_dataset = identificacao.dataset.titulo

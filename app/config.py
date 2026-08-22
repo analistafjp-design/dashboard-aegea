@@ -59,6 +59,12 @@ class Config:
     # variável de ambiente para quem migrar para um plano com mais RAM.
     LIMITE_LINHAS_ARQUIVO = int(_env("LIMITE_LINHAS_ARQUIVO", "100000"))
 
+    # Acima de LIMITE_LINHAS_ARQUIVO o arquivo não é recusado: passa a ser
+    # lido em blocos deste tamanho (ver app/etl/leitura.ler_em_blocos), o
+    # que mantém a memória constante independentemente do tamanho do
+    # arquivo. Bloco menor = menos memória e mais lento; maior = o inverso.
+    LINHAS_POR_BLOCO = int(_env("LINHAS_POR_BLOCO", "20000"))
+
     # Cache de indicadores (segundos). O cache é invalidado a cada carga de dados.
     CACHE_TTL = int(_env("CACHE_TTL", "300"))
 

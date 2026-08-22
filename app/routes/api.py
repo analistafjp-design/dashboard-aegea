@@ -12,7 +12,6 @@ from app.analytics.base import Filtros
 from app.analytics.periodo import resolver
 from app.config import config
 from app.etl.datasets import DATASETS
-from app.etl.leitura import estimar_linhas_arquivo
 from app.etl.pipeline import ETAPAS
 from app.schemas.filtros import filtros_da_query
 from app.services import configuracoes as servico_config
@@ -20,7 +19,7 @@ from app.services import exportacao as servico_exportacao
 from app.services import processamento as servico_processamento
 from app.services import upload as servico_upload
 from app.utils.erros import ErroDashboard
-from app.utils.formato import data_hora_br, numero
+from app.utils.formato import data_hora_br
 from app.utils.log import get_logger
 
 logger = get_logger("api")
@@ -189,28 +188,11 @@ async def upload(arquivos: list[UploadFile] = File(...),
             "resultados": erros, "status": status(),
         })
 
-    # Cada arquivo sozinho já é validado dentro de `processar_arquivo` (ver
-    # app/etl/leitura.py), mas um LOTE de vários arquivos pequenos soma
-    # memória do mesmo jeito — por isso o total do lote também é checado
-    # antes, mesmo que nenhum arquivo isolado ultrapasse o limite.
-    total_estimado = sum(estimar_linhas_arquivo(c) for c in salvos)
-    if total_estimado > config.LIMITE_LINHAS_ARQUIVO:
-        for caminho in salvos:
-            caminho.unlink(missing_ok=True)
-        mensagem = (
-            f"Os {len(salvos)} arquivos somam aproximadamente {numero(total_estimado)} "
-            f"linhas juntos — acima do limite de {numero(config.LIMITE_LINHAS_ARQUIVO)} "
-            "linhas que esta instância suporta processar de uma vez, mesmo com cada "
-            "arquivo sendo pequeno sozinho. Envie em lotes menores (menos arquivos por vez)."
-        )
-        logger.warning("Lote de upload recusado: %s arquivo(s), %s linhas estimadas",
-                       len(salvos), total_estimado)
-        return JSONResponse(content={
-            "ok": False, "concluido": True, "mensagem": mensagem,
-            "resultados": [_resultado_erro(c.name, mensagem) for c in salvos] + erros,
-            "status": status(),
-        })
-
+    # Não há mais trava por total de linhas do lote: os arquivos são
+    # processados um a um, cada um com a própria sessão de banco, e um
+    # arquivo grande demais para caber na memória é lido em blocos (ver
+    # app/etl/pipeline._processar_em_blocos). O consumo de memória, portanto,
+    # não depende nem da quantidade de arquivos nem do tamanho deles.
     trabalho = servico_processamento.agendar(salvos, forcados, erros_iniciais=erros)
     return JSONResponse(status_code=202, content={
         "ok": True, "concluido": False,

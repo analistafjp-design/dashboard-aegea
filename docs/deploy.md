@@ -108,16 +108,25 @@ arquivo com centenas de milhares de linhas pode estourar os 512 MB durante
 o processamento, o que derruba o processo no meio do upload (a instância
 reinicia sozinha e aparece "502 Bad Gateway" no navegador).
 
-Para evitar isso, o sistema **recusa educadamente** (antes de gastar
-memória lendo o arquivo inteiro) qualquer planilha com mais de
-**100.000 linhas** — o limite fica configurável pela variável de ambiente
-`LIMITE_LINHAS_ARQUIVO`, caso o plano seja outro com mais RAM. A mesma
-verificação também soma as linhas de **todos os arquivos enviados juntos**
-numa mesma atualização: vários arquivos pequenos processados na mesma
-requisição consomem memória da mesma forma que um arquivo grande, então o
-lote inteiro é recusado se a soma passar do limite, mesmo que nenhum
-arquivo sozinho ultrapasse — nesse caso, envie em lotes menores (poucos
-arquivos por vez). Se um arquivo ou lote for recusado por esse motivo:
+Para lidar com isso sem recusar nada, um arquivo `.xlsx`/`.xlsm` acima de
+**100.000 linhas** (`LIMITE_LINHAS_ARQUIVO`) deixa de ser lido de uma vez e
+passa a ser processado **em blocos** de 20.000 linhas
+(`LINHAS_POR_BLOCO`), gravando cada bloco antes de ler o próximo. Assim a
+memória fica constante independentemente do tamanho do arquivo: medido com
+um arquivo real de 152.934 linhas (16,8 MB), o pico foi de **240 MB** —
+bem dentro dos 512 MB — e as 152.934 linhas foram importadas por completo.
+
+Os arquivos de um mesmo envio também são processados **um a um**, cada um
+com a própria sessão de banco, então o consumo não cresce com a quantidade
+de arquivos.
+
+Restrições que continuam valendo:
+
+- **CSV** acima do limite ainda é recusado (a leitura em blocos hoje cobre
+  só `.xlsx`/`.xlsm`). Converta para Excel ou divida o arquivo.
+- Arquivo acima de `TAMANHO_MAXIMO_MB` (50 MB) segue recusado no upload.
+
+Se um arquivo for recusado por tamanho:
 
 - **Divida o arquivo** em partes menores (por mês, por cidade etc.) e
   envie cada parte separadamente — reenviar não duplica nada, cada linha

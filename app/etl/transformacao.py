@@ -107,6 +107,38 @@ class RelatorioValidacao:
         mensagens = self.mensagens()
         return f"{base}. " + "; ".join(mensagens) if mensagens else base + "."
 
+    def somar(self, outro: "RelatorioValidacao") -> None:
+        """Incorpora o relatório de outro bloco do mesmo arquivo.
+
+        Usado na leitura em blocos (arquivos grandes): cada bloco produz um
+        relatório e o do arquivo é a soma de todos. Só `duplicadas_no_arquivo`
+        é parcial — a checagem de duplicidade acontece dentro de cada bloco,
+        não entre blocos. Isso não gera registro duplicado no banco: a carga
+        é feita por chave única, então uma repetição entre blocos vira
+        atualização, não inserção.
+        """
+        self.linhas_lidas += outro.linhas_lidas
+        self.linhas_validas += outro.linhas_validas
+        self.linhas_descartadas += outro.linhas_descartadas
+        self.duplicadas_no_arquivo += outro.duplicadas_no_arquivo
+        for descricao, quantidade in outro.problemas.items():
+            self.problemas[descricao] = self.problemas.get(descricao, 0) + quantidade
+        for aviso in outro.avisos:
+            if aviso not in self.avisos:
+                self.avisos.append(aviso)
+        self.colunas_mapeadas.update(outro.colunas_mapeadas)
+        for lista, novos in ((self.colunas_ignoradas, outro.colunas_ignoradas),
+                             (self.colunas_ausentes, outro.colunas_ausentes)):
+            for item in novos:
+                if item not in lista:
+                    lista.append(item)
+        for exemplo in outro.exemplos:
+            if len(self.exemplos) < MAX_EXEMPLOS:
+                self.exemplos.append(exemplo)
+            else:
+                self.exemplos_omitidos += 1
+        self.exemplos_omitidos += outro.exemplos_omitidos
+
     def to_dict(self) -> dict:
         return {
             "dataset": self.dataset,

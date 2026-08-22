@@ -27,7 +27,8 @@
 # C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Faturamento = faturamento
 # C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Programação Diaria = programacao
 
-# A pasta Atendimento ("Analitico - acomp de solicitação") ainda não tem
-# base definida e o arquivo tem ~153 mil linhas, acima do limite que a
-# instância gratuita processa. Deixe comentada até resolver isso.
+# Atendimento ("Analitico - acomp de solicitação"): implantações vindas de
+# outros canais de atendimento. O arquivo tem ~153 mil linhas e é lido em
+# blocos automaticamente, então pode ser monitorado normalmente — só leve
+# em conta que ele demora mais que os demais.
 # C:\Users\fabio.passos\OneDrive - AEGEA Saneamento e Participações S.A\DashBoard - Interior\Atendimento = implantacao
