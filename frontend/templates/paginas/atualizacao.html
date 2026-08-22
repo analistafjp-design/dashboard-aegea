@@ -4,10 +4,24 @@
   <div class="painel">
     <div class="painel__cabecalho">
       <div><div class="painel__titulo">Atualização de Dados</div>
-        <div class="painel__descricao">Envie os arquivos Excel. O tipo de base é identificado
-          automaticamente pelas colunas — se preferir, escolha manualmente.</div></div>
+        <div class="painel__descricao">Envie os arquivos Excel. Escolha a aba correspondente à
+          pasta de origem — Termos/Interior, Base Arquivos, Faturamento ou Atendimento — antes de
+          soltar os arquivos, para que cada um vá para a base certa. Todos são enviados juntos,
+          de uma vez só, no botão abaixo.</div></div>
     </div>
     <div class="painel__corpo">
+      <div class="abas-categoria" id="abas-categoria" role="tablist">
+        <button type="button" class="aba-categoria aba-categoria--ativa"
+                data-categoria="termos-interior" role="tab" aria-selected="true">Termos / Interior</button>
+        <button type="button" class="aba-categoria"
+                data-categoria="base-arquivos" role="tab" aria-selected="false">Base Arquivos (dia)</button>
+        <button type="button" class="aba-categoria"
+                data-categoria="faturamento" role="tab" aria-selected="false">Faturamento</button>
+        <button type="button" class="aba-categoria"
+                data-categoria="atendimento" role="tab" aria-selected="false">Atendimento</button>
+      </div>
+      <div class="painel__descricao" id="abas-categoria-dica" style="margin:6px 0 12px"></div>
+
       <div class="upload-area" id="area-upload">
         <div class="upload-area__icone">↥</div>
         <div class="upload-area__titulo">Arraste os arquivos aqui ou clique para escolher</div>

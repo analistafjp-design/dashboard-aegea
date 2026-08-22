@@ -52,6 +52,13 @@ class Config:
     EXTENSOES_PERMITIDAS = {".xlsx", ".xlsm", ".xls", ".csv"}
     TAMANHO_MAXIMO_MB = int(_env("TAMANHO_MAXIMO_MB", "50"))
 
+    # Limite de linhas por arquivo — proteção contra estourar a memória da
+    # instância (medido: ~115 MB só de a aplicação subir + ~140 MB a cada 60
+    # mil linhas processadas; 100.000 linhas fica com folga confortável
+    # dentro dos 512 MB do plano gratuito do Render). Ajustável via
+    # variável de ambiente para quem migrar para um plano com mais RAM.
+    LIMITE_LINHAS_ARQUIVO = int(_env("LIMITE_LINHAS_ARQUIVO", "100000"))
+
     # Cache de indicadores (segundos). O cache é invalidado a cada carga de dados.
     CACHE_TTL = int(_env("CACHE_TTL", "300"))
 

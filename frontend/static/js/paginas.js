@@ -590,40 +590,100 @@
     ["metas", "Metas"],
   ];
 
+  // Uma aba por pasta que o usuário já usa hoje (mesma organização do
+  // Power BI antigo) — só decide o tipo PADRÃO marcado para os arquivos
+  // soltos enquanto aquela aba está ativa; a identificação automática (ou a
+  // troca manual na lista abaixo) continua valendo se o padrão estiver
+  // errado para um arquivo específico.
+  const CATEGORIAS_UPLOAD = {
+    "termos-interior": {
+      tipo: "termos",
+      dica: "Arquivos soltos aqui são marcados como <strong>Termos Aplicados</strong> — "
+        + "mesma base das pastas \"Termos\" e \"Interior\" (são o mesmo tipo de arquivo).",
+    },
+    "base-arquivos": {
+      tipo: "termos",
+      dica: "Arquivos soltos aqui também são marcados como <strong>Termos Aplicados</strong> — "
+        + "é a versão do dia da mesma base de Termos/Interior.",
+    },
+    "faturamento": {
+      tipo: "faturamento",
+      dica: "Arquivos soltos aqui são marcados como <strong>Faturamento de Termos</strong> — "
+        + "a base \"Solicitação Geral\".",
+    },
+    "atendimento": {
+      tipo: "",
+      dica: "Arquivos soltos aqui ficam em <strong>Detecção automática</strong> — a base "
+        + "\"Analítico - Acomp. de Solicitação\" ainda não tem um tipo fixo definido; "
+        + "confira o tipo identificado na lista abaixo antes de atualizar.",
+    },
+  };
+
   App.registrar("atualizacao", async function () {
     const area = document.getElementById("area-upload");
     const input = document.getElementById("input-arquivos");
     const lista = document.getElementById("lista-arquivos");
     const botao = document.getElementById("btn-atualizar");
+    const abas = document.getElementById("abas-categoria");
+    const dicaAbas = document.getElementById("abas-categoria-dica");
     if (!area || area.dataset.pronto) { await carregarHistorico(); return; }
     area.dataset.pronto = "1";
 
     let arquivos = [];
+    let categoriaAtiva = "termos-interior";
+    const tipoPorArquivo = new Map(); // "nome|tamanho" -> tipo padrão da aba no momento do envio
+
+    function chaveArquivo(arquivo) { return `${arquivo.name}|${arquivo.size}`; }
+
+    function atualizarDicaAba() {
+      if (dicaAbas) dicaAbas.innerHTML = CATEGORIAS_UPLOAD[categoriaAtiva].dica;
+    }
+
+    if (abas) {
+      abas.querySelectorAll("[data-categoria]").forEach((botaoAba) => {
+        botaoAba.addEventListener("click", () => {
+          categoriaAtiva = botaoAba.dataset.categoria;
+          abas.querySelectorAll("[data-categoria]").forEach((b) => {
+            const ativa = b === botaoAba;
+            b.classList.toggle("aba-categoria--ativa", ativa);
+            b.setAttribute("aria-selected", String(ativa));
+          });
+          atualizarDicaAba();
+        });
+      });
+      atualizarDicaAba();
+    }
 
     function desenharLista() {
-      lista.innerHTML = arquivos.map((arquivo, indice) => `
+      lista.innerHTML = arquivos.map((arquivo, indice) => {
+        const tipoPadrao = tipoPorArquivo.get(chaveArquivo(arquivo)) || "";
+        return `
         <div class="arquivo-linha">
           <span>▤</span>
           <div class="arquivo-linha__nome">${App.escapar(arquivo.name)}
             <div class="arquivo-linha__tamanho">${(arquivo.size / 1024).toFixed(0)} KB</div></div>
           <select data-indice="${indice}">
-            ${TIPOS_BASE.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}
+            ${TIPOS_BASE.map(([v, t]) => `<option value="${v}" ${v === tipoPadrao ? "selected" : ""}>${t}</option>`).join("")}
           </select>
           <button class="btn" data-remover="${indice}">✕</button>
-        </div>`).join("");
+        </div>`;
+      }).join("");
       botao.disabled = arquivos.length === 0;
       lista.querySelectorAll("[data-remover]").forEach((b) => {
         b.addEventListener("click", () => {
-          arquivos.splice(Number(b.dataset.remover), 1);
+          const [removido] = arquivos.splice(Number(b.dataset.remover), 1);
+          if (removido) tipoPorArquivo.delete(chaveArquivo(removido));
           desenharLista();
         });
       });
     }
 
     function adicionar(novos) {
+      const tipoDaAba = CATEGORIAS_UPLOAD[categoriaAtiva].tipo;
       Array.from(novos).forEach((arquivo) => {
         if (!arquivos.some((a) => a.name === arquivo.name && a.size === arquivo.size)) {
           arquivos.push(arquivo);
+          tipoPorArquivo.set(chaveArquivo(arquivo), tipoDaAba);
         }
       });
       desenharLista();
@@ -689,6 +749,7 @@
         if (dados.ok) {
           App.toast(dados.mensagem, "sucesso", "Dashboard atualizado");
           arquivos = [];
+          tipoPorArquivo.clear();
           desenharLista();
           const topo = document.getElementById("topo-ultima-atualizacao");
           if (topo && dados.status) topo.textContent = dados.status.ultima_atualizacao || "-";

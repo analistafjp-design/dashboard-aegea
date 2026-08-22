@@ -73,6 +73,28 @@ uploads são perdidos**. Isso é normal e esperado no plano gratuito.
 | Banco Postgres gerenciado | Descomentar o bloco `databases:` e a variável `DATABASE_URL` no `render.yaml`; o app já suporta Postgres nativamente (SQLAlchemy) | Free por 30 dias, depois pago |
 | Rodar localmente/servidor próprio | Ver `README.md` — sem custo de hospedagem, dado fica no seu disco | Grátis |
 
+## ⚠️ Sobre memória (RAM) no plano Free
+
+O plano **Free** do Render tem só **512 MB de RAM**. A aplicação sozinha
+(FastAPI + pandas + SQLAlchemy) já usa cerca de **115 MB** só de subir;
+processar um arquivo Excel consome mais memória proporcional ao número de
+linhas — na prática, em torno de **140 MB a cada 60 mil linhas**. Um
+arquivo com centenas de milhares de linhas pode estourar os 512 MB durante
+o processamento, o que derruba o processo no meio do upload (a instância
+reinicia sozinha e aparece "502 Bad Gateway" no navegador).
+
+Para evitar isso, o sistema **recusa educadamente** (antes de gastar
+memória lendo o arquivo inteiro) qualquer planilha com mais de
+**100.000 linhas** — o limite fica configurável pela variável de ambiente
+`LIMITE_LINHAS_ARQUIVO`, caso o plano seja outro com mais RAM. Se um
+arquivo for recusado por esse motivo:
+
+- **Divida o arquivo** em partes menores (por mês, por cidade etc.) e
+  envie cada parte separadamente — reenviar não duplica nada, cada linha
+  é identificada pela própria chave (data, cidade, equipe...).
+- **Ou migre para um plano com mais RAM** no Render (os planos pagos
+  chegam a 2 GB+) e aumente `LIMITE_LINHAS_ARQUIVO` de acordo.
+
 ## 5. Atualizando o deploy depois de um novo `git push`
 
 O Render reimplanta automaticamente a cada push na branch configurada em

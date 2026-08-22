@@ -38,6 +38,11 @@ services:
         value: "false"
       - key: TAMANHO_MAXIMO_MB
         value: "50"
+      # Linhas por arquivo — proteção contra estourar os 512 MB de RAM do
+      # plano Free durante o processamento (ver docs/deploy.md, seção
+      # "Sobre memória"). Aumente se migrar para um plano com mais RAM.
+      - key: LIMITE_LINHAS_ARQUIVO
+        value: "100000"
       - key: CACHE_TTL
         value: "300"
       # AUTH_USUARIO/AUTH_SENHA: login HTTP Basic exigido em toda a
