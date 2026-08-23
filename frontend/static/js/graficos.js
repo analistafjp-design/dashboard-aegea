@@ -97,7 +97,9 @@
       name: opcoes.nome || "Realizado",
       hovertemplate: "%{x}<br><b>%{y:,.0f}</b><extra></extra>",
       text: opcoes.mostrarValores ? valores.map((v) => v.toLocaleString("pt-BR")) : undefined,
+      texttemplate: opcoes.mostrarValores ? "<b>%{text}</b>" : undefined,
       textposition: opcoes.mostrarValores ? "outside" : undefined,
+      cliponaxis: false,
     }], opcoes.layout);
   };
 

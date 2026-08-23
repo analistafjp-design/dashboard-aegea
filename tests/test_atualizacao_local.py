@@ -74,7 +74,7 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == {"termos"}
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 6
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 7
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == set()

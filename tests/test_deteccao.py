@@ -35,6 +35,17 @@ def test_sinonimos_de_coluna_sao_aceitos():
     assert mapa["quantidade"] == "Qtde"
 
 
+def test_setor_prioriza_descricao_do_powerbi_em_vez_do_codigo_numerico():
+    mapa = mapear_colunas(get_dataset("termos"), [
+        "Setor",
+        "Setor do Recurso.Setor do Recurso",
+        "Data da Atividade",
+        "Recurso",
+    ])
+
+    assert mapa["setor"] == "Setor do Recurso.Setor do Recurso"
+
+
 def test_arquivo_desconhecido_nao_e_identificado(tmp_path):
     caminho = tmp_path / "outra_coisa.xlsx"
     pd.DataFrame({"Alfa": [1, 2], "Beta": ["x", "y"]}).to_excel(caminho, index=False)

@@ -61,6 +61,7 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert 'name: "Total"' in javascript
     assert "ticklabelstandoff: 12" in javascript
     assert "annotations: rotulos.map" in javascript
+    assert 'texttemplate: opcoes.mostrarValores ? "<b>%{text}</b>"' in javascript
 
 
 def test_interface_oferece_exportacao_por_aba_e_geral(cliente, base_carregada):
