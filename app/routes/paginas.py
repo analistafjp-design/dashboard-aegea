@@ -45,7 +45,7 @@ ROTAS = [
 # Menu enxuto para o uso diário. As demais rotas continuam disponíveis por
 # endereço direto e para exportações, mas não poluem a navegação principal.
 MENU = [item for item in ROTAS if item["chave"] in {
-    "home", "termos", "programacao", "atualizacao"
+    "home", "termos", "programacao"
 }]
 
 TITULOS = {item["chave"]: item["titulo"] for item in ROTAS}

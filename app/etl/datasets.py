@@ -147,6 +147,11 @@ TERMOS = Dataset(
         Campo("status_termo", "texto", "Status do termo (PBIX: Termos.Status Termo)",
               aliases=("status", "situacao termo", "status do termo",
                        "status da atividade", "ocorrencia_encerramento"), peso=2),
+        Campo("status_atividade", "texto", "Status da Atividade do Field Service",
+              aliases=("status da atividade",), peso=3),
+        Campo("servico_adicional", "texto",
+              "Resposta que contém os códigos 110013/210013/310013",
+              aliases=("servico adicionais resposta", "serviço adicionais resposta"), peso=3),
         CAMPO_QUANTIDADE,
         CAMPO_VALOR,
     ),
@@ -165,22 +170,53 @@ FATURAMENTO = Dataset(
     ),
     campos=(
         Campo("data", "data", "Data de referência (PBIX: Faturamento Termos.Início do Mês)",
-              aliases=("inicio do mes", "inicio mes", "data faturamento", "mes referencia",
-                       "competencia", "data"),
+              aliases=("inicio do mes", "inicio mes", "dat notificacao",
+                       "data faturamento", "mes referencia", "competencia", "data"),
               obrigatorio=True, peso=3),
         CAMPO_CIDADE,
         Campo("situacao", "texto",
               "Situação do faturamento: Negociação, Aguardando, Faturado ou Cancelado",
-              aliases=("situacao do termo", "status faturamento", "status", "situacao termo"),
+              aliases=("situacao do termo", "status", "situacao termo"),
               obrigatorio=True, peso=3),
         Campo("numero_termo", "texto", "Número/identificador do termo",
-              aliases=("termo", "num termo", "nº termo", "numero do termo", "protocolo"),
+              aliases=("matricula", "termo", "num termo", "nº termo", "numero do termo",
+                       "num termo ocorrencia", "num termo parcelamento", "protocolo"),
               peso=2),
         CAMPO_QUANTIDADE,
         CAMPO_VALOR,
     ),
     chave_unica=("data", "numero_termo", "situacao", "cidade"),
     dicas_nome_arquivo=("faturamento", "termo"),
+)
+
+FATURAMENTO_IMPLANTACAO = Dataset(
+    nome="faturamento_implantacao",
+    titulo="Faturamento de Implantação",
+    modulo="IMPLANTACAO",
+    tabela="fato_faturamento_implantacao",
+    descricao=(
+        "Base usada pelas medidas Implantação Faturada, Implantação Não Faturada "
+        "e Valor Total Faturado do PBIX Venda e Implantação."
+    ),
+    campos=(
+        Campo("data", "data", "Data de execução do faturamento",
+              aliases=("data execucao", "data encerramento", "data pedido", "data"),
+              obrigatorio=True, peso=3),
+        Campo("ligacao", "texto", "Número da ligação",
+              aliases=("n ligacao", "numero ligacao", "nº ligação"),
+              obrigatorio=True, peso=3),
+        Campo("tipo_solicitacao", "texto", "Tipo de solicitação",
+              aliases=("tipo de solicitacao",), obrigatorio=True, peso=3),
+        Campo("ocorrencia", "texto", "Ocorrência de encerramento",
+              aliases=("ocorrencia encerramento", "ocorrencia_encerramento"),
+              obrigatorio=True, peso=3),
+        Campo("departamento", "texto", "Nome do departamento",
+              aliases=("nome departamento",), obrigatorio=True, peso=3),
+        Campo("valor", "numero", "Valor do serviço",
+              aliases=("valor do servico", "valor servico num", "valor")),
+    ),
+    chave_unica=("data", "ligacao", "tipo_solicitacao", "departamento"),
+    dicas_nome_arquivo=("faturamento", "solicitacao"),
 )
 
 # --------------------------------------------------------------------------
@@ -203,7 +239,14 @@ VENDAS = Dataset(
               "Canal da venda: Comercial, VCG ou Outros Canais",
               aliases=("canal", "canal de venda", "origem da venda", "segmento",
                        "tipo de venda", "origem", "classificacao", "categoria"),
-              obrigatorio=True, peso=3),
+              peso=3),
+        Campo("tipo_atividade", "texto", "Tipo de Atividade usado pela medida Venda",
+              aliases=("tipo de atividade",), peso=3),
+        Campo("status_atividade", "texto", "Status da Atividade (somente Finalizada)",
+              aliases=("status da atividade",), peso=3),
+        Campo("codigo_descricao", "texto",
+              "Código/Descrição usado nas exclusões 114003/118048",
+              aliases=("codigo/descricao",), peso=2),
         CAMPO_MATRICULA,
         CAMPO_QUANTIDADE,
         CAMPO_VALOR,
@@ -234,6 +277,12 @@ IMPLANTACAO = Dataset(
         Campo("servico", "texto", "Serviço executado",
               aliases=("descricao servico", "atividade", "descricao", "servico executado",
                        "descricao do servico", "codigo/descricao", "tipo de atividade")),
+        Campo("tipo_atividade", "texto", "Tipo de Atividade (PBIX: Ligação de Água)",
+              aliases=("tipo de atividade",), peso=3),
+        Campo("status_atividade", "texto", "Status da Atividade (PBIX: Finalizada)",
+              aliases=("status da atividade",), peso=3),
+        Campo("codigo_descricao", "texto", "Código/Descrição da atividade",
+              aliases=("codigo/descricao",), peso=2),
         Campo("faturado", "booleano",
               "Indica se a implantação já foi faturada (Sim/Não, Faturado/Não Faturado)",
               aliases=("situacao faturamento", "faturada", "status faturamento",
@@ -266,7 +315,7 @@ PROGRAMACAO = Dataset(
         Campo("regiao", "texto", "Região da programação (PBIX: Programação.Regiao)",
               aliases=("regiao", "polo", "base", "area", "regional",
                        "area de trabalho", "distrito", "localidade"),
-              obrigatorio=True, peso=3),
+              peso=3),
         Campo("recurso", "texto", "Recurso/equipe programada (PBIX: Programação.Recurso)",
               aliases=("equipe", "recurso programado", "time", "turma", "colaborador",
                        "login do recurso", "executado por"),
@@ -274,6 +323,12 @@ PROGRAMACAO = Dataset(
         Campo("projeto", "texto", "Projeto principal (PBIX: Medidas.Projeto Principal)",
               aliases=("projeto principal", "obra", "contrato", "programa"),
               peso=2),
+        Campo("codigo_descricao", "texto", "Código/Descrição usado para derivar o projeto",
+              aliases=("codigo/descricao",), peso=2),
+        Campo("observacao", "texto", "Observação usada para derivar o projeto",
+              aliases=("observacao", "observações", "observacoes")),
+        Campo("tipo_atividade", "texto", "Tipo de atividade da programação",
+              aliases=("tipo de atividade",)),
         CAMPO_CIDADE,
         Campo("qtd_os", "numero", "Quantidade de O.S. programadas",
               aliases=("qtd os", "os", "quantidade os", "ordens de servico", "qtd ordens",
@@ -367,12 +422,12 @@ ATENDIMENTO = Dataset(
 )
 
 DATASETS: dict[str, Dataset] = {
-    d.nome: d for d in (TERMOS, FATURAMENTO, VENDAS, IMPLANTACAO, PROGRAMACAO,
-                        METAS, ATENDIMENTO)
+    d.nome: d for d in (TERMOS, FATURAMENTO, FATURAMENTO_IMPLANTACAO, VENDAS,
+                        IMPLANTACAO, PROGRAMACAO, METAS, ATENDIMENTO)
 }
 
 ORDEM_CARGA = ("metas", "termos", "faturamento", "vendas", "implantacao",
-               "programacao", "atendimento")
+               "faturamento_implantacao", "programacao", "atendimento")
 
 
 def get_dataset(nome: str) -> Dataset:

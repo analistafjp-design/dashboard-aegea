@@ -1,13 +1,13 @@
 """Garantias da interface operacional simplificada."""
 
 
-def test_menu_principal_tem_apenas_as_quatro_telas_de_uso_diario(cliente, base_carregada):
+def test_menu_principal_tem_apenas_as_tres_telas_de_uso_diario(cliente, base_carregada):
     pagina = cliente.get("/").text
 
     assert "Venda e Implantação" in pagina
     assert "Termos Aplicados" in pagina
     assert "Programação Diária" in pagina
-    assert "Atualização de Dados" in pagina
+    assert 'data-chave="atualizacao"' not in pagina
     assert 'data-chave="alertas"' not in pagina
     assert 'data-chave="analises"' not in pagina
 

@@ -70,6 +70,15 @@ def test_bloco_meta_sem_meta_cadastrada_nao_inventa_numero():
     assert bloco["realizado"] == 100.0  # o realizado continua sendo mostrado
 
 
+def test_metas_padrao_sao_as_constantes_extraidas_dos_pbix():
+    assert mod_metas.meta("IMPLANTACAO", 2026, 8, "SERVICOS") == 234.0
+    assert mod_metas.meta("IMPLANTACAO", 2026, 8, "VCG") == 188.0
+    assert mod_metas.meta_total_composta("IMPLANTACAO", 2026, 8) == 422.0
+    assert mod_metas.meta("TERMOS", 2026, 8, "SERVICOS") == 250.0
+    assert mod_metas.meta("TERMOS", 2026, 8, "VCG") == 180.0
+    assert mod_metas.meta_total_composta("TERMOS", 2026, 8) == 430.0
+
+
 # ------------------------------------------------------- distinção sem dados/0
 def test_base_vazia_devolve_none_e_nao_zero():
     import pandas as pd
@@ -87,7 +96,8 @@ def test_sem_dados_todos_os_cards_dizem_sem_dados():
     assert realizado["disponivel"] is False
     assert realizado["texto"] == "Sem dados no período"
     meta = next(c for c in dados["cards"] if c["chave"] == "meta_total")
-    assert meta["mensagem"] == "Meta não cadastrada"
+    assert meta["valor"] == 430 + 234 + 422
+    assert meta["mensagem"] is None
 
 
 # --------------------------------------------------------- com dados de teste
@@ -104,7 +114,8 @@ def test_meta_de_termos_e_a_soma_dos_segmentos(base_carregada):
     """Sem meta TOTAL cadastrada, soma-se Serviços + VCG (20 + 20)."""
     assert mod_metas.meta_total_composta("TERMOS", 2026, 8) == 40.0
     assert mod_metas.meta("TERMOS", 2026, 8, "SERVICOS") == 20.0
-    assert mod_metas.meta("TERMOS", 2026, 9) is None  # setembro não tem meta
+    # Sem planilha específica para setembro, vale a constante DAX do PBIX.
+    assert mod_metas.meta("TERMOS", 2026, 9) == 430.0
 
 
 def test_atingimento_de_vendas_bate_com_o_calculo_manual(base_carregada, dias_uteis_agosto):

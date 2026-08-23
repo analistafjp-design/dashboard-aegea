@@ -21,6 +21,7 @@ data/uploads/*
 data/processed/*
 !data/processed/.gitkeep
 data/logs/
+data/local/
 data/exemplos/
 *.db
 *.db-wal

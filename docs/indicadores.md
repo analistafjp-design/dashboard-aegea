@@ -9,8 +9,9 @@ Convenções válidas para todo o documento:
   último mês **com dados**, nunca o mês do relógio.
 - **Dias úteis**: excluem sábados, domingos, feriados nacionais fixos, Carnaval
   (segunda e terça), Sexta-feira Santa e Corpus Christi.
-- **Meta**: só existe se estiver cadastrada na planilha de metas. Sem cadastro o
-  sistema exibe *"Meta não cadastrada"* — nunca estima.
+- **Meta**: usa primeiro a planilha de metas. Sem valor explícito, aplica as
+  metas constantes dos PBIX: Implantação 422 (234 Serviços + 188 VCG) e
+  Termos 430 (250 Serviços + 180 VCG).
 - **Sem dados ≠ 0**: base vazia devolve `null` e a tela mostra "Sem dados"; zero
   só aparece quando o zero é real.
 
@@ -48,8 +49,8 @@ Convenções válidas para todo o documento:
 | Indicador | Pergunta | Referência no PBIX | Regra |
 |---|---|---|---|
 | Realizado Total | Como estamos no mês? | `f_Fild.Realizado Total`, `Medidas.Realizado Total` | Soma de `fato_termos.quantidade` no mês |
-| Realizado Serviços | Como está Serviços? | `f_Fild.Realizado Serviços` | Idem, filtrando `tipo = SERVICOS` |
-| Realizado VCG | Como está VCG? | `f_Fild.Realizado VCG` | Idem, filtrando `tipo = VCG` |
+| Realizado Serviços | Como está Serviços? | `f_Fild.Realizado Serviços` | Códigos 110013/210013, status permitido e exclusões VCG do PBIX |
+| Realizado VCG | Como está VCG? | `f_Fild.Realizado VCG` | Código 310013, recurso RIOVCGEXTIN e status permitido |
 | Meta / Meta Serviços / Meta VCG | Qual o compromisso? | Medidas de meta do PBIX | `metas` com módulo `TERMOS` |
 | % Atingimento | Estamos atingindo? | `Medidas.% Atingimento` | Realizado ÷ Meta × 100 |
 | Meta acumulada | Estamos no ritmo? | — | Meta × fração de dias úteis decorridos |
@@ -60,10 +61,9 @@ Convenções válidas para todo o documento:
 | Distribuição por cidade | Onde está concentrado? | `d_Cadastro.CIDADE`, `Interior.Cidade` | Soma por cidade |
 | Distribuição por setor | Qual área produz mais? | `Setor do Recurso.Setor do Recurso` | Soma por setor |
 
-**Classificação Serviços × VCG.** Deduzida, nesta ordem, das colunas `tipo`,
-`frente` e `servico`: texto contendo "VCG" → `VCG`; contendo "Serviço" →
-`SERVICOS`; caso contrário `NAO_CLASSIFICADO` (aparece como "Não Classificado",
-nunca somado silenciosamente a uma das frentes).
+**Classificação Serviços × VCG.** Na exportação bruta, segue exatamente códigos,
+recursos e status do PBIX. A dedução por `tipo`/`frente` permanece somente para
+planilhas antigas já consolidadas.
 
 ---
 
@@ -90,9 +90,9 @@ canônicas: "cancel*" → Cancelado; "fatur*"/"concluíd*"/"pago" → Faturado;
 
 | Indicador | Pergunta | Referência no PBIX | Regra |
 |---|---|---|---|
-| Total de Vendas | Como está a venda? | `Medidas.Total Venda` | Soma de `fato_vendas.quantidade` |
-| Venda Comercial | Como está o Comercial? | `Medidas.Venda Comercial` | `canal = COMERCIAL` |
-| Venda VCG | Como está VCG? | `Medidas.Venda VCG` | `canal = VCG` (inclui Rio Bonito e Bairro Legal/SFI) |
+| Total de Vendas | Como está a venda? | `Medidas.Total Venda` | Venda Comercial + Venda VCG no filtro |
+| Venda Comercial | Como está o Comercial? | `Medidas.Venda Comercial` | Venda Potenciais/Factíveis finalizada, sem recursos VCG e sem códigos 114003/118048 |
+| Venda VCG | Como está VCG? | `Medidas.Venda VCG` | Mesma atividade/status, recursos VCG e sem código 114003 |
 | Outros Canais | Quanto vem de fora? | `Medidas.Vendas Outros Canais` | `canal = OUTROS` |
 | Venda por Dia | Qual o ritmo? | `Medidas.Venda por Dia` | Total ÷ dias úteis decorridos |
 | Falta Venda | Quanto falta? | `Medidas.Falta Venda` | `max(Meta − Realizado, 0)` |
@@ -108,20 +108,18 @@ o agrupamento usado pelas três medidas de venda do PBIX.
 
 | Indicador | Pergunta | Referência no PBIX | Regra |
 |---|---|---|---|
-| Implantação Total | Quanto foi implantado? | `Medidas.Total Implantação`, `Implantação Geral` | Soma de `fato_implantacao.quantidade` |
+| Implantação Total | Quanto foi implantado? | `Medidas.Total Implantação`, `Implantação Geral` | Contagem de Ligação de Água finalizada |
 | Implantação Serviços | Como está Serviços? | `Medidas.Implantação por Mês - Serviços` | `tipo = SERVICOS` |
 | Implantação VCG | Como está VCG? | `Medidas.Implantação Mês - VCG` | `tipo = VCG` |
 | Média Implantação/Dia | Qual o ritmo? | `Medidas.Média Implantação Dia - Serviços`, `Implantação Dia VCG` | Realizado ÷ dias úteis decorridos |
-| Implantação Faturada | Quanto virou receita? | `Medidas.Implantação Faturada` | `faturado = verdadeiro` |
-| Implantação Não Faturada | Qual receita represada? | `Medidas.Implantação Não Faturada` | `faturado = falso` |
-| Valor Total Faturado | Quanto entrou? | `Medidas.Valor Total Faturado` | Soma de `valor` das faturadas |
+| Implantação Faturada | Quanto virou receita? | `Medidas.Implantação Faturada` | Nº de ligação distinto, ocorrência 0-EXECUTADO, departamentos e tipo de solicitação do PBIX, valor > 0 |
+| Implantação Não Faturada | Qual receita represada? | `Medidas.Implantação Não Faturada` | Mesmos filtros, valor = 0 |
+| Valor Total Faturado | Quanto entrou? | `Medidas.Valor Total Faturado` | Soma de valor com ocorrência e departamentos do PBIX |
 | Falta Total | Quanto falta? | `Medidas.Falta Total`, `Total a Realizar` | `max(Meta − Realizado, 0)` |
 | Alerta de faturamento | O que precisa de ação? | — | "Existem X implantações realizadas ainda não faturadas" |
 
-**Atenção ao campo `faturado`.** Quando a planilha não traz a coluna de situação
-de faturamento, o sistema assume `falso` **e registra o aviso** "colunas
-opcionais ausentes: faturado" no relatório de importação. Nesse caso o indicador
-de faturamento reflete ausência de informação, não ausência de faturamento.
+Planilhas consolidadas antigas com o campo `faturado` continuam aceitas como
+compatibilidade; a exportação bruta da pasta Faturamento tem prioridade.
 
 ---
 
@@ -130,7 +128,7 @@ de faturamento reflete ausência de informação, não ausência de faturamento.
 | Indicador | Pergunta | Referência no PBIX | Regra |
 |---|---|---|---|
 | O.S. Programadas (dia) | Qual a carga de hoje? | `Medidas.Qtd OS Programadas` | Soma de `qtd_os` na data de referência |
-| Equipes Programadas | Quantas equipes em campo? | `Medidas.Qtd Equipes Programadas` | Recursos distintos na data |
+| Equipes Programadas | Quantas equipes em campo? | `Medidas.Qtd Equipes Programadas` | `Eqp_Geral` distinta e não vazia na data |
 | Média de O.S. por Equipe | A carga está equilibrada? | — | O.S. do dia ÷ equipes do dia |
 | O.S. Programadas (mês) | Qual o volume do mês? | — | Soma de `qtd_os` no mês |
 | Desequilíbrios | Onde rebalancear? | — | Equipe ≥ 1,5× a média (sobrecarregada) ou ≤ 0,5× (subutilizada), com no mínimo 3 equipes no dia |

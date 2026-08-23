@@ -170,6 +170,26 @@ class FatoImplantacao(Base):
     importado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
+class FatoFaturamentoImplantacao(Base):
+    """Base de faturamento usada pelo PBIX Venda e Implantação."""
+
+    __tablename__ = "fato_faturamento_implantacao"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chave_unica: Mapped[str] = mapped_column(String(240), unique=True, index=True)
+    data: Mapped[date] = mapped_column(Date, index=True)
+    ano_mes: Mapped[str] = mapped_column(String(7), index=True)
+    ligacao: Mapped[str] = mapped_column(String(80), index=True)
+    tipo_solicitacao: Mapped[str] = mapped_column(String(180), index=True)
+    ocorrencia: Mapped[str] = mapped_column(String(80), index=True)
+    departamento: Mapped[str] = mapped_column(String(120), index=True)
+    frente: Mapped[str] = mapped_column(String(40), index=True)
+    valor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    faturado: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    origem_arquivo: Mapped[str | None] = mapped_column(String(255))
+    importado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
 class FatoProgramacao(Base):
     """PBIX 3 — Programação Diária."""
 

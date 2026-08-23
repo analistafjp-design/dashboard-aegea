@@ -19,6 +19,7 @@ from app.models.tabelas import (
     DimRegiao,
     DimSetor,
     FatoFaturamento,
+    FatoFaturamentoImplantacao,
     FatoImplantacao,
     FatoProgramacao,
     FatoTermos,
@@ -93,6 +94,20 @@ def _stmt_implantacao():
     )
 
 
+def _stmt_faturamento_implantacao():
+    return select(
+        FatoFaturamentoImplantacao.data,
+        FatoFaturamentoImplantacao.ano_mes,
+        FatoFaturamentoImplantacao.ligacao,
+        FatoFaturamentoImplantacao.tipo_solicitacao,
+        FatoFaturamentoImplantacao.ocorrencia,
+        FatoFaturamentoImplantacao.departamento,
+        FatoFaturamentoImplantacao.frente,
+        FatoFaturamentoImplantacao.valor,
+        FatoFaturamentoImplantacao.faturado,
+    )
+
+
 def _stmt_programacao():
     cidade, equipe, regiao, projeto = (aliased(DimCidade), aliased(DimEquipe),
                                        aliased(DimRegiao), aliased(DimProjeto))
@@ -115,6 +130,7 @@ _CONSTRUTORES = {
     "faturamento": _stmt_faturamento,
     "vendas": _stmt_vendas,
     "implantacao": _stmt_implantacao,
+    "faturamento_implantacao": _stmt_faturamento_implantacao,
     "programacao": _stmt_programacao,
 }
 
@@ -124,6 +140,7 @@ COLUNAS_FILTRAVEIS = {
     "faturamento": ("cidade",),
     "vendas": ("cidade", "frente", "equipe"),
     "implantacao": ("cidade", "frente", "equipe"),
+    "faturamento_implantacao": ("frente",),
     "programacao": ("cidade", "regiao", "projeto", "equipe"),
 }
 

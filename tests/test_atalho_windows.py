@@ -14,8 +14,10 @@ def test_botao_chama_apenas_fluxo_manual():
     executor = _texto("executar_atualizacao_manual.ps1")
 
     assert "executar_atualizacao_manual.ps1" in botao
-    assert "sincronizar_pastas.ps1" in executor
-    assert "Start-Process $Url" in executor
+    assert "atualizar_dashboard_local.py" in executor
+    assert "http://127.0.0.1:8000" in executor
+    assert "sincronizar_pastas.ps1" not in executor
+    assert "onrender.com" not in executor
     assert "ScheduledTask" not in botao + executor
     assert "instalar_agendamento" not in botao + executor
 
@@ -24,12 +26,14 @@ def test_configurador_mapeia_as_quatro_pastas_do_onedrive():
     configurador = _texto("configurar_atalho.ps1")
 
     assert "Atendimento') = atendimento" in configurador
-    assert "Faturamento') = faturamento" in configurador
+    assert "Faturamento') = faturamento, faturamento_implantacao" in configurador
     assert "Interior') = vendas, implantacao, termos" in configurador
     assert 'Filter "OneDrive*"' in configurador
     assert 'Name -like "Programa*Di*ria"' in configurador
     assert '"$PastaProgramacao = programacao"' in configurador
     assert "CreateShortcut" in configurador
+    assert "URL publica" not in configurador
+    assert "Senha do dashboard" not in configurador
     assert "Register-ScheduledTask" not in configurador
 
 

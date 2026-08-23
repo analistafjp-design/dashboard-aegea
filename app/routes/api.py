@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
 from app.analytics import alertas as mod_alertas
@@ -40,6 +40,16 @@ def status() -> dict:
         "cache": cache.estatisticas(),
         "metas_cadastradas": mod_metas.tem_metas(),
     }
+
+
+@router.post("/local/invalidar-cache")
+def invalidar_cache_local(request: Request) -> dict:
+    """Atualiza um painel ja aberto depois da carga feita no mesmo computador."""
+    cliente = request.client.host if request.client else ""
+    if cliente not in {"127.0.0.1", "::1", "localhost", "testclient"}:
+        raise HTTPException(status_code=403, detail="Disponivel somente no computador local.")
+    cache.invalidar()
+    return {"ok": True}
 
 
 @router.get("/filtros/opcoes")

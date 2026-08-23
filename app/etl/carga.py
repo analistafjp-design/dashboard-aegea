@@ -26,6 +26,7 @@ from app.etl.datasets import Dataset
 from app.models.tabelas import (
     DIMENSOES_NOMEADAS,
     FatoFaturamento,
+    FatoFaturamentoImplantacao,
     FatoImplantacao,
     FatoProgramacao,
     FatoTermos,
@@ -159,6 +160,17 @@ def _montar_fato(dataset: Dataset, linha: dict, dim: ResolvedorDimensoes,
             "quantidade": float(_valor(linha, "quantidade", 1.0)),
             "valor": _valor(linha, "valor"),
         }
+    if dataset.nome == "faturamento_implantacao":
+        return {
+            **comum,
+            "ligacao": _valor(linha, "ligacao"),
+            "tipo_solicitacao": _valor(linha, "tipo_solicitacao", ""),
+            "ocorrencia": _valor(linha, "ocorrencia", ""),
+            "departamento": _valor(linha, "departamento", ""),
+            "frente": _valor(linha, "frente", "Outros"),
+            "valor": _valor(linha, "valor"),
+            "faturado": bool(_valor(linha, "faturado", False)),
+        }
     if dataset.nome == "programacao":
         recurso = _valor(linha, "recurso")
         return {
@@ -220,6 +232,7 @@ def carregar(sessao: Session, dataset: Dataset, dados: pd.DataFrame,
     modelo = {
         "termos": FatoTermos, "faturamento": FatoFaturamento, "vendas": FatoVendas,
         "implantacao": FatoImplantacao, "programacao": FatoProgramacao,
+        "faturamento_implantacao": FatoFaturamentoImplantacao,
         # Atendimento não tem tabela própria: alimenta fato_vendas.
         "atendimento": FatoVendas,
     }[dataset.nome]
