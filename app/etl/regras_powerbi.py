@@ -12,8 +12,13 @@ import pandas as pd
 
 
 def _texto(valor: object) -> str:
-    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+    if valor is None:
         return ""
+    try:
+        if pd.isna(valor):
+            return ""
+    except (TypeError, ValueError):
+        pass
     texto = " ".join(str(valor).split()).strip().upper()
     return "".join(c for c in unicodedata.normalize("NFKD", texto)
                    if not unicodedata.combining(c))
@@ -106,17 +111,39 @@ def filtrar_termos(dados: pd.DataFrame) -> pd.DataFrame:
     )
     vcg = (texto.str.contains("310013", regex=False)
            & recurso.str.contains("RIOVCGEXTIN", regex=False))
-    saida = saida[status_valido & (servicos | vcg)].copy()
+    # O PBIX também usa 310025/310031 para sinalizar não conformidade e
+    # vistoria pós-varredura. Eles entram como contexto operacional com
+    # quantidade zero: ficam disponíveis para a gestão, sem alterar as
+    # medidas oficiais Realizado Serviços/VCG.
+    sinal_operacional = (
+        texto.str.contains("310025", regex=False)
+        | texto.str.contains("310031", regex=False)
+    ) & recurso.str.contains("RIOVCGEXTIN", regex=False)
+    oficial = servicos | vcg
+    saida = saida[status_valido & (oficial | sinal_operacional)].copy()
     if saida.empty:
         return saida
     texto = saida["servico_adicional"].map(_texto)
     recurso = saida["equipe"].map(_texto)
-    eh_vcg = (texto.str.contains("310013", regex=False)
-              & recurso.str.contains("RIOVCGEXTIN", regex=False))
+    eh_oficial = (
+        (texto.str.contains("110013", regex=False) | texto.str.contains("210013", regex=False))
+        & ~recurso.str.contains("VCG", regex=False)
+    ) | (
+        texto.str.contains("310013", regex=False)
+        & recurso.str.contains("RIOVCGEXTIN", regex=False)
+    )
+    eh_vcg = recurso.str.contains("RIOVCGEXTIN", regex=False)
     saida["tipo"] = eh_vcg.map({True: "VCG", False: "SERVICOS"})
     saida["frente"] = saida["equipe"].map(frente_termos)
-    saida["status_termo"] = saida["status_atividade"]
-    saida["quantidade"] = 1.0
+    # Coluna calculada `Status Termo` do PBIX: os registros oficiais aqui
+    # selecionados são os termos aplicados por cidade. O status operacional
+    # da atividade é apenas um filtro e não deve substituir essa classificação.
+    saida["status_termo"] = "Termo aplicado oficial"
+    saida.loc[texto.str.contains("310031", regex=False), "status_termo"] = \
+        "Vistoria pós-varredura"
+    saida.loc[texto.str.contains("310025", regex=False), "status_termo"] = \
+        "Termo de não conformidade"
+    saida["quantidade"] = eh_oficial.astype(float)
     return saida
 
 

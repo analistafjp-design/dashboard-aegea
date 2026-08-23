@@ -146,7 +146,7 @@ TERMOS = Dataset(
                        "area de trabalho", "distrito"), peso=2),
         Campo("status_termo", "texto", "Status do termo (PBIX: Termos.Status Termo)",
               aliases=("status", "situacao termo", "status do termo",
-                       "status da atividade", "ocorrencia_encerramento"), peso=2),
+                       "ocorrencia_encerramento"), peso=2),
         Campo("status_atividade", "texto", "Status da Atividade do Field Service",
               aliases=("status da atividade",), peso=3),
         Campo("servico_adicional", "texto",

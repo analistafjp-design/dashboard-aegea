@@ -29,6 +29,9 @@ def test_termos_e_programacao_priorizam_indicadores_operacionais(cliente, base_c
     assert "ACOMPANHAMENTO DE TERMOS APLICADOS" in termos
     assert "graf-termos-diario" in termos
     assert "graf-termos-cidade" in termos
+    assert "graf-termos-equipe" in termos
+    assert "termos-insights" in termos
+    assert "Leitura Gerencial por Cidade" in termos
     assert "PROGRAMAÇÃO DIÁRIA" in programacao
     assert "programacao-recadastro" in programacao
     assert "programacao-vendas" in programacao

@@ -27,6 +27,11 @@ from app.models.db import criar_banco, sessao  # noqa: E402
 
 EXTENSOES = {".xlsx", ".xlsm", ".xls", ".csv"}
 TIPOS_VALIDOS = set(DATASETS)
+# Versão 2 corrige o casamento de "Status da Atividade" na base Termos.
+# Bases já processadas em versões anteriores são relidas uma única vez,
+# exclusivamente como Termos; Venda, Implantação e Programação não voltam
+# para a fila.
+VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 2}
 
 
 @dataclass(frozen=True)
@@ -118,6 +123,24 @@ def arquivo_mudou(caminho: Path, manifesto: dict) -> bool:
     )
 
 
+def tipos_pendentes(caminho: Path, permitidos: set[str], manifesto: dict,
+                    completo: bool = False) -> set[str] | None:
+    """Bases que realmente precisam ser verificadas para este arquivo.
+
+    Arquivo novo/alterado: verifica os tipos configurados normalmente.
+    Arquivo inalterado: verifica apenas a base cuja regra mudou de versão.
+    """
+    if completo or arquivo_mudou(caminho, manifesto):
+        # None preserva a detecção automática das configurações sem tipo.
+        return set(permitidos) or None
+    anterior = manifesto["arquivos"].get(str(caminho), {})
+    versoes = anterior.get("versoes_bases", {})
+    return {
+        tipo for tipo in permitidos
+        if int(versoes.get(tipo, 1)) < VERSOES_REGRAS.get(tipo, 1)
+    }
+
+
 def detectar_tipos(caminho: Path, permitidos: set[str]) -> list[str | None]:
     """Evita processar um arquivo de Interior tres vezes sem necessidade.
 
@@ -163,10 +186,14 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         return 1
 
     manifesto = carregar_manifesto(manifesto_arquivo)
-    pendentes = [
-        caminho for caminho in arquivos
-        if completo or arquivo_mudou(caminho, manifesto)
-    ]
+    pendentes = {
+        caminho: tipos_pendentes(caminho, permitidos, manifesto, completo)
+        for caminho, permitidos in arquivos.items()
+    }
+    pendentes = {
+        caminho: tipos for caminho, tipos in pendentes.items()
+        if tipos is None or tipos
+    }
     pulados = len(arquivos) - len(pendentes)
 
     print(f"Encontradas {len(arquivos)} planilha(s) fisica(s).")
@@ -177,7 +204,16 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         invalidar_cache_do_painel()
         return 0
 
-    print(f"Processando somente {len(pendentes)} planilha(s) nova(s) ou alterada(s).")
+    revisoes_termos = sum(
+        1 for tipos in pendentes.values()
+        if tipos == {"termos"}
+    )
+    if revisoes_termos:
+        print(
+            f"Aplicando a correcao de Termos em {revisoes_termos} planilha(s), "
+            "sem recarregar Venda, Implantacao ou Programacao."
+        )
+    print(f"Processando {len(pendentes)} planilha(s) que realmente precisam de atualizacao.")
     criar_banco()
     falhas = 0
     concluidos = 0
@@ -186,7 +222,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
     for indice, caminho in enumerate(sorted(pendentes), start=1):
         print(f"[{indice}/{len(pendentes)}] {caminho.name}")
         try:
-            tipos = detectar_tipos(caminho, arquivos[caminho])
+            tipos = detectar_tipos(caminho, pendentes[caminho] or set())
         except Exception as erro:  # noqa: BLE001 - mostra falha e segue as demais
             print(f"  ERRO ao analisar: {erro}")
             falhas += 1
@@ -194,8 +230,16 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
 
         if not tipos:
             print("  Ignorada: nenhuma aba compativel com as bases desta pasta.")
+            anterior = manifesto["arquivos"].get(str(caminho), {})
             manifesto["arquivos"][str(caminho)] = {
-                **assinatura(caminho), "bases": [], "status": "ignorado"
+                **anterior, **assinatura(caminho), "status": "ignorado",
+                "versoes_bases": {
+                    **anterior.get("versoes_bases", {}),
+                    **{
+                        tipo: VERSOES_REGRAS[tipo]
+                        for tipo in (pendentes[caminho] or set())
+                    },
+                },
             }
             salvar_manifesto(manifesto_arquivo, manifesto)
             continue
@@ -217,6 +261,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
                 print(f"    {resultado.mensagem}")
 
         if resultados:
+            anterior = manifesto["arquivos"].get(str(caminho), {})
             bases_ok = [resultado.dataset for resultado in resultados if resultado.ok]
             bases_ignoradas = [
                 resultado.dataset or tipo
@@ -229,9 +274,21 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
             status = "processado" if not bases_ignoradas else "processado_com_avisos"
             manifesto["arquivos"][str(caminho)] = {
                 **assinatura(caminho),
-                "bases": bases_ok,
-                "bases_sem_registros": bases_ignoradas,
+                "bases": sorted(set(anterior.get("bases", [])) | set(bases_ok)),
+                "bases_sem_registros": sorted(
+                    (set(anterior.get("bases_sem_registros", [])) - set(bases_ok))
+                    | set(bases_ignoradas)
+                ),
                 "status": status,
+                "versoes_bases": {
+                    **anterior.get("versoes_bases", {}),
+                    **{
+                        (resultado.dataset or tipo): VERSOES_REGRAS.get(
+                            resultado.dataset or tipo, 1
+                        )
+                        for resultado, tipo in zip(resultados, tipos)
+                    },
+                },
             }
             salvar_manifesto(manifesto_arquivo, manifesto)
             concluidos += 1
