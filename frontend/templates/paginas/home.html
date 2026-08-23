@@ -1,26 +1,4 @@
 {% extends "base.html" %}
 {% block conteudo %}
-<section class="dashboard-simples">
-  <div class="titulo-faixa">
-    <h1>ACOMPANHAMENTO VENDA E IMPLANTAÇÃO</h1>
-    <div class="titulo-faixa__resumo">
-      <span>Meta Implantação <strong id="simples-meta-implantacao">—</strong></span>
-      <span>Dias Úteis Restantes <strong id="simples-dias-restantes">—</strong></span>
-    </div>
-  </div>
-  <div class="faixa-indicadores" id="simples-implantacao-kpis"></div>
-  <div class="faixa-indicadores" id="simples-vendas-kpis"></div>
-  <div class="grade-roscas">
-    <div class="visual-simples visual-simples--anel"><h2>Implantação Serviços</h2><div class="grafico grafico--compacto" id="graf-simples-impl-servicos"></div></div>
-    <div class="visual-simples visual-simples--anel"><h2>Implantação VCG</h2><div class="grafico grafico--compacto" id="graf-simples-impl-vcg"></div></div>
-    <div class="visual-simples visual-simples--bullet"><h2>Venda Comercial</h2><div class="grafico grafico--compacto" id="graf-simples-venda-comercial"></div></div>
-    <div class="visual-simples visual-simples--bullet"><h2>Total Implantação</h2><div class="grafico grafico--compacto" id="graf-simples-impl-total"></div></div>
-  </div>
-  <div class="faixa-titulo">RESULTADOS POR CIDADE E EQUIPE</div>
-  <div class="grade-rankings-home">
-    <div class="visual-simples"><h2>Venda por Cidade</h2><div class="grafico grafico--ranking" id="graf-simples-venda-cidade"></div></div>
-    <div class="visual-simples"><h2>Venda por Equipe</h2><div class="grafico grafico--ranking" id="graf-simples-venda-equipe"></div></div>
-    <div class="visual-simples"><h2>Implantação por Cidade</h2><div class="grafico grafico--ranking" id="graf-simples-impl-cidade"></div></div>
-  </div>
-</section>
+{% include "componentes/painel_home.html" %}
 {% endblock %}

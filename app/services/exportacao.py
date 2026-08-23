@@ -22,6 +22,11 @@ TIPOS_MIME = {
 }
 
 
+def _titulo_coluna(coluna: object) -> str:
+    texto = str(coluna)
+    return texto.replace("_", " ").title() if "_" in texto else texto
+
+
 def _preparar(tabelas: dict[str, list[dict]]) -> dict[str, pd.DataFrame]:
     preparadas = {}
     for nome, registros in tabelas.items():
@@ -45,7 +50,7 @@ def para_excel(tabelas: dict[str, list[dict]], titulo: str) -> bytes:
             dados.to_excel(writer, sheet_name=nome, index=False, startrow=1, header=False)
             planilha = writer.sheets[nome]
             for indice, coluna in enumerate(dados.columns):
-                planilha.write(0, indice, str(coluna).replace("_", " ").title(), cabecalho)
+                planilha.write(0, indice, _titulo_coluna(coluna), cabecalho)
                 maior = dados[coluna].astype(str).str.len().max()
                 maior = 12 if pd.isna(maior) else int(maior)
                 largura = max(12, min(40, maior + 2))
@@ -82,7 +87,7 @@ def para_pdf(tabelas: dict[str, list[dict]], titulo: str, subtitulo: str = "") -
     for nome, dados in _preparar(tabelas).items():
         elementos.append(Paragraph(f"<b>{nome.replace('_', ' ').title()}</b>", estilos["Heading3"]))
         recorte = dados.head(60).fillna("-")
-        conteudo = [[str(c).replace("_", " ").title() for c in recorte.columns]]
+        conteudo = [[_titulo_coluna(c) for c in recorte.columns]]
         conteudo += [[str(v) for v in linha] for linha in recorte.values.tolist()]
         tabela = Table(conteudo, repeatRows=1)
         tabela.setStyle(TableStyle([

@@ -5,12 +5,12 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 
 
-def test_menu_principal_tem_apenas_as_tres_telas_de_uso_diario(cliente, base_carregada):
+def test_menu_principal_tem_apenas_as_duas_telas_de_uso_diario(cliente, base_carregada):
     pagina = cliente.get("/").text
 
     assert "Venda e Implantação" in pagina
     assert "Termos Aplicados" in pagina
-    assert "Programação Diária" in pagina
+    assert 'data-chave="programacao"' not in pagina
     assert 'data-chave="atualizacao"' not in pagina
     assert 'data-chave="alertas"' not in pagina
     assert 'data-chave="analises"' not in pagina
@@ -68,6 +68,20 @@ def test_interface_oferece_exportacao_por_aba_e_geral(cliente, base_carregada):
     assert 'data-exportar="atual" data-formato="xlsx"' in pagina
     assert 'data-exportar="geral" data-formato="pdf"' in pagina
     assert 'data-exportar="geral" data-formato="xlsx"' in pagina
+
+
+def test_pdf_visual_usa_impressao_da_pagina_e_relatorio_geral(cliente, base_carregada):
+    javascript = (RAIZ / "frontend" / "static" / "js" / "nucleo.js").read_text(
+        encoding="utf-8"
+    )
+    relatorio = cliente.get("/relatorio-geral?ano=2026&mes=8").text
+
+    assert "setTimeout(() => window.print()" in javascript
+    assert "/relatorio-geral" in javascript
+    assert "ACOMPANHAMENTO VENDA E IMPLANTAÇÃO" in relatorio
+    assert "ACOMPANHAMENTO DE TERMOS APLICADOS" in relatorio
+    assert "window.print()" in relatorio
+    assert "PROGRAMAÇÃO DIÁRIA" not in relatorio
 
 
 def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):

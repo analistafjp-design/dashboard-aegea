@@ -204,8 +204,13 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
     geral = cliente.get("/api/exportar/geral?formato=xlsx&ano=2026&mes=8")
     assert geral.status_code == 200
     abas_gerais = pd.read_excel(io.BytesIO(geral.content), sheet_name=None)
-    assert {"Resumo Geral", "Venda por Cidade", "Termos Diario",
-            "Programacao Agenda"}.issubset(abas_gerais)
+    assert {"Resumo Geral", "Venda por Cidade", "Dados Venda",
+            "Dados Implantacao", "Termos Diario", "Dados Termos"}.issubset(abas_gerais)
+    assert "Programacao Agenda" not in abas_gerais
+    assert {"Data", "Cidade", "Equipe/Recurso", "Arquivo de Origem"}.issubset(
+        abas_gerais["Dados Implantacao"].columns)
+    assert {"Data", "Tipo", "Status do Termo", "Arquivo de Origem"}.issubset(
+        abas_gerais["Dados Termos"].columns)
 
     pdf_geral = cliente.get("/api/exportar/geral?formato=pdf&ano=2026&mes=8")
     assert pdf_geral.status_code == 200

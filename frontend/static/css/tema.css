@@ -524,7 +524,7 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 
 @media print {
-  .sidebar, .topo, .filtros, .barra-exportacao, .btn, .toasts { display: none !important; }
+  .sidebar, .topo, .filtros__acoes, .barra-exportacao, .btn, .toasts { display: none !important; }
   .principal { margin-left: 0; }
   .card, .painel { break-inside: avoid; box-shadow: none; }
 }
@@ -678,6 +678,26 @@ html[data-tema="escuro"] .indicador-faixa strong { color: #82b8ff; }
 .barra-exportacao__grupo > span { color: var(--muted); font-size: 11px; font-weight: 650; }
 .barra-exportacao__divisor { width: 1px; height: 24px; background: var(--border); }
 .btn--compacto { min-height: 30px; padding: 5px 10px; font-size: 11px; }
+
+.relatorio-geral {
+  min-height: 100vh; margin: 0; padding: 16px; color: var(--text); background: var(--background);
+}
+.relatorio-geral__cabecalho {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  max-width: 1880px; margin: 0 auto 8px; padding: 12px 16px; color: #fff;
+  background: linear-gradient(115deg, #082f57, #0b4a7d); border-radius: 10px;
+}
+.relatorio-geral__cabecalho div { display: flex; flex-direction: column; gap: 2px; }
+.relatorio-geral__cabecalho div:last-child { text-align: right; }
+.relatorio-geral__cabecalho strong { font-size: 15px; }
+.relatorio-geral__cabecalho span { font-size: 10px; opacity: .82; text-transform: uppercase; }
+.relatorio-geral__filtros {
+  max-width: 1880px; margin: 0 auto 10px; padding: 8px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 11px;
+}
+.relatorio-geral__conteudo { max-width: 1880px; margin: 0 auto; }
+.pagina-relatorio { margin-bottom: 14px; }
+.relatorio-geral:not(.relatorio-geral--pronto) .relatorio-geral__conteudo { opacity: .28; }
 .visual-simples--bullet .grafico--compacto { min-height: 142px; }
 .visual-simples--bullet { align-self: stretch; }
 .faixa-titulo {
@@ -816,9 +836,17 @@ html[data-tema="escuro"] .programacao-resumo strong { color: #82b8ff; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
+@page { size: A4 landscape; margin: 7mm; }
+
 @media print {
+  html, body { background: #fff !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .barra-principal { position: static; box-shadow: none; }
   .app--simples .conteudo { width: 100%; padding: 0; }
   .dashboard-simples { gap: 7px; }
   .visual-simples, .indicador-faixa, .titulo-faixa { box-shadow: none; break-inside: avoid; }
+  .relatorio-geral { padding: 0; }
+  .relatorio-geral__cabecalho, .relatorio-geral__filtros,
+  .relatorio-geral__conteudo { max-width: none; }
+  .pagina-relatorio--home { break-after: page; }
+  .relatorio-geral:not(.relatorio-geral--pronto) .relatorio-geral__conteudo { opacity: 1; }
 }
