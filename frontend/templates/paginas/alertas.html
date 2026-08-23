@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 {% block conteudo %}
-<div class="grade grade--3" id="alertas-resumo"></div>
+<section class="direcionamento-cabecalho">
+  <div>
+    <span class="direcionamento-cabecalho__rotulo">PAINEL DE DECISÃO</span>
+    <h1>Direcionamento e próximos passos</h1>
+    <p>Prioridades calculadas com as mesmas medidas e filtros do dashboard.</p>
+  </div>
+  <div class="direcionamento-cabecalho__periodo">Período<br><strong id="alertas-periodo">—</strong></div>
+</section>
+
+<div class="grade grade--4 direcionamento-resumo" id="alertas-resumo"></div>
 
 <div class="painel" style="margin-top:16px">
   <div class="painel__cabecalho">
-    <div><div class="painel__titulo">Alertas gerenciais — <span id="alertas-periodo"></span></div>
-      <div class="painel__descricao">🔴 Crítico · 🟡 Atenção · 🟢 Normal</div></div>
+    <div><div class="painel__titulo">Plano de ação recomendado</div>
+      <div class="painel__descricao">O diagnóstico explica o desvio; o próximo passo indica a ação sugerida.</div></div>
     <div class="abas" style="border:0;margin:0">
       <button class="aba ativa" data-categoria="">Todos</button>
-      <button class="aba" data-categoria="CRITICO">Críticos</button>
-      <button class="aba" data-categoria="ATENCAO">Atenção</button>
-      <button class="aba" data-categoria="NORMAL">Normais</button>
+      <button class="aba" data-categoria="CRITICO">Fazer hoje</button>
+      <button class="aba" data-categoria="ATENCAO">Esta semana</button>
+      <button class="aba" data-categoria="NORMAL">Monitorar</button>
     </div>
   </div>
   <div class="painel__corpo" id="alertas-lista"></div>

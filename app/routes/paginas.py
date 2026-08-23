@@ -34,7 +34,7 @@ ROTAS = [
     {"rota": "/metas", "chave": "metas", "titulo": "Metas", "icone": "metas", "grupo": "Análise"},
     {"rota": "/analises", "chave": "analises", "titulo": "Análises", "icone": "analises",
      "grupo": "Análise"},
-    {"rota": "/alertas", "chave": "alertas", "titulo": "Alertas", "icone": "alertas",
+    {"rota": "/alertas", "chave": "alertas", "titulo": "Direcionamento", "icone": "alertas",
      "grupo": "Análise"},
     {"rota": "/atualizacao", "chave": "atualizacao", "titulo": "Atualização de Dados",
      "icone": "upload", "grupo": "Sistema"},
@@ -45,7 +45,7 @@ ROTAS = [
 # Menu enxuto para o uso diário. As demais rotas continuam disponíveis por
 # endereço direto e para exportações, mas não poluem a navegação principal.
 MENU = [item for item in ROTAS if item["chave"] in {
-    "home", "termos"
+    "home", "termos", "alertas"
 }]
 
 TITULOS = {item["chave"]: item["titulo"] for item in ROTAS}

@@ -82,6 +82,26 @@
     else G.anelMeta(id, realizado, bloco.meta);
   }
 
+  function tabelaFaturamento(seletor, linha) {
+    const alvo = document.querySelector(seletor);
+    if (!alvo) return;
+    linha = linha || {};
+    const celula = (valor, moeda) => moeda ? App.moeda(valor) : App.numero(valor);
+    alvo.innerHTML = `
+      <table class="tabela-faturamento">
+        <thead><tr><th>Frente</th><th>Implantação</th><th>Faturada</th>
+          <th>Não faturada</th><th>Valor faturado</th></tr></thead>
+        <tbody>
+          <tr><td>${App.escapar(linha.frente || "—")}</td>
+            <td>${celula(linha.implantacao)}</td><td>${celula(linha.faturada)}</td>
+            <td>${celula(linha.nao_faturada)}</td><td>${celula(linha.valor_faturado, true)}</td></tr>
+          <tr class="tabela-faturamento__total"><td>Total</td>
+            <td>${celula(linha.implantacao)}</td><td>${celula(linha.faturada)}</td>
+            <td>${celula(linha.nao_faturada)}</td><td>${celula(linha.valor_faturado, true)}</td></tr>
+        </tbody>
+      </table>`;
+  }
+
   /* ------------------------------------------------------------------ HOME */
   App.registrar("home", async function () {
     try {
@@ -115,6 +135,14 @@
       visualMeta("graf-simples-impl-vcg", bloco(implantacao.blocos_meta, "VCG"), "anel");
       visualMeta("graf-simples-venda-comercial", bloco(vendas.blocos_meta, "Comercial"), "barra");
       visualMeta("graf-simples-impl-total", implantacao.bloco_principal, "barra");
+      const faturamento = implantacao.faturamento || {};
+      const faturamentoPorFrente = faturamento.por_frente || [];
+      tabelaFaturamento("#faturamento-servicos",
+        faturamentoPorFrente.find((item) => item.frente === "Serviços"));
+      tabelaFaturamento("#faturamento-vcg",
+        faturamentoPorFrente.find((item) => item.frente === "VCG"));
+      document.getElementById("faturamento-valor-total").textContent =
+        App.moeda(faturamento.valor_faturado);
       const cidadeVenda = ranking(vendas.top_cidades, "cidade");
       G.barrasHorizontais("graf-simples-venda-cidade", cidadeVenda.rotulos.slice(0, 8),
         cidadeVenda.valores.slice(0, 8));
@@ -558,14 +586,17 @@
       const r = dados.resumo;
       document.getElementById("alertas-resumo").innerHTML = `
         <div class="card card--vermelho"><div class="card__faixa"></div>
-          <div class="card__titulo">🔴 Críticos</div><div class="card__valor">${r.criticos}</div>
-          <div class="card__explicacao">Necessitam intervenção imediata</div></div>
+          <div class="card__titulo">Fazer hoje</div><div class="card__valor">${r.criticos}</div>
+          <div class="card__explicacao">Intervenções prioritárias</div></div>
         <div class="card card--amarelo"><div class="card__faixa"></div>
-          <div class="card__titulo">🟡 Atenção</div><div class="card__valor">${r.atencao}</div>
-          <div class="card__explicacao">Risco de não atingir a meta</div></div>
+          <div class="card__titulo">Esta semana</div><div class="card__valor">${r.atencao}</div>
+          <div class="card__explicacao">Correções preventivas</div></div>
         <div class="card card--verde"><div class="card__faixa"></div>
-          <div class="card__titulo">🟢 Normais</div><div class="card__valor">${r.normais}</div>
-          <div class="card__explicacao">Desempenho adequado</div></div>`;
+          <div class="card__titulo">Monitorar</div><div class="card__valor">${r.normais}</div>
+          <div class="card__explicacao">Resultados dentro do ritmo</div></div>
+        <div class="card card--azul"><div class="card__faixa"></div>
+          <div class="card__titulo">Total de direcionamentos</div><div class="card__valor">${r.total}</div>
+          <div class="card__explicacao">Ações calculadas para o período</div></div>`;
 
       const desenhar = (categoria) => {
         const lista = categoria ? dados.alertas.filter((a) => a.categoria === categoria)
@@ -573,9 +604,17 @@
         document.getElementById("alertas-lista").innerHTML = lista.length
           ? lista.map((a) => `
               <div class="alerta-item alerta-item--${a.categoria}">
-                <span style="font-size:16px">${a.icone}</span>
-                <div><div class="alerta-item__titulo">${App.escapar(a.titulo)}</div>
-                  <div class="alerta-item__descricao">${App.escapar(a.descricao)}</div></div>
+                <div class="alerta-item__prioridade">
+                  <span>${App.escapar(a.prazo || "Monitorar")}</span>
+                  <small>${App.escapar(a.origem || "geral")}</small>
+                </div>
+                <div class="alerta-item__conteudo">
+                  <div class="alerta-item__titulo">${App.escapar(a.titulo)}</div>
+                  <div class="alerta-item__descricao">${App.escapar(a.descricao)}</div>
+                  ${a.indicador ? `<div class="alerta-item__indicador">${App.escapar(a.indicador)}</div>` : ""}
+                  <div class="alerta-item__acao"><strong>Próximo passo</strong>
+                    <span>${App.escapar(a.acao || "Manter acompanhamento.")}</span></div>
+                </div>
               </div>`).join("")
           : `<div class="vazio">Nenhum alerta nesta categoria.</div>`;
       };

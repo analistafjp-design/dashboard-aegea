@@ -146,6 +146,15 @@ def test_implantacao_separa_faturado_de_nao_faturado(base_carregada, dias_uteis_
     assert faturamento["percentual_faturado"] == 50.0
     assert "não faturada" in faturamento["alerta"]
     assert faturamento["valor_faturado"] == dias_uteis_agosto * 300.0
+    por_frente = {linha["frente"]: linha for linha in faturamento["por_frente"]}
+    assert por_frente["Serviços"] == {
+        "frente": "Serviços", "implantacao": float(dias_uteis_agosto),
+        "faturada": float(dias_uteis_agosto), "nao_faturada": 0.0,
+        "valor_faturado": dias_uteis_agosto * 300.0,
+    }
+    assert por_frente["VCG"]["implantacao"] == float(dias_uteis_agosto)
+    assert por_frente["VCG"]["faturada"] == 0.0
+    assert por_frente["VCG"]["nao_faturada"] == float(dias_uteis_agosto)
 
 
 def test_filtro_de_cidade_reduz_o_realizado(base_carregada):

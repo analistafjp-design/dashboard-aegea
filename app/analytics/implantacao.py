@@ -23,6 +23,24 @@ def _tipo(dados, tipo: str):
     return dados[dados["tipo"] == tipo] if "tipo" in dados.columns else dados.iloc[0:0]
 
 
+def _linha_faturamento(rotulo: str, implantacoes, faturadas, nao_faturadas,
+                       valor: float | None) -> dict:
+    """Resume uma frente usando as mesmas contagens das medidas do PBIX."""
+    implantacao = nucleo.total(implantacoes)
+    faturada = (nucleo.total(faturadas) if "ligacao" not in faturadas.columns
+                else float(faturadas["ligacao"].nunique()))
+    nao_faturada = (nucleo.total(nao_faturadas)
+                    if "ligacao" not in nao_faturadas.columns
+                    else float(nao_faturadas["ligacao"].nunique()))
+    return {
+        "frente": rotulo,
+        "implantacao": implantacao,
+        "faturada": 0.0 if faturada is None and implantacao is not None else faturada,
+        "nao_faturada": 0.0 if nao_faturada is None and implantacao is not None else nao_faturada,
+        "valor_faturado": valor,
+    }
+
+
 def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     periodo = periodo or resolver(filtros)
     todos = consultas.dados("implantacao",
@@ -60,6 +78,22 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         valor_faturado = nucleo.total(
             faturamento_mes[ocorrencia & departamento], "valor"
         )
+        faturamento_por_frente = []
+        for rotulo, tipo in (("Serviços", TIPO_SERVICOS), ("VCG", TIPO_VCG)):
+            mascara_frente = faturamento_mes["frente"].str.strip().str.upper() == rotulo.upper()
+            faturadas_frente = faturadas_df[
+                faturadas_df["frente"].str.strip().str.upper() == rotulo.upper()
+            ]
+            nao_faturadas_frente = nao_faturadas_df[
+                nao_faturadas_df["frente"].str.strip().str.upper() == rotulo.upper()
+            ]
+            valor_frente = nucleo.total(
+                faturamento_mes[ocorrencia & departamento & mascara_frente], "valor"
+            )
+            faturamento_por_frente.append(_linha_faturamento(
+                rotulo, _tipo(do_mes, tipo), faturadas_frente,
+                nao_faturadas_frente, valor_frente,
+            ))
     else:
         # Compatibilidade com planilhas consolidadas antigas.
         faturadas_df = do_mes[do_mes["faturado"] == True] if not do_mes.empty else do_mes  # noqa: E712
@@ -67,6 +101,18 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         qtd_faturada = nucleo.total(faturadas_df)
         qtd_nao_faturada = nucleo.total(nao_faturadas_df)
         valor_faturado = nucleo.total(faturadas_df, "valor")
+        faturamento_por_frente = []
+        for rotulo, tipo in (("Serviços", TIPO_SERVICOS), ("VCG", TIPO_VCG)):
+            implantacoes_frente = _tipo(do_mes, tipo)
+            faturamento_por_frente.append(_linha_faturamento(
+                rotulo,
+                implantacoes_frente,
+                implantacoes_frente[implantacoes_frente["faturado"] == True],  # noqa: E712
+                implantacoes_frente[implantacoes_frente["faturado"] == False],  # noqa: E712
+                nucleo.total(
+                    implantacoes_frente[implantacoes_frente["faturado"] == True], "valor"  # noqa: E712
+                ),
+            ))
 
     pct_faturado = (round(qtd_faturada / total_impl * 100, 1)
                     if qtd_faturada is not None and total_impl else None)
@@ -143,6 +189,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "percentual_faturado": pct_faturado,
             "percentual_nao_faturado": pct_nao_faturado,
             "alerta": alerta_faturamento,
+            "por_frente": faturamento_por_frente,
         },
         "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
         "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),

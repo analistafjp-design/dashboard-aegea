@@ -254,6 +254,19 @@ def exportar(nome: str, formato: str = Query("xlsx"),
 
 
 def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict, str]:
+    if nome == "alertas":
+        lista = mod_alertas.gerar(painel.todos(filtros))
+        linhas = [{
+            "Prioridade": item.get("categoria"),
+            "Prazo": item.get("prazo"),
+            "Tema": item.get("titulo"),
+            "Diagnóstico": item.get("descricao"),
+            "Indicador": item.get("indicador"),
+            "Próximo passo": item.get("acao"),
+            "Origem": item.get("origem"),
+        } for item in lista]
+        return {"Plano de Ação": linhas}, "Direcionamento Gerencial"
+
     if nome in {"home", "geral"}:
         home = painel.home(filtros)
         vendas = painel.modulo("vendas", filtros)
@@ -267,6 +280,8 @@ def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict
             "Implantacao Indicadores": _linhas_indicadores(
                 implantacao.get("indicadores", [])),
             "Implantacao por Cidade": implantacao.get("por_cidade", []),
+            "Faturamento Implantacao": (implantacao.get("faturamento") or {}).get(
+                "por_frente", []),
             "Dados Implantacao": _dados_detalhados("implantacao", filtros),
         }
         if nome == "home":
