@@ -10,6 +10,7 @@
   <script src="/static/js/plotly.min.js"></script>
 </head>
 <body data-pagina="{{ pagina }}">
+<a class="pular-conteudo" href="#conteudo-pagina">Ir para o conteudo</a>
 {% include "componentes/icones.html" %}
 <div class="app app--simples">
   <header class="barra-principal">
@@ -20,9 +21,10 @@
         <div class="sidebar__sub">Executivo</div>
       </div>
     </div>
-    <nav class="barra-principal__nav">
+    <nav class="barra-principal__nav" aria-label="Navegacao principal">
       {% for item in menu %}
         <a class="sidebar__item {% if item.chave == pagina %}ativo{% endif %}"
+           {% if item.chave == pagina %}aria-current="page"{% endif %}
            href="{{ item.rota }}" data-rota="{{ item.rota }}" data-chave="{{ item.chave }}"
            data-titulo="{{ item.titulo }}">
           <svg class="sidebar__icone" aria-hidden="true"><use href="#ic-{{ item.icone }}"></use></svg>
@@ -37,7 +39,7 @@
     </div>
   </header>
 
-  <main class="principal">
+  <main class="principal" id="conteudo-principal">
     <div class="conteudo">
       {% if not tem_dados %}
       <div class="aviso aviso--atencao">

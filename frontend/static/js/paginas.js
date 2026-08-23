@@ -61,7 +61,7 @@
     const alvo = document.querySelector(seletor);
     if (!alvo) return;
     alvo.innerHTML = itens.map((item) => `
-      <div class="indicador-faixa">
+      <div class="indicador-faixa" title="${App.escapar(item.rotulo)}: ${App.escapar(item.valor)}">
         <strong>${App.escapar(item.valor)}</strong>
         <span>${App.escapar(item.rotulo)}</span>
       </div>`).join("");

@@ -50,3 +50,18 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert 'texttemplate: "<b>%{value:,.0f}</b><br>%{percent}"' in javascript
     assert 'text: s.valores.map(rotuloValor)' in javascript
     assert 'text: valores.slice().reverse().map(rotuloValor)' in javascript
+
+
+def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):
+    pagina = cliente.get("/").text
+    estilos = (RAIZ / "frontend" / "static" / "css" / "tema.css").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'class="pular-conteudo"' in pagina
+    assert 'aria-label="Navegacao principal"' in pagina
+    assert 'aria-current="page"' in pagina
+    assert "@media (max-width: 680px)" in estilos
+    assert "@media (max-width: 420px)" in estilos
+    assert "prefers-reduced-motion" in estilos
+    assert "overflow-x: auto" in estilos
