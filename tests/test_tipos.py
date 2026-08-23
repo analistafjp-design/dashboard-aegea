@@ -1,8 +1,10 @@
 """Conversores de tipos vindos do Excel."""
 from datetime import date, datetime
 
+import pandas as pd
 import pytest
 
+from app.etl.dominio import classificar_tipo
 from app.etl.tipos import (
     converter_booleano,
     converter_data,
@@ -11,6 +13,10 @@ from app.etl.tipos import (
     converter_texto,
     esta_vazio,
 )
+
+
+def test_valor_ausente_do_pandas_nao_quebra_classificacao():
+    assert classificar_tipo(pd.NA, None) == "NAO_CLASSIFICADO"
 
 
 @pytest.mark.parametrize("entrada,esperado", [
