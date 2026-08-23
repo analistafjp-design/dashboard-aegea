@@ -52,7 +52,8 @@
       (barras/linhas usam x, rosca usa labels/values, funil usa x/y). */
   function temDados(serie) {
     const listas = [serie.x, serie.y, serie.labels, serie.values];
-    return listas.some((lista) => Array.isArray(lista) && lista.length > 0);
+    return listas.some((lista) => Array.isArray(lista) && lista.length > 0)
+      || Number.isFinite(Number(serie.value));
   }
 
   function rotuloValor(valor) {
@@ -171,6 +172,56 @@
       hovertemplate: "%{label}<br><b>%{value:,.0f}</b> (%{percent})<extra></extra>",
     }], { margin: { l: 10, r: 10, t: 10, b: 10 }, hovermode: "closest",
       legend: { orientation: "v", x: 1, y: 0.5, xanchor: "left" } });
+  };
+
+  /** Anel executivo compacto: realizado, percentual e meta no centro. */
+  Graficos.anelMeta = function (id, realizado, meta) {
+    const c = cores();
+    const atual = Number(realizado) || 0;
+    const alvo = Number(meta) || 0;
+    const falta = Math.max(alvo - atual, 0);
+    const percentual = alvo > 0 ? (atual / alvo) * 100 : 0;
+    const base = alvo > 0 ? [Math.min(atual, alvo), falta] : [atual];
+    const rotulos = alvo > 0 ? ["Realizado", "A realizar"] : ["Realizado"];
+    desenhar(id, [{
+      type: "pie", hole: 0.78, labels: rotulos, values: base,
+      sort: false, direction: "clockwise", textinfo: "none",
+      marker: { colors: [c.linha, c.escuro ? "#263449" : "#e8eef7"],
+        line: { width: 0 } },
+      hovertemplate: "%{label}<br><b>%{value:,.0f}</b><extra></extra>",
+    }], {
+      margin: { l: 8, r: 8, t: 5, b: 8 }, hovermode: "closest", showlegend: false,
+      annotations: [{
+        x: 0.5, y: 0.5, showarrow: false, align: "center",
+        text: `<b>${atual.toLocaleString("pt-BR")}</b><br>`
+          + `<span style="font-size:11px">${percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da meta</span>`
+          + (alvo ? `<br><span style="font-size:10px;color:${c.texto}">Meta ${alvo.toLocaleString("pt-BR")}</span>` : ""),
+        font: { size: 20, color: c.escuro ? "#eaf0f8" : "#0b3c7d" },
+      }],
+    });
+  };
+
+  /** Barra bullet: leitura rápida do avanço em relação à meta. */
+  Graficos.barraMeta = function (id, realizado, meta) {
+    const c = cores();
+    const atual = Number(realizado) || 0;
+    const alvo = Number(meta) || 0;
+    const limite = Math.max(atual, alvo, 1) * 1.08;
+    const percentual = alvo > 0 ? (atual / alvo) * 100 : 0;
+    desenhar(id, [{
+      type: "indicator", mode: "number+gauge", value: atual,
+      number: { valueformat: ",.0f", font: { size: 25, color: c.escuro ? "#eaf0f8" : "#0b3c7d" } },
+      title: { text: alvo
+        ? `<span style="font-size:11px">${percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da meta · Meta ${alvo.toLocaleString("pt-BR")}</span>`
+        : "<span style=\"font-size:11px\">Meta não cadastrada</span>" },
+      gauge: {
+        shape: "bullet", axis: { range: [0, limite], visible: false },
+        bgcolor: c.escuro ? "#263449" : "#e8eef7", borderwidth: 0,
+        bar: { color: atual >= alvo && alvo > 0 ? c.sucesso : c.linha, thickness: 0.58 },
+        threshold: alvo > 0 ? { line: { color: c.meta, width: 3 }, thickness: 0.8, value: alvo } : undefined,
+      },
+      domain: { x: [0.06, 0.94], y: [0.2, 0.88] },
+    }], { margin: { l: 10, r: 10, t: 4, b: 6 }, hovermode: "closest" });
   };
 
   /** Funil de faturamento. */
