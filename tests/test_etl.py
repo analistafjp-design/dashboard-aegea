@@ -72,6 +72,30 @@ def test_duplicatas_no_arquivo_sao_removidas(planilhas, tmp_path):
     assert resultado.validacao["duplicadas_no_arquivo"] == 4
 
 
+def test_termos_repetidos_preservam_countrows_do_powerbi(planilhas, tmp_path):
+    dados = pd.read_excel(planilhas["termos"])
+    duplicado = pd.concat([dados, dados.head(1)], ignore_index=True)
+    caminho = tmp_path / "termos_com_linha_repetida.xlsx"
+    duplicado.to_excel(caminho, index=False)
+
+    from app.etl.pipeline import processar_arquivo
+    from app.models.db import sessao
+
+    with sessao() as banco:
+        resultado = processar_arquivo(banco, caminho, dataset_forcado="termos")
+
+    assert resultado.ok
+    assert resultado.validacao["duplicadas_no_arquivo"] == 1
+
+    from app.analytics import cache, painel
+    from app.analytics.base import Filtros
+
+    cache.invalidar()
+    modulo = painel.modulo("termos", Filtros(ano=2026, mes=7))
+    esperado = float(len(dados[dados["Data da Atividade"].dt.month == 7]) + 1)
+    assert modulo["bloco_principal"]["realizado"] == esperado
+
+
 def test_implantacao_classifica_faturado(base_carregada):
     with sessao() as s:
         faturadas = s.execute(
