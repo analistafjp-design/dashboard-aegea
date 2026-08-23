@@ -55,6 +55,12 @@
     return listas.some((lista) => Array.isArray(lista) && lista.length > 0);
   }
 
+  function rotuloValor(valor) {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero) || numero === 0) return "";
+    return numero.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  }
+
   function desenhar(id, series, layout) {
     const alvo = document.getElementById(id);
     if (!alvo) return;
@@ -102,10 +108,12 @@
       type: "bar", orientation: "h",
       y: rotulos.slice().reverse(), x: valores.slice().reverse(),
       marker: { color: opcoes.cor || c.linha },
+      text: valores.slice().reverse().map(rotuloValor),
+      texttemplate: "%{text}", textposition: "outside", cliponaxis: false,
       hovertemplate: "%{y}<br><b>%{x:,.0f}</b><extra></extra>",
     }], Object.assign({
       margin: { l: Math.min(190, 12 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 7.2),
-        r: 20, t: 12, b: 36 },
+        r: 42, t: 12, b: 36 },
       hovermode: "closest",
       xaxis: { gridcolor: cores().grade, tickformat: ",.0f" },
     }, opcoes.layout));
@@ -157,7 +165,8 @@
   Graficos.rosca = function (id, rotulos, valores) {
     desenhar(id, [{
       type: "pie", hole: 0.62, labels: rotulos, values: valores,
-      textinfo: "percent", textposition: "inside",
+      textinfo: "value+percent", textposition: "inside",
+      texttemplate: "<b>%{value:,.0f}</b><br>%{percent}",
       marker: { colors: PALETA, line: { width: 1, color: cores().escuro ? "#141d2b" : "#fff" } },
       hovertemplate: "%{label}<br><b>%{value:,.0f}</b> (%{percent})<extra></extra>",
     }], { margin: { l: 10, r: 10, t: 10, b: 10 }, hovermode: "closest",
@@ -189,6 +198,8 @@
     const traces = series.map((s, indice) => ({
       type: "bar", name: s.nome, x: rotulos, y: s.valores,
       marker: { color: s.cor || PALETA[indice % PALETA.length] },
+      text: s.valores.map(rotuloValor), texttemplate: "%{text}",
+      textposition: "auto", cliponaxis: false,
       hovertemplate: "%{x}<br>" + s.nome + ": <b>%{y:,.0f}</b><extra></extra>",
     }));
     if (meta && meta.some((valor) => valor !== null && valor !== undefined)) {
@@ -209,6 +220,8 @@
       type: "bar", orientation: "h", name: s.nome,
       y: invertidos, x: s.valores.slice().reverse(),
       marker: { color: s.cor || PALETA[indice % PALETA.length] },
+      text: s.valores.slice().reverse().map(rotuloValor),
+      texttemplate: "%{text}", textposition: "auto", cliponaxis: false,
       hovertemplate: "%{y}<br>" + s.nome + ": <b>%{x:,.0f}</b><extra></extra>",
     })), {
       barmode: "stack", hovermode: "y unified",
