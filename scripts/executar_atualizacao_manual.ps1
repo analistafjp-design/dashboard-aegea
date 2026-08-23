@@ -17,7 +17,7 @@ $Requisitos = Join-Path $RaizProjeto "requirements.txt"
 $PastaLocal = Join-Path $RaizProjeto "data\local"
 $MarcaRequisitos = Join-Path $PastaLocal "requisitos.sha256"
 $UrlLocal = "http://127.0.0.1:8000"
-$VersaoEsperada = "1.2.0"
+$VersaoEsperada = "1.3.0"
 
 if (-not (Test-Path $Pastas)) {
     Write-Host "Configuracao inicial ainda nao realizada." -ForegroundColor Yellow
