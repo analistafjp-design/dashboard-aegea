@@ -161,6 +161,7 @@
         ], diario.map((r) => r.meta_dia));
       roscaMeta("graf-termos-servicos", servicos);
       roscaMeta("graf-termos-vcg", vcg);
+      roscaMeta("graf-termos-total-meta", principal);
 
       const cidades = dados.por_cidade_tipo || [];
       G.empilhadoHorizontal("graf-termos-cidade", cidades.map((r) => r.cidade), [
