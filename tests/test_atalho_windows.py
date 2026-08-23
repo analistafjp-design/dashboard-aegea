@@ -22,6 +22,16 @@ def test_botao_chama_apenas_fluxo_manual():
     assert "instalar_agendamento" not in botao + executor
 
 
+def test_executor_reinicia_servidor_antigo_antes_de_abrir_o_painel():
+    executor = _texto("executar_atualizacao_manual.ps1")
+
+    assert '$VersaoEsperada = "1.1.0"' in executor
+    assert "$VersaoServidor -ne $VersaoEsperada" in executor
+    assert "Get-NetTCPConnection -LocalPort 8000" in executor
+    assert 'Stop-Process -Id $Conexao.OwningProcess' in executor
+    assert '$ComandoServidor -match "uvicorn"' in executor
+
+
 def test_configurador_mapeia_as_quatro_pastas_do_onedrive():
     configurador = _texto("configurar_atalho.ps1")
 

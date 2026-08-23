@@ -29,7 +29,10 @@ class Config:
     """Parâmetros de execução (podem ser sobrescritos por variáveis de ambiente)."""
 
     APP_NOME = _env("APP_NOME", "Dashboard Executivo")
-    APP_VERSAO = "1.0.0"
+    # O atualizador do Windows compara esta versao com o servidor que ja esta
+    # aberto. Quando o codigo do painel muda, uma versao diferente garante que
+    # o processo antigo seja encerrado e reiniciado antes de abrir o navegador.
+    APP_VERSAO = "1.1.0"
     DEBUG = _env("DEBUG", "false").lower() in ("1", "true", "yes")
 
     BASE_DIR = BASE_DIR
