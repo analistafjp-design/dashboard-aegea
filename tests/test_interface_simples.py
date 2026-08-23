@@ -1,4 +1,8 @@
 """Garantias da interface operacional simplificada."""
+from pathlib import Path
+
+
+RAIZ = Path(__file__).resolve().parents[1]
 
 
 def test_menu_principal_tem_apenas_as_tres_telas_de_uso_diario(cliente, base_carregada):
@@ -35,3 +39,14 @@ def test_termos_e_programacao_priorizam_indicadores_operacionais(cliente, base_c
     assert "PROGRAMAÇÃO DIÁRIA" in programacao
     assert "programacao-recadastro" in programacao
     assert "programacao-vendas" in programacao
+
+
+def test_graficos_exibem_quantidade_alem_do_percentual():
+    javascript = (RAIZ / "frontend" / "static" / "js" / "graficos.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'textinfo: "value+percent"' in javascript
+    assert 'texttemplate: "<b>%{value:,.0f}</b><br>%{percent}"' in javascript
+    assert 'text: s.valores.map(rotuloValor)' in javascript
+    assert 'text: valores.slice().reverse().map(rotuloValor)' in javascript
