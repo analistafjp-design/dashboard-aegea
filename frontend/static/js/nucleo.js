@@ -434,6 +434,15 @@
 
   /* ------------------------------------------------------------ exportar */
   App.exportar = function (recurso, formato, extras) {
+    if (formato === "pdf") {
+      if (recurso === "geral") {
+        window.open(`/relatorio-geral${App.querystring(extras || {})}`, "_blank");
+      } else {
+        window.Graficos.redesenhar();
+        setTimeout(() => window.print(), 250);
+      }
+      return;
+    }
     const url = `/api/exportar/${recurso}${App.querystring(Object.assign({ formato }, extras || {}))}`;
     window.open(url, "_blank");
   };

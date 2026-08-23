@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="claro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório Geral · {{ app_nome }}</title>
+  <link rel="stylesheet" href="/static/css/tema.css?v={{ app_versao }}">
+  <script src="/static/js/plotly.min.js?v={{ app_versao }}"></script>
+</head>
+<body data-pagina="relatorio_geral" class="relatorio-geral">
+  <header class="relatorio-geral__cabecalho">
+    <div><strong>Dashboard Executivo</strong><span>Relatório visual geral</span></div>
+    <div><span>Atualizado em</span><strong>{{ ultima_atualizacao }}</strong></div>
+  </header>
+  <div class="relatorio-geral__filtros">
+    <strong>Filtros:</strong> {{ descricao_filtros or "Todos os dados do período de referência" }}
+  </div>
+  <main class="relatorio-geral__conteudo">
+    <article class="pagina-relatorio pagina-relatorio--home">
+      {% include "componentes/painel_home.html" %}
+    </article>
+    <article class="pagina-relatorio pagina-relatorio--termos">
+      {% include "componentes/painel_termos.html" %}
+    </article>
+  </main>
+  <div class="toasts"></div>
+  <script src="/static/js/nucleo.js?v={{ app_versao }}"></script>
+  <script src="/static/js/graficos.js?v={{ app_versao }}"></script>
+  <script src="/static/js/paginas.js?v={{ app_versao }}"></script>
+  <script>
+    (function () {
+      App.lerFiltrosDaUrl();
+      Promise.all([App.paginas.home(), App.paginas.termos()]).then(function () {
+        document.body.classList.add("relatorio-geral--pronto");
+        setTimeout(function () {
+          window.Graficos.redesenhar();
+          setTimeout(function () { window.print(); }, 450);
+        }, 450);
+      }).catch(function (erro) {
+        App.toast(erro.message || "Não foi possível montar o relatório.", "erro");
+      });
+    })();
+  </script>
+</body>
+</html>

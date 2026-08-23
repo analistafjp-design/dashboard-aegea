@@ -262,24 +262,22 @@ def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict
             "Venda Indicadores": _linhas_indicadores(vendas.get("indicadores", [])),
             "Venda por Cidade": vendas.get("top_cidades", []),
             "Venda por Equipe": vendas.get("top_equipes", []),
+            "Dados Venda": _dados_detalhados("vendas", filtros),
             "Implantacao Indicadores": _linhas_indicadores(
                 implantacao.get("indicadores", [])),
             "Implantacao por Cidade": implantacao.get("por_cidade", []),
+            "Dados Implantacao": _dados_detalhados("implantacao", filtros),
         }
         if nome == "home":
             return tabelas, "Venda e Implantacao"
 
         termos = painel.modulo("termos", filtros)
-        programacao = painel.modulo("programacao", filtros)
         tabelas.update({
             "Termos Indicadores": _linhas_indicadores(termos.get("indicadores", [])),
             "Termos Diario": termos.get("evolucao_diaria_tipo", []),
             "Termos por Cidade": termos.get("por_cidade_tipo", []),
             "Termos por Equipe": termos.get("por_equipe_tipo", []),
-            "Programacao Indicadores": _linhas_indicadores(
-                programacao.get("indicadores", [])),
-            "Programacao Agenda": programacao.get("agenda", []),
-            "Programacao por Equipe": programacao.get("por_equipe", []),
+            "Dados Termos": _dados_detalhados("termos", filtros),
         })
         return tabelas, "Dashboard Executivo Geral"
 
@@ -294,6 +292,8 @@ def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict
     tabelas: dict[str, list[dict]] = {}
     if dados.get("indicadores"):
         tabelas["Indicadores"] = _linhas_indicadores(dados["indicadores"])
+    if nome in {"vendas", "implantacao", "termos"}:
+        tabelas["Dados Detalhados"] = _dados_detalhados(nome, filtros)
     for chave in ("blocos_meta", "tabela", "agenda", "evolucao_mensal", "evolucao_diaria",
                   "evolucao_diaria_tipo", "por_cidade", "por_cidade_tipo",
                   "por_equipe", "por_equipe_tipo", "por_frente", "por_setor", "por_status",
@@ -316,3 +316,35 @@ def _linhas_indicadores(indicadores: list[dict]) -> list[dict]:
         }
         for item in indicadores
     ]
+
+
+COLUNAS_DETALHADAS = {
+    "data": "Data",
+    "ano_mes": "Ano/Mês",
+    "cidade": "Cidade",
+    "equipe": "Equipe/Recurso",
+    "frente": "Frente",
+    "setor": "Setor do Recurso",
+    "canal": "Canal",
+    "tipo": "Tipo",
+    "status_termo": "Status do Termo",
+    "matricula": "Matrícula",
+    "servico": "Serviço",
+    "faturado": "Faturado",
+    "quantidade": "Quantidade",
+    "valor": "Valor",
+    "origem_arquivo": "Arquivo de Origem",
+    "importado_em": "Importado em",
+}
+
+
+def _dados_detalhados(nome: str, filtros: Filtros) -> list[dict]:
+    """Linhas normalizadas da base, próximas da estrutura da planilha de origem."""
+    dados = consultas.dados(nome, filtros)
+    if dados.empty:
+        return []
+    colunas = [coluna for coluna in COLUNAS_DETALHADAS if coluna in dados.columns]
+    detalhes = dados[colunas].rename(columns=COLUNAS_DETALHADAS)
+    if "Data" in detalhes.columns:
+        detalhes = detalhes.sort_values("Data", ascending=False)
+    return detalhes.to_dict("records")

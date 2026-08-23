@@ -39,7 +39,7 @@ def _stmt_termos():
         select(
             FatoTermos.data, FatoTermos.ano_mes, FatoTermos.tipo,
             FatoTermos.status_termo, FatoTermos.quantidade, FatoTermos.valor,
-            FatoTermos.matricula,
+            FatoTermos.matricula, FatoTermos.origem_arquivo, FatoTermos.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
             frente.nome.label("frente"), setor.nome.label("setor"),
         )
@@ -69,6 +69,7 @@ def _stmt_vendas():
         select(
             FatoVendas.data, FatoVendas.ano_mes, FatoVendas.canal,
             FatoVendas.quantidade, FatoVendas.valor, FatoVendas.matricula,
+            FatoVendas.origem_arquivo, FatoVendas.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
             frente.nome.label("frente"),
         )
@@ -85,6 +86,7 @@ def _stmt_implantacao():
             FatoImplantacao.data, FatoImplantacao.ano_mes, FatoImplantacao.tipo,
             FatoImplantacao.faturado, FatoImplantacao.servico,
             FatoImplantacao.quantidade, FatoImplantacao.valor, FatoImplantacao.matricula,
+            FatoImplantacao.origem_arquivo, FatoImplantacao.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
             frente.nome.label("frente"),
         )
