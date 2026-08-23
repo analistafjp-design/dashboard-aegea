@@ -51,6 +51,9 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     javascript = (RAIZ / "frontend" / "static" / "js" / "graficos.js").read_text(
         encoding="utf-8"
     )
+    paginas = (RAIZ / "frontend" / "static" / "js" / "paginas.js").read_text(
+        encoding="utf-8"
+    )
 
     assert 'textinfo: "value+percent"' in javascript
     assert 'texttemplate: "<b>%{value:,.0f}</b><br>%{percent}"' in javascript
@@ -61,7 +64,9 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert 'name: "Total"' in javascript
     assert "ticklabelstandoff: 12" in javascript
     assert "annotations: rotulos.map" in javascript
-    assert 'texttemplate: opcoes.mostrarValores ? "<b>%{text}</b>"' in javascript
+    assert 'texttemplate: opcoes.mostrarValores && !opcoes.etiquetasValor ? "<b>%{text}</b>"' in javascript
+    assert "etiquetasValor: true" in paginas
+    assert 'bgcolor: opcoes.corEtiqueta || opcoes.cor || c.linha' in javascript
 
 
 def test_interface_oferece_exportacao_por_aba_e_geral(cliente, base_carregada):

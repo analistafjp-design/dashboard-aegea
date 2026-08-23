@@ -719,7 +719,7 @@ html[data-tema="escuro"] .indicador-faixa strong { color: #82b8ff; }
 .grade-termos .visual-simples--largo { grid-column: span 2; }
 .grade-termos .visual-simples--total { grid-column: 1 / -1; }
 .grade-termos .visual-simples--cidade { grid-column: span 2; }
-.grafico--setor { min-height: 260px; }
+.grafico--setor { min-height: 180px; }
 .termos-insights {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px;
   padding: 0; background: transparent;
@@ -819,7 +819,7 @@ html[data-tema="escuro"] .programacao-resumo strong { color: #82b8ff; }
   .grafico { min-height: 260px; }
   .grafico--compacto { min-height: 220px; }
   .grafico--alto { min-height: 390px; }
-  .grafico--setor { min-height: 300px; }
+  .grafico--setor { min-height: 230px; }
   .grafico--ranking { min-height: 280px; }
   .barra-exportacao { align-items: stretch; flex-wrap: wrap; justify-content: flex-start; }
   .barra-exportacao__titulo { flex: 1 0 100%; }
