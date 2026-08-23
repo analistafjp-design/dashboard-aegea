@@ -120,6 +120,55 @@
     }, opcoes.layout));
   };
 
+  /** Ranking em estilo lollipop: menos tinta visual e mais destaque aos valores. */
+  Graficos.lollipop = function (id, rotulos, valores, opcoes) {
+    opcoes = opcoes || {};
+    const c = cores();
+    const y = rotulos.slice().reverse();
+    const x = valores.slice().reverse();
+    const linhasX = [];
+    const linhasY = [];
+    x.forEach((valor, indice) => {
+      linhasX.push(0, valor, null);
+      linhasY.push(y[indice], y[indice], null);
+    });
+    desenhar(id, [
+      { type: "scatter", mode: "lines", x: linhasX, y: linhasY,
+        line: { color: c.escuro ? "#35485f" : "#c9d8eb", width: 4 },
+        hoverinfo: "skip", showlegend: false },
+      { type: "scatter", mode: "markers+text", x, y,
+        marker: { color: opcoes.cor || c.linha, size: 11,
+          line: { color: c.escuro ? "#141d2b" : "#fff", width: 2 } },
+        text: x.map(rotuloValor), textposition: "middle right", cliponaxis: false,
+        hovertemplate: "%{y}<br><b>%{x:,.0f}</b><extra></extra>", showlegend: false },
+    ], {
+      margin: { l: Math.min(170, 14 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 6.6),
+        r: 42, t: 8, b: 30 },
+      hovermode: "closest", xaxis: { gridcolor: c.grade, tickformat: ",.0f", zeroline: false },
+      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true },
+    });
+  };
+
+  /** Comparativo horizontal lado a lado para duas ou mais séries. */
+  Graficos.agrupadoHorizontal = function (id, rotulos, series) {
+    const invertidos = rotulos.slice().reverse();
+    desenhar(id, series.map((s, indice) => ({
+      type: "bar", orientation: "h", name: s.nome, y: invertidos,
+      x: s.valores.slice().reverse(),
+      marker: { color: s.cor || PALETA[indice % PALETA.length], line: { width: 0 } },
+      text: s.valores.slice().reverse().map(rotuloValor),
+      texttemplate: "%{text}", textposition: "outside", cliponaxis: false,
+      hovertemplate: "%{y}<br>" + s.nome + ": <b>%{x:,.0f}</b><extra></extra>",
+    })), {
+      barmode: "group", bargap: 0.28, bargroupgap: 0.08, hovermode: "y unified",
+      margin: { l: Math.min(190, 14 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 6.8),
+        r: 42, t: 8, b: 38 },
+      legend: { orientation: "h", x: 0, y: 1.1 },
+      xaxis: { gridcolor: cores().grade, tickformat: ",.0f", zeroline: false },
+      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true },
+    });
+  };
+
   /** Realizado x Meta por mês. */
   Graficos.realizadoMeta = function (id, rotulos, realizado, meta) {
     const c = cores();
@@ -292,6 +341,32 @@
       marker: { size: 6 },
       hovertemplate: "%{x}<br>" + s.nome + ": <b>%{y:,.0f}</b><extra></extra>",
     })), {});
+  };
+
+  /** Linha executiva suavizada, com preenchimento leve e rótulo no último ponto. */
+  Graficos.tendencia = function (id, rotulos, series) {
+    const c = cores();
+    desenhar(id, series.map((s, indice) => {
+      const valores = s.valores || [];
+      const textos = valores.map((valor, posicao) =>
+        posicao === valores.length - 1 ? rotuloValor(valor) : "");
+      return {
+        type: "scatter", mode: "lines+markers+text", name: s.nome,
+        x: rotulos, y: valores, text: textos, textposition: "top center",
+        line: { width: 3, shape: "spline", smoothing: 0.75,
+          color: s.cor || PALETA[indice % PALETA.length] },
+        marker: { size: 7, color: s.cor || PALETA[indice % PALETA.length],
+          line: { width: 2, color: c.escuro ? "#141d2b" : "#fff" } },
+        fill: "tozeroy", fillcolor: s.preenchimento ||
+          (indice === 0 ? "rgba(18,87,184,.10)" : "rgba(63,169,245,.08)"),
+        hovertemplate: "%{x}<br>" + s.nome + ": <b>%{y:,.0f}</b><extra></extra>",
+      };
+    }), {
+      margin: { l: 45, r: 28, t: 12, b: 38 }, hovermode: "x unified",
+      legend: { orientation: "h", x: 0, y: 1.12 },
+      xaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true },
+      yaxis: { gridcolor: c.grade, zeroline: false, tickformat: ",.0f", rangemode: "tozero" },
+    });
   };
 
   window.Graficos = Graficos;
