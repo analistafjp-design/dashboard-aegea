@@ -13,10 +13,10 @@ set "CODIGO=%ERRORLEVEL%"
 
 echo.
 if "%CODIGO%"=="0" (
-    echo Atualizacao concluida. Pressione uma tecla para fechar.
+    echo Atualizacao local concluida. Pressione uma tecla para fechar.
 ) else (
     echo A atualizacao terminou com problema ^(codigo %CODIGO%^).
-    echo Consulte a mensagem acima e a pasta scripts\logs.
+    echo Consulte a mensagem acima e a pasta data\logs.
 )
 pause >nul
 exit /b %CODIGO%

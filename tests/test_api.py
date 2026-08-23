@@ -210,7 +210,7 @@ def test_dicionario_de_dados_documenta_todas_as_bases(cliente):
     datasets = cliente.get("/api/datasets").json()["datasets"]
     assert {d["nome"] for d in datasets} == {
         "termos", "faturamento", "vendas", "implantacao", "programacao", "metas",
-        "atendimento"}
+        "atendimento", "faturamento_implantacao"}
     for dataset in datasets:
         assert dataset["descricao"]
         assert dataset["chave_unica"]

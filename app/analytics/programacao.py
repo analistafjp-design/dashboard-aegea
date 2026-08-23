@@ -16,6 +16,7 @@ import pandas as pd
 from app.analytics import consultas, nucleo
 from app.analytics.base import AMARELO, AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.periodo import Periodo, resolver
+from app.etl.regras_powerbi import equipe_geral
 
 LIMITE_SOBRECARGA = 1.5
 LIMITE_SUBUTILIZACAO = 0.5
@@ -40,9 +41,13 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     do_dia = do_mes[do_mes["data"] == data_ref] if data_ref else do_mes.iloc[0:0]
 
     os_dia = nucleo.total(do_dia, "qtd_os")
-    equipes_dia = nucleo.distintos(do_dia, "equipe")
+    grupos_dia = do_dia["recurso"].map(equipe_geral) if "recurso" in do_dia else pd.Series(dtype=object)
+    equipes_dia = (float(grupos_dia.dropna().nunique()) if grupos_dia.notna().any()
+                   else nucleo.distintos(do_dia, "equipe"))
     os_mes = nucleo.total(do_mes, "qtd_os")
-    equipes_mes = nucleo.distintos(do_mes, "equipe")
+    grupos_mes = do_mes["recurso"].map(equipe_geral) if "recurso" in do_mes else pd.Series(dtype=object)
+    equipes_mes = (float(grupos_mes.dropna().nunique()) if grupos_mes.notna().any()
+                   else nucleo.distintos(do_mes, "equipe"))
     media_os_equipe = (round(os_dia / equipes_dia, 1)
                        if os_dia is not None and equipes_dia else None)
 

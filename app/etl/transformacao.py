@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.etl import dominio, regras_atendimento
+from app.etl import dominio, regras_atendimento, regras_powerbi
 from app.etl.datasets import Dataset
 from app.etl.deteccao import Identificacao
 from app.etl.tipos import CONVERSORES, esta_vazio
@@ -189,6 +189,18 @@ def transformar(identificacao: Identificacao,
             [f"Colunas do arquivo: {', '.join(map(str, identificacao.planilha.dados.columns[:20]))}"],
         )
 
+    # As planilhas consolidadas de Venda trazem Canal/Frente; a exportação
+    # bruta do PBIX traz Tipo de Atividade e permite derivar a frente. Sem
+    # nenhuma das duas estruturas o arquivo não pode ser classificado.
+    if (dataset.nome == "vendas"
+            and "frente" not in identificacao.mapeamento
+            and "tipo_atividade" not in identificacao.mapeamento):
+        raise ErroValidacaoArquivo(
+            "Arquivo incompatível com a base Venda. A(s) coluna(s) 'frente' ou "
+            "'tipo de atividade' não foi(ram) encontrada(s).",
+            ["Informe Canal/Frente ou use a exportação Field Service com Tipo de Atividade."],
+        )
+
     origem = identificacao.planilha.dados
     relatorio = RelatorioValidacao(
         dataset=dataset.nome,
@@ -306,6 +318,10 @@ def _derivar(dataset: Dataset, dados: pd.DataFrame) -> pd.DataFrame:
         dados["ano"] = dados["data"].map(lambda d: d.year)
         dados["mes"] = dados["data"].map(lambda d: d.month)
 
+    # Transcreve as condições dos PBIX quando a entrada é uma exportação
+    # bruta do Field Service. Planilhas consolidadas não são alteradas.
+    dados = regras_powerbi.aplicar(dataset.nome, dados)
+
     for coluna in ("cidade", "equipe", "regiao", "projeto", "setor", "recurso"):
         if coluna in dados.columns:
             dados[coluna] = dados[coluna].map(lambda v: titulo(v) or None)
@@ -314,7 +330,10 @@ def _derivar(dataset: Dataset, dados: pd.DataFrame) -> pd.DataFrame:
         dados["frente"] = dados["frente"].map(dominio.normalizar_frente)
 
     if dataset.nome == "vendas":
-        dados["canal"] = dados["frente"].map(dominio.canal_venda)
+        # A regra PBIX de Venda Comercial x VCG já grava `canal`; somente
+        # planilhas consolidadas precisam derivá-lo a partir de `frente`.
+        if "canal" not in dados.columns:
+            dados["canal"] = dados["frente"].map(dominio.canal_venda)
 
     if dataset.nome == "atendimento":
         # Toda linha desta base é, por definição da medida, uma venda por

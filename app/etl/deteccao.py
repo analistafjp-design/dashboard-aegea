@@ -55,6 +55,11 @@ def mapear_colunas(dataset: Dataset, colunas: list[str]) -> dict[str, str]:
     for campo in dataset.campos:
         if campo.nome in mapeamento:
             continue
+        # "Situação" é semanticamente ampla demais para casamento parcial:
+        # "Situação Faturamento" pertence à implantação, enquanto
+        # "Situação do Termo" pertence ao faturamento de termos.
+        if campo.nome == "situacao":
+            continue
         for chave_campo in sorted(campo.chaves, key=len, reverse=True):
             if len(chave_campo) < 4:
                 continue

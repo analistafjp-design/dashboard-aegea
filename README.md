@@ -1,241 +1,80 @@
-# Dashboard Executivo
+# Dashboard AEGEA — versão local simplificada
 
-Plataforma web que consolida, em um único sistema, as informações hoje
-distribuídas em três arquivos Power BI:
+Dashboard local baseado nos três Power BI fornecidos. A interface mantém apenas
+as três visões operacionais necessárias:
 
-| Módulo | Origem | Páginas |
-|---|---|---|
-| **Termos / Faturamento** | PBIX 1 | Termos Aplicados · Faturamento de Termos |
-| **Venda / Implantação** | PBIX 2 | Venda · Implantação |
-| **Programação** | PBIX 3 | Programação Diária |
+| Aba | Origem de referência |
+|---|---|
+| Venda e Implantação | `Acompanhamento Venda e Implantação.pbix` |
+| Termos Aplicados | `Acompanhamento de Termos Aplicados.pbix` |
+| Programação Diária | `Programação Diária.pbix` |
 
-Os três módulos permanecem **independentes** — nada é misturado sem regra
-explícita. Acima deles há uma **Home Executiva** que responde, em menos de 30
-segundos: como estamos, quanto falta, o que projeta fechar e onde está o problema.
+As medidas DAX, filtros, classificações, metas e colunas calculadas desses PBIX
+são a fonte de verdade. O detalhamento está em
+[`docs/referencia_powerbi_extraida.md`](docs/referencia_powerbi_extraida.md).
 
-A atualização é feita **enviando as planilhas pelo navegador**. Ninguém precisa
-editar código Python para atualizar os dados.
+## Uso no Windows
 
----
+Requisito: Python 3.11 ou superior.
 
-## Instalação
+1. Baixe ou atualize este repositório no computador.
+2. Abra `scripts\CONFIGURAR_ATALHO.cmd` uma única vez.
+3. Depois, use o botão **Atualizar Dashboard AEGEA** criado na Área de Trabalho.
 
-Requisito: **Python 3.11 ou superior**.
+O botão lê diretamente as pastas sincronizadas do OneDrive, atualiza o banco
+SQLite no computador e abre `http://127.0.0.1:8000`. Não envia planilhas para o
+Render, não solicita URL, usuário ou senha e não cria tarefa agendada.
 
-### Linux / macOS
+O primeiro clique importa o histórico. Nos seguintes, um manifesto local
+compara tamanho e data de modificação e processa somente arquivos novos ou
+alterados. O manifesto é salvo depois de cada arquivo concluído; uma falha não
+faz o processo esquecer o que já terminou.
 
-```bash
-git clone https://github.com/analistafjp-design/dashboard-aegea.git
-cd dashboard-aegea
-./scripts/iniciar.sh
-```
+Guia completo: [`docs/sincronizacao_pastas.md`](docs/sincronizacao_pastas.md).
 
-### Windows
+## Pastas padrão
 
-```bat
-git clone https://github.com/analistafjp-design/dashboard-aegea.git
-cd dashboard-aegea
-scripts\iniciar.bat
-```
+| Pasta do OneDrive | Bases reconhecidas |
+|---|---|
+| Atendimento | Vendas de Outros Canais |
+| Faturamento | Faturamento de Termos e de Implantação |
+| Interior | Venda, Implantação e Termos |
+| Programação Diária | Programação Diária |
 
-O script cria o ambiente virtual, instala as dependências e sobe o servidor.
-Abra **http://127.0.0.1:8000**.
+Arquivos temporários do Excel (`~$...`) são ignorados. Cada arquivo físico é
+lido uma única vez por execução e somente as abas compatíveis são carregadas.
 
-### Instalação manual
+## Medidas principais preservadas
+
+- Venda Comercial e Venda VCG: atividade `Venda Potenciais/Factíveis`, status
+  `Finalizada` e as mesmas exclusões de códigos/recursos do PBIX.
+- Implantação: atividade `Ligação de Água`, status `Finalizada` e a mesma
+  classificação de frentes do PBIX.
+- Termos: códigos `110013`/`210013` para Serviços e `310013` para VCG, com os
+  mesmos filtros de recurso e status.
+- Programação: `Eqp_Geral`, região e Projeto Principal reproduzem as colunas
+  calculadas do PBIX.
+- Metas padrão do modelo: Implantação 422 (Serviços 234, VCG 188) e Termos 430
+  (Serviços 250, VCG 180). Uma planilha de metas explícita tem prioridade.
+
+## Desenvolvimento
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate         # Windows: .venv\Scripts\activate
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
+pytest -q
 uvicorn app.main:app --reload
 ```
 
-Configuração opcional: copie `.env.example` para `.env` e ajuste (banco,
-limite de upload, pasta de dados). O sistema funciona sem nenhuma variável.
-
----
-
-## Primeiro uso
-
-1. Abra **Atualização de Dados** na barra lateral.
-2. Arraste as planilhas (Termos, Faturamento, Venda, Implantação, Programação
-   e Metas) — o tipo de cada base é identificado **pelas colunas**, não pelo
-   nome do arquivo.
-3. Clique em **ATUALIZAR DASHBOARD**.
-4. Indicadores, gráficos, rankings, projeções, alertas e insights são
-   recalculados automaticamente.
-
-### Quer ver o sistema funcionando antes de ter os dados reais?
-
-```bash
-python scripts/gerar_dados_exemplo.py       # cria planilhas sintéticas em data/exemplos
-python scripts/carregar_planilhas.py data/exemplos/*.xlsx
-```
-
-> Os dados de exemplo são **sintéticos**, servem apenas para demonstração e
-> teste. Antes de usar em produção, limpe a base:
-> `python scripts/carregar_planilhas.py --limpar <suas_planilhas>`
-
----
-
-## Páginas
-
-| Página | O que responde |
-|---|---|
-| **Visão Executiva** | Como estamos, quanto falta, projeção, principais problemas e oportunidades |
-| **Termos Aplicados** | Realizado Total / Serviços / VCG, meta, ritmo, distribuição por cidade e setor |
-| **Faturamento de Termos** | Negociação, aguardando, faturado, cancelado, funil e conversão |
-| **Venda** | Total, Comercial, VCG, outros canais, venda/dia, falta, rankings |
-| **Implantação** | Serviços × VCG × Total, faturada e não faturada, valor, evolução |
-| **Programação Diária** | Agenda operacional, O.S. e equipes por dia, carga e desequilíbrios |
-| **Equipes** | Tabela executiva, equipes logadas, ranking e produção diária |
-| **Cidades** | Ranking por módulo e cidades abaixo da meta (clique filtra o dashboard) |
-| **Metas** | Meta, meta acumulada, ritmo necessário, projeção e metas cadastradas |
-| **Análises** | Insights automáticos, comparação com período anterior e projeções |
-| **Alertas** | 🔴 crítico · 🟡 atenção · 🟢 normal |
-| **Atualização de Dados** | Upload, validação, progresso e histórico de importações |
-| **Configurações** | Tema, período padrão, exportação e informações do sistema |
-| **Dicionário de dados** | Todas as colunas aceitas em cada planilha |
-
-Todas as páginas respeitam os **filtros globais** (período, ano, mês, cidade,
-frente, equipe, região, projeto) e permitem exportar em **Excel, CSV ou PDF**.
-
----
-
-## Planilhas aceitas
-
-O sistema identifica a base pela **estrutura das colunas** e aceita variações
-de cabeçalho ("Data da Atividade", "Data", "Dt. Atividade" caem no mesmo campo).
-A lista completa de sinônimos está na página **Dicionário de dados** e em
-`GET /api/datasets`.
-
-| Base | Colunas obrigatórias | Colunas opcionais mais usadas |
-|---|---|---|
-| Termos Aplicados | data | cidade, equipe/recurso, frente, setor do recurso, matrícula, tipo, status do termo, quantidade, valor |
-| Faturamento de Termos | data (início do mês), situação | cidade, nº do termo, quantidade, valor |
-| Venda | data, canal/frente | cidade, equipe, matrícula, quantidade, valor |
-| Implantação | data | cidade, equipe, frente, tipo, serviço, situação de faturamento, quantidade, valor |
-| Programação Diária | data, região, recurso, qtd O.S. | projeto, cidade |
-| Metas | ano, mês, indicador/módulo, meta | segmento/tipo, cidade, equipe |
-
-**Metas nunca são estimadas.** Sem cadastro, o dashboard exibe
-*"Meta não cadastrada"* em vez de um número inventado.
-
----
-
-## Como o sistema trata dados problemáticos
-
-| Situação | Comportamento |
-|---|---|
-| Coluna obrigatória ausente | `Arquivo incompatível com a base Venda. A coluna 'frente' não foi encontrada.` |
-| Datas inválidas | `17 registro(s) com data inválida em 'data' (descartado)` — as demais linhas entram |
-| Linhas duplicadas | Removidas pela chave única e reportadas no relatório |
-| Reenvio do mesmo arquivo | Atualiza os registros existentes; **não duplica** |
-| Base sem registros no filtro | Mostra **"Sem dados"** — nunca zero |
-| Erro inesperado | Mensagem amigável na tela; stack trace só no log |
-
----
-
-## Testes
-
-```bash
-.venv/bin/python -m pytest
-```
-
-136 testes cobrindo calendário e dias úteis, conversão de tipos, detecção de
-arquivos, importação (duplicidade, datas inválidas, coluna ausente, carga
-incremental, número exato da linha com erro no Excel), regras de indicadores
-(meta, atingimento, projeção, "sem dados" × zero), API, upload, exportação e
-todas as páginas.
-
----
-
-## Conferência com o Power BI
-
-Antes de considerar os números definitivos, compare-os com os PBIX:
-
-```bash
-# 1. preencha docs/referencia_powerbi.csv com os valores lidos no Power BI
-# 2. rode a conferência
-python scripts/validar_indicadores.py --ano 2026 --mes 7
-```
-
-O procedimento completo e o que fazer diante de divergências estão em
-[`docs/validacao_powerbi.md`](docs/validacao_powerbi.md).
-
----
-
-## Estrutura do projeto
+Estrutura principal:
 
 ```text
-dashboard-aegea/
-├── app/
-│   ├── main.py                 aplicação FastAPI
-│   ├── config.py               caminhos, limites, banco, cache
-│   ├── models/                 modelo dimensional (SQLAlchemy) e sessão
-│   ├── etl/                    leitura, detecção, validação, carga incremental
-│   ├── analytics/              indicadores, metas, projeções, insights, alertas
-│   ├── services/               upload, exportação, preferências
-│   ├── routes/                 páginas HTML e API JSON
-│   ├── schemas/                filtros da query string
-│   └── utils/                  logs, erros, formatação, texto
-├── frontend/
-│   ├── templates/              base.html + uma página por rota
-│   └── static/                 css, js (Plotly local), ícones
-├── data/                       uploads, processados, banco e logs (não versionados)
-├── docs/                       indicadores, regras de negócio, arquitetura, validação Power BI
-├── scripts/                    iniciar, carregar planilhas, validar, dados de exemplo
-├── tests/                      suíte pytest
-├── requirements.txt
-└── .env.example
+app/etl/regras_powerbi.py             regras extraídas dos PBIX
+scripts/atualizar_dashboard_local.py atualização incremental local
+scripts/ATUALIZAR_DASHBOARD.cmd       alvo do atalho do Windows
+data/local/                           banco e manifesto locais (não versionados)
 ```
 
-## Documentação
-
-- [Dicionário de indicadores](docs/indicadores.md) — regra de cada número, com referência ao PBIX
-- [Mapa de regras de negócio](docs/regras_negocio.md) — a lógica exata implementada, ligada ao código-fonte
-- [Matriz de dados real](docs/matriz_dados_real.csv) — toda coluna aceita em cada planilha, gerada a partir do código
-- [Arquitetura](docs/arquitetura.md) — camadas, modelo de dados, publicação
-- [Conferência Power BI](docs/validacao_powerbi.md) — como validar os números
-- [Relatório final de validação](docs/relatorio_final_validacao.md) — status real de cada critério de aprovação
-- [Guia do usuário](docs/GUIA_USUARIO.md) — login, atualização, sincronização e solução de problemas
-- API interativa: **http://127.0.0.1:8000/api/docs**
-
-> **Status de validação**: o sistema está funcional, testado (136 testes
-> automatizados) e auditado, mas a comparação numérica com os três Power BI
-> originais está pendente — os arquivos `.pbix` e os Excel reais ainda não
-> foram disponibilizados. Veja o relatório final de validação para o
-> detalhamento completo.
-
----
-
-## Publicação em servidor
-
-### Com URL pública gratuita (Render)
-
-O repositório já traz `render.yaml` pronto. Passo a passo, com o aviso
-importante sobre persistência de dados no plano gratuito, em
-[`docs/deploy.md`](docs/deploy.md). A URL pública exige login (usuário/senha
-definidos no próprio deploy) — o sistema não tem outra proteção.
-
-### Atualização das planilhas pelo atalho (Windows)
-
-Em vez de subir arquivos pelo navegador, o botão **Atualizar Dashboard
-AEGEA** envia somente as planilhas novas ou alteradas das pastas do OneDrive.
-A atualização acontece apenas quando o botão é clicado. Passo a passo em
-[`docs/sincronizacao_pastas.md`](docs/sincronizacao_pastas.md).
-
-### Manual, em qualquer servidor
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-Com mais de um worker, use PostgreSQL:
-
-```bash
-DATABASE_URL=postgresql+psycopg://usuario:senha@servidor:5432/dashboard
-```
-
-Nenhuma dependência do Power BI é necessária para executar o dashboard.
-Os PBIX servem apenas como referência das regras de negócio.
+O dicionário das colunas aceitas também está disponível em `GET /api/datasets`.

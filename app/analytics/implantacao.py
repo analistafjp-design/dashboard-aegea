@@ -13,6 +13,12 @@ from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
 from app.analytics.periodo import Periodo, resolver
 
 
+DEPARTAMENTOS_FATURAMENTO = {
+    "IMPLANTAÇÃO DE LIGAÇÃO ÁGUA",
+    "VEM COM A GENTE",
+}
+
+
 def _tipo(dados, tipo: str):
     return dados[dados["tipo"] == tipo] if "tipo" in dados.columns else dados.iloc[0:0]
 
@@ -23,6 +29,11 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
                             Filtros(**{**filtros.__dict__, "ano": None, "mes": None}))
     dados = consultas.dados("implantacao", filtros)
     do_mes = dados[dados["ano_mes"] == periodo.ano_mes] if not dados.empty else dados
+    faturamento_base = consultas.dados("faturamento_implantacao", filtros)
+    faturamento_mes = (
+        faturamento_base[faturamento_base["ano_mes"] == periodo.ano_mes]
+        if not faturamento_base.empty else faturamento_base
+    )
 
     total_impl = nucleo.total(do_mes)
     servicos = nucleo.total(_tipo(do_mes, TIPO_SERVICOS))
@@ -32,11 +43,30 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
     meta_vcg = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "VCG", filtros)
 
-    faturadas_df = do_mes[do_mes["faturado"] == True] if not do_mes.empty else do_mes  # noqa: E712
-    nao_faturadas_df = do_mes[do_mes["faturado"] == False] if not do_mes.empty else do_mes  # noqa: E712
-    qtd_faturada = nucleo.total(faturadas_df)
-    qtd_nao_faturada = nucleo.total(nao_faturadas_df)
-    valor_faturado = nucleo.total(faturadas_df, "valor")
+    if not faturamento_mes.empty:
+        ocorrencia = faturamento_mes["ocorrencia"].str.strip().str.upper() == "0-EXECUTADO"
+        departamento = faturamento_mes["departamento"].str.strip().str.upper().isin(
+            DEPARTAMENTOS_FATURAMENTO
+        )
+        ligacao = faturamento_mes["tipo_solicitacao"].str.upper().str.contains(
+            "IMPLANTAÇÃO DE LIGAÇÃO", regex=False, na=False
+        )
+        elegiveis = faturamento_mes[ocorrencia & departamento & ligacao]
+        faturadas_df = elegiveis[elegiveis["valor"].fillna(0) > 0]
+        nao_faturadas_df = elegiveis[elegiveis["valor"].fillna(0) == 0]
+        # As medidas DAX usam DISTINCTCOUNT de Nº Ligação.
+        qtd_faturada = float(faturadas_df["ligacao"].nunique())
+        qtd_nao_faturada = float(nao_faturadas_df["ligacao"].nunique())
+        valor_faturado = nucleo.total(
+            faturamento_mes[ocorrencia & departamento], "valor"
+        )
+    else:
+        # Compatibilidade com planilhas consolidadas antigas.
+        faturadas_df = do_mes[do_mes["faturado"] == True] if not do_mes.empty else do_mes  # noqa: E712
+        nao_faturadas_df = do_mes[do_mes["faturado"] == False] if not do_mes.empty else do_mes  # noqa: E712
+        qtd_faturada = nucleo.total(faturadas_df)
+        qtd_nao_faturada = nucleo.total(nao_faturadas_df)
+        valor_faturado = nucleo.total(faturadas_df, "valor")
 
     pct_faturado = (round(qtd_faturada / total_impl * 100, 1)
                     if qtd_faturada is not None and total_impl else None)
@@ -121,6 +151,8 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         "por_cidade": nucleo.ranking(do_mes, "cidade", top=15).to_dict("records"),
         "por_frente": nucleo.ranking(do_mes, "frente").to_dict("records"),
         "por_equipe": nucleo.ranking(do_mes, "equipe", top=15).to_dict("records"),
-        "nao_faturadas_por_cidade": nucleo.ranking(nao_faturadas_df, "cidade", top=10)
-                                          .to_dict("records"),
+        "nao_faturadas_por_cidade": (
+            nucleo.ranking(nao_faturadas_df, "cidade", top=10).to_dict("records")
+            if "cidade" in nao_faturadas_df.columns else []
+        ),
     }
