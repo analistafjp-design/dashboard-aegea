@@ -663,8 +663,8 @@ html[data-tema="escuro"] .indicador-faixa strong { color: #82b8ff; }
 }
 .grafico { min-height: 245px; }
 .grafico--compacto { min-height: 168px; }
-.grafico--alto { min-height: 340px; }
-.grafico--ranking { min-height: 230px; }
+.grafico--alto { min-height: 410px; }
+.grafico--ranking { min-height: 270px; }
 .visual-simples--bullet .grafico--compacto { min-height: 142px; }
 .visual-simples--bullet { align-self: stretch; }
 .faixa-titulo {
@@ -775,8 +775,8 @@ html[data-tema="escuro"] .programacao-resumo strong { color: #82b8ff; }
   .termos-insights { grid-template-columns: 1fr; }
   .grafico { min-height: 260px; }
   .grafico--compacto { min-height: 220px; }
-  .grafico--alto { min-height: 320px; }
-  .grafico--ranking { min-height: 245px; }
+  .grafico--alto { min-height: 390px; }
+  .grafico--ranking { min-height: 280px; }
   .visual-simples h2 { padding: 12px 13px 3px; text-align: center; }
   .programacao-resumo > div { min-height: 74px; }
   .toasts { left: 10px; right: 10px; bottom: 10px; max-width: none; }

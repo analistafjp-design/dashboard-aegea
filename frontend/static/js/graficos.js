@@ -115,8 +115,10 @@
     }], Object.assign({
       margin: { l: Math.min(190, 12 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 7.2),
         r: 42, t: 12, b: 36 },
+      bargap: 0.38,
       hovermode: "closest",
       xaxis: { gridcolor: cores().grade, tickformat: ",.0f" },
+      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true, tickfont: { size: 12 } },
     }, opcoes.layout));
   };
 
@@ -295,6 +297,8 @@
   /** Produção diária empilhada por frente com a referência da meta diária. */
   Graficos.empilhadoComMeta = function (id, rotulos, series, meta) {
     const c = cores();
+    const totais = rotulos.map((_, indice) => series.reduce(
+      (total, item) => total + (Number(item.valores[indice]) || 0), 0));
     const traces = series.map((s, indice) => ({
       type: "bar", name: s.nome, x: rotulos, y: s.valores,
       marker: { color: s.cor || PALETA[indice % PALETA.length] },
@@ -310,26 +314,46 @@
         hovertemplate: "%{x}<br>Meta diária: <b>%{y:,.1f}</b><extra></extra>",
       });
     }
-    desenhar(id, traces, { barmode: "stack", hovermode: "x unified" });
+    traces.push({
+      type: "scatter", mode: "text", name: "Total", showlegend: false,
+      x: rotulos, y: totais.map((valor) => valor + 0.7),
+      text: totais.map(rotuloValor), textposition: "top center",
+      textfont: { size: 11, color: c.texto }, hoverinfo: "skip",
+    });
+    desenhar(id, traces, {
+      barmode: "stack", bargap: 0.34, hovermode: "x unified",
+      margin: { l: 48, r: 22, t: 30, b: 48 },
+    });
   };
 
   /** Comparativo horizontal empilhado, usado para Serviços x VCG por cidade. */
   Graficos.empilhadoHorizontal = function (id, rotulos, series) {
     const invertidos = rotulos.slice().reverse();
-    desenhar(id, series.map((s, indice) => ({
+    const valoresInvertidos = series.map((s) => s.valores.slice().reverse());
+    const totais = invertidos.map((_, indice) => valoresInvertidos.reduce(
+      (total, valores) => total + (Number(valores[indice]) || 0), 0));
+    const traces = series.map((s, indice) => ({
       type: "bar", orientation: "h", name: s.nome,
-      y: invertidos, x: s.valores.slice().reverse(),
+      y: invertidos, x: valoresInvertidos[indice],
       marker: { color: s.cor || PALETA[indice % PALETA.length] },
-      text: s.valores.slice().reverse().map(rotuloValor),
+      text: valoresInvertidos[indice].map(rotuloValor),
       texttemplate: "%{text}", textposition: "auto", cliponaxis: false,
       hovertemplate: "%{y}<br>" + s.nome + ": <b>%{x:,.0f}</b><extra></extra>",
-    })), {
-      barmode: "stack", hovermode: "y unified",
+    }));
+    traces.push({
+      type: "scatter", mode: "text", name: "Total", showlegend: false,
+      y: invertidos, x: totais, text: totais.map(rotuloValor),
+      textposition: "middle right", textfont: { size: 11, color: cores().texto },
+      cliponaxis: false, hoverinfo: "skip",
+    });
+    desenhar(id, traces, {
+      barmode: "stack", bargap: 0.38, hovermode: "y unified",
       margin: {
         l: Math.min(190, 12 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 7.2),
-        r: 24, t: 12, b: 36,
+        r: 50, t: 12, b: 36,
       },
       xaxis: { gridcolor: cores().grade, tickformat: ",.0f" },
+      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true, tickfont: { size: 12 } },
     });
   };
 
