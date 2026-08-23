@@ -6,6 +6,8 @@ módulo faz é apenas uniformizar a grafia vinda das planilhas.
 """
 from __future__ import annotations
 
+import pandas as pd
+
 from app.utils.texto import sem_acento
 
 # Frentes canônicas
@@ -40,7 +42,16 @@ FUNIL_FATURAMENTO = (SIT_NEGOCIACAO, SIT_AGUARDANDO, SIT_FATURADO)
 
 
 def _k(valor: object) -> str:
-    return sem_acento(str(valor or "")).strip().lower()
+    # `pd.NA` não pode ser avaliado como verdadeiro/falso. Exportações reais
+    # do Field Service usam esse marcador em várias colunas opcionais.
+    if valor is None:
+        return ""
+    try:
+        if pd.isna(valor):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return sem_acento(str(valor)).strip().lower()
 
 
 def normalizar_frente(valor: object) -> str:

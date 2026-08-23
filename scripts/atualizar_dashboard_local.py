@@ -181,6 +181,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
     criar_banco()
     falhas = 0
     concluidos = 0
+    com_avisos = 0
 
     for indice, caminho in enumerate(sorted(pendentes), start=1):
         print(f"[{indice}/{len(pendentes)}] {caminho.name}")
@@ -215,21 +216,35 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
             if not resultado.ok:
                 print(f"    {resultado.mensagem}")
 
-        if resultados and all(resultado.ok for resultado in resultados):
+        if resultados:
+            bases_ok = [resultado.dataset for resultado in resultados if resultado.ok]
+            bases_ignoradas = [
+                resultado.dataset or tipo
+                for resultado, tipo in zip(resultados, tipos)
+                if not resultado.ok
+            ]
+            # Um arquivo bruto do Interior pode ter a estrutura das três
+            # bases, mas não possuir linhas que atendam a todas as medidas.
+            # Ele foi verificado e não deve ser relido até realmente mudar.
+            status = "processado" if not bases_ignoradas else "processado_com_avisos"
             manifesto["arquivos"][str(caminho)] = {
                 **assinatura(caminho),
-                "bases": [resultado.dataset for resultado in resultados],
-                "status": "processado",
+                "bases": bases_ok,
+                "bases_sem_registros": bases_ignoradas,
+                "status": status,
             }
             salvar_manifesto(manifesto_arquivo, manifesto)
             concluidos += 1
-        else:
-            falhas += 1
+            if bases_ignoradas:
+                com_avisos += 1
 
     cache.invalidar()
     invalidar_cache_do_painel()
     print()
-    print(f"Concluido: {concluidos} arquivo(s); falhas: {falhas}.")
+    print(
+        f"Concluido: {concluidos} arquivo(s); "
+        f"com avisos: {com_avisos}; falhas de leitura: {falhas}."
+    )
     return 2 if falhas else 0
 
 
