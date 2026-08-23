@@ -441,7 +441,9 @@
   App.iniciarExportacao = function () {
     document.querySelectorAll("[data-exportar]").forEach((botao) => {
       botao.addEventListener("click", () => {
-        App.exportar(botao.dataset.exportar, botao.dataset.formato || "xlsx");
+        const recurso = botao.dataset.exportar === "atual"
+          ? App.estado.pagina : botao.dataset.exportar;
+        App.exportar(recurso, botao.dataset.formato || "xlsx");
       });
     });
   };

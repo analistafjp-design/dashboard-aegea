@@ -115,10 +115,13 @@
     }], Object.assign({
       margin: { l: Math.min(190, 12 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 7.2),
         r: 42, t: 12, b: 36 },
-      bargap: 0.38,
+      bargap: 0.48,
       hovermode: "closest",
       xaxis: { gridcolor: cores().grade, tickformat: ",.0f" },
-      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true, tickfont: { size: 12 } },
+      yaxis: {
+        gridcolor: "rgba(0,0,0,0)", automargin: true,
+        tickfont: { size: 12 }, ticklabelstandoff: 12,
+      },
     }, opcoes.layout));
   };
 
@@ -299,11 +302,11 @@
     const c = cores();
     const totais = rotulos.map((_, indice) => series.reduce(
       (total, item) => total + (Number(item.valores[indice]) || 0), 0));
+    const teto = Math.max.apply(null, totais.concat(meta || []).filter(
+      (valor) => valor !== null && valor !== undefined).concat([1]));
     const traces = series.map((s, indice) => ({
       type: "bar", name: s.nome, x: rotulos, y: s.valores,
       marker: { color: s.cor || PALETA[indice % PALETA.length] },
-      text: s.valores.map(rotuloValor), texttemplate: "%{text}",
-      textposition: "auto", cliponaxis: false,
       hovertemplate: "%{x}<br>" + s.nome + ": <b>%{y:,.0f}</b><extra></extra>",
     }));
     if (meta && meta.some((valor) => valor !== null && valor !== undefined)) {
@@ -314,15 +317,16 @@
         hovertemplate: "%{x}<br>Meta diária: <b>%{y:,.1f}</b><extra></extra>",
       });
     }
-    traces.push({
-      type: "scatter", mode: "text", name: "Total", showlegend: false,
-      x: rotulos, y: totais.map((valor) => valor + 0.7),
-      text: totais.map(rotuloValor), textposition: "top center",
-      textfont: { size: 11, color: c.texto }, hoverinfo: "skip",
-    });
     desenhar(id, traces, {
-      barmode: "stack", bargap: 0.34, hovermode: "x unified",
-      margin: { l: 48, r: 22, t: 30, b: 48 },
+      barmode: "stack", bargap: 0.42, hovermode: "x unified",
+      margin: { l: 48, r: 22, t: 46, b: 52 },
+      yaxis: { gridcolor: c.grade, rangemode: "tozero", range: [0, teto * 1.22] },
+      annotations: rotulos.map((rotulo, indice) => ({
+        x: rotulo, y: totais[indice], yshift: 13, showarrow: false,
+        text: `<b>${rotuloValor(totais[indice])}</b>`, font: { size: 11, color: c.texto },
+        bgcolor: c.escuro ? "#141d2b" : "#ffffff", bordercolor: c.grade,
+        borderwidth: 1, borderpad: 2,
+      })).filter((_, indice) => totais[indice] > 0),
     });
   };
 
@@ -347,13 +351,16 @@
       cliponaxis: false, hoverinfo: "skip",
     });
     desenhar(id, traces, {
-      barmode: "stack", bargap: 0.38, hovermode: "y unified",
+      barmode: "stack", bargap: 0.48, hovermode: "y unified",
       margin: {
         l: Math.min(190, 12 + Math.max.apply(null, rotulos.map((r) => String(r).length)) * 7.2),
         r: 50, t: 12, b: 36,
       },
       xaxis: { gridcolor: cores().grade, tickformat: ",.0f" },
-      yaxis: { gridcolor: "rgba(0,0,0,0)", automargin: true, tickfont: { size: 12 } },
+      yaxis: {
+        gridcolor: "rgba(0,0,0,0)", automargin: true,
+        tickfont: { size: 12 }, ticklabelstandoff: 12,
+      },
     });
   };
 
