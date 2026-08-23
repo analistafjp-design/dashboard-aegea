@@ -23,9 +23,10 @@ def test_home_reproduz_estrutura_enxuta_da_referencia(cliente, base_carregada):
     assert "simples-implantacao-kpis" in pagina
     assert "simples-vendas-kpis" in pagina
     assert "graf-simples-impl-servicos" in pagina
-    assert "graf-simples-tendencia" in pagina
-    assert "graf-simples-equipes" in pagina
-    assert "graf-simples-cidades" in pagina
+    assert "graf-simples-venda-cidade" in pagina
+    assert "graf-simples-venda-equipe" in pagina
+    assert "graf-simples-impl-cidade" in pagina
+    assert "graf-simples-tendencia" not in pagina
 
 
 def test_termos_e_programacao_priorizam_indicadores_operacionais(cliente, base_carregada):
@@ -55,9 +56,6 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert "Graficos.anelMeta" in javascript
     assert "Graficos.barraMeta" in javascript
     assert 'shape: "bullet"' in javascript
-    assert "Graficos.tendencia" in javascript
-    assert "Graficos.lollipop" in javascript
-    assert "Graficos.agrupadoHorizontal" in javascript
 
 
 def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):

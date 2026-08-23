@@ -650,12 +650,9 @@ html[data-tema="escuro"] .indicador-faixa strong { color: #82b8ff; }
 }
 
 .grade-roscas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 0; }
-.grade-analises-home {
-  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; padding: 0;
+.grade-rankings-home {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0;
 }
-.visual-simples--tendencia { grid-column: span 8; }
-.visual-simples--equipes { grid-column: span 4; }
-.visual-simples--cidades { grid-column: 1 / -1; }
 .visual-simples {
   min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 4px 16px rgba(16,32,61,.055); overflow: hidden;
@@ -664,23 +661,10 @@ html[data-tema="escuro"] .indicador-faixa strong { color: #82b8ff; }
   margin: 0; padding: 9px 11px 2px; color: var(--text); text-align: left;
   font-size: 12px; font-weight: 700; line-height: 1.25;
 }
-.grade-analises-home .visual-simples { position: relative; }
-.grade-analises-home .visual-simples::before {
-  content: ""; position: absolute; inset: 0 0 auto; height: 3px;
-  background: linear-gradient(90deg, #1257b8, #3fa9f5); z-index: 2;
-}
-.grade-analises-home .visual-simples h2 {
-  display: flex; align-items: center; gap: 7px; padding-top: 12px;
-}
-.grade-analises-home .visual-simples h2::before {
-  content: ""; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%;
-  background: #258fe0; box-shadow: 0 0 0 4px rgba(37,143,224,.1);
-}
 .grafico { min-height: 245px; }
 .grafico--compacto { min-height: 168px; }
 .grafico--alto { min-height: 340px; }
-.grafico--analise { min-height: 225px; }
-.grafico--cidades { min-height: 285px; }
+.grafico--ranking { min-height: 230px; }
 .visual-simples--bullet .grafico--compacto { min-height: 142px; }
 .visual-simples--bullet { align-self: stretch; }
 .faixa-titulo {
@@ -761,8 +745,8 @@ html[data-tema="escuro"] .programacao-resumo strong { color: #82b8ff; }
   .titulo-faixa h1 { grid-column: 1; grid-row: 1; }
   .titulo-faixa__resumo, .titulo-faixa__numero { justify-self: center; }
   .titulo-faixa__numero { grid-row: 2; }
-  .visual-simples--tendencia { grid-column: span 7; }
-  .visual-simples--equipes { grid-column: span 5; }
+  .grade-rankings-home { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grade-rankings-home .visual-simples:last-child { grid-column: 1 / -1; }
   .termos-insights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -784,16 +768,15 @@ html[data-tema="escuro"] .programacao-resumo strong { color: #82b8ff; }
   .indicador-faixa:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .grade-roscas, .grade-termos, .grade-programacao,
   .programacao-resumo { grid-template-columns: 1fr; }
-  .grade-analises-home { grid-template-columns: 1fr; }
-  .visual-simples--tendencia, .visual-simples--equipes, .visual-simples--cidades { grid-column: 1; }
+  .grade-rankings-home { grid-template-columns: 1fr; }
+  .grade-rankings-home .visual-simples:last-child { grid-column: 1; }
   .grade-termos .visual-simples--largo, .grade-termos .visual-simples--cidade,
   .grade-termos .visual-simples--total { grid-column: span 1; }
   .termos-insights { grid-template-columns: 1fr; }
   .grafico { min-height: 260px; }
   .grafico--compacto { min-height: 220px; }
   .grafico--alto { min-height: 320px; }
-  .grafico--analise { min-height: 250px; }
-  .grafico--cidades { min-height: 330px; }
+  .grafico--ranking { min-height: 245px; }
   .visual-simples h2 { padding: 12px 13px 3px; text-align: center; }
   .programacao-resumo > div { min-height: 74px; }
   .toasts { left: 10px; right: 10px; bottom: 10px; max-width: none; }

@@ -115,47 +115,14 @@
       visualMeta("graf-simples-impl-vcg", bloco(implantacao.blocos_meta, "VCG"), "anel");
       visualMeta("graf-simples-venda-comercial", bloco(vendas.blocos_meta, "Comercial"), "barra");
       visualMeta("graf-simples-impl-total", implantacao.bloco_principal, "barra");
-      const mensalVendas = serieMensal(vendas.evolucao_mensal);
-      const mensalImplantacao = serieMensal(implantacao.evolucao_mensal);
-      const diariaVendas = serieDiaria(vendas.evolucao_diaria);
-      const diariaImplantacao = serieDiaria(implantacao.evolucao_diaria);
-      const usarMensal = new Set([...mensalVendas.rotulos, ...mensalImplantacao.rotulos]).size > 1;
-      const rotulosTendencia = usarMensal
-        ? [...new Set([...mensalVendas.rotulos, ...mensalImplantacao.rotulos])]
-        : [...new Set([...diariaVendas.datas, ...diariaImplantacao.datas])];
-      const mapaSerie = (rotulos, valores) => Object.fromEntries(
-        rotulos.map((rotulo, indice) => [rotulo, valores[indice] || 0]));
-      const mapaVendas = usarMensal
-        ? mapaSerie(mensalVendas.rotulos, mensalVendas.valores)
-        : mapaSerie(diariaVendas.datas, diariaVendas.diario);
-      const mapaImplantacao = usarMensal
-        ? mapaSerie(mensalImplantacao.rotulos, mensalImplantacao.valores)
-        : mapaSerie(diariaImplantacao.datas, diariaImplantacao.diario);
-      G.tendencia("graf-simples-tendencia", rotulosTendencia, [
-        { nome: "Venda", valores: rotulosTendencia.map((r) => mapaVendas[r] || 0), cor: "#1257b8" },
-        { nome: "Implantação", valores: rotulosTendencia.map((r) => mapaImplantacao[r] || 0), cor: "#24a0ed" },
-      ]);
-
+      const cidadeVenda = ranking(vendas.top_cidades, "cidade");
+      G.barrasHorizontais("graf-simples-venda-cidade", cidadeVenda.rotulos.slice(0, 8),
+        cidadeVenda.valores.slice(0, 8));
       const equipeVenda = ranking(vendas.top_equipes, "equipe");
-      G.lollipop("graf-simples-equipes", equipeVenda.rotulos.slice(0, 8),
+      G.barrasHorizontais("graf-simples-venda-equipe", equipeVenda.rotulos.slice(0, 8),
         equipeVenda.valores.slice(0, 8));
-
-      const cidadesVenda = vendas.top_cidades || [];
-      const cidadesImplantacao = implantacao.por_cidade || [];
-      const mapaCidades = new Map();
-      cidadesVenda.forEach((item) => mapaCidades.set(item.cidade,
-        { cidade: item.cidade, venda: item.total || 0, implantacao: 0 }));
-      cidadesImplantacao.forEach((item) => {
-        const atual = mapaCidades.get(item.cidade) || { cidade: item.cidade, venda: 0, implantacao: 0 };
-        atual.implantacao = item.total || 0;
-        mapaCidades.set(item.cidade, atual);
-      });
-      const cidades = [...mapaCidades.values()]
-        .sort((a, b) => (b.venda + b.implantacao) - (a.venda + a.implantacao)).slice(0, 10);
-      G.agrupadoHorizontal("graf-simples-cidades", cidades.map((r) => r.cidade), [
-        { nome: "Venda", valores: cidades.map((r) => r.venda), cor: "#1257b8" },
-        { nome: "Implantação", valores: cidades.map((r) => r.implantacao), cor: "#24a0ed" },
-      ]);
+      const cidadeImpl = ranking(implantacao.por_cidade.slice(0, 8), "cidade");
+      G.barrasHorizontais("graf-simples-impl-cidade", cidadeImpl.rotulos, cidadeImpl.valores);
     } catch (e) {
       erro("#simples-implantacao-kpis", e.message);
     }
