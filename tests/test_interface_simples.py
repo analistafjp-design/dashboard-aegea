@@ -76,7 +76,12 @@ def test_pdf_visual_baixa_imagem_da_pagina_e_relatorio_geral(cliente, base_carre
     )
     relatorio = cliente.get("/relatorio-geral?ano=2026&mes=8").text
 
-    assert "html2pdf.bundle.min.js" in javascript
+    assert "/static/js/html2canvas.min.js" in javascript
+    assert "/static/js/jspdf.umd.min.js" in javascript
+    assert "/static/js/html2pdf.min.js" in javascript
+    assert "cdnjs.cloudflare.com" not in javascript
+    for biblioteca in ("html2canvas.min.js", "jspdf.umd.min.js", "html2pdf.min.js"):
+        assert (RAIZ / "frontend" / "static" / "js" / biblioteca).exists()
     assert "App.baixarPdfVisual" in javascript
     assert "window.print()" not in javascript
     assert "/relatorio-geral" in javascript

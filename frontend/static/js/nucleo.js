@@ -436,17 +436,19 @@
   App._carregarGeradorPdf = function () {
     if (window.html2pdf) return Promise.resolve(window.html2pdf);
     if (App._promessaGeradorPdf) return App._promessaGeradorPdf;
-    App._promessaGeradorPdf = new Promise((resolve, reject) => {
+    const carregarScript = (origem) => new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-      script.integrity = "sha512-YcsIPGdhPK4P/uRW6/sruonlYj+Q7UHWeKfTAkBW+g83NKMmJhFSqgppuwZItgQLsaW4e5y+g4QhbmeToZPzYw==";
-      script.crossOrigin = "anonymous";
-      script.onload = () => resolve(window.html2pdf);
+      script.src = origem;
+      script.onload = resolve;
       script.onerror = () => reject(new Error(
-        "Não foi possível carregar o gerador de PDF. Verifique a conexão com a internet."
+        "Não foi possível carregar o gerador de PDF instalado no dashboard."
       ));
       document.head.appendChild(script);
     });
+    App._promessaGeradorPdf = carregarScript("/static/js/html2canvas.min.js?v=1.11.0")
+      .then(() => carregarScript("/static/js/jspdf.umd.min.js?v=1.11.0"))
+      .then(() => carregarScript("/static/js/html2pdf.min.js?v=1.11.0"))
+      .then(() => window.html2pdf);
     return App._promessaGeradorPdf;
   };
 
