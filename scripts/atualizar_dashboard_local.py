@@ -27,11 +27,12 @@ from app.models.db import criar_banco, sessao  # noqa: E402
 
 EXTENSOES = {".xlsx", ".xlsm", ".xls", ".csv"}
 TIPOS_VALIDOS = set(DATASETS)
-# Versão 2 corrige o casamento de "Status da Atividade" na base Termos.
+# Versao 3 tambem preserva a contagem fisica do Power BI quando duas linhas
+# oficiais possuem a mesma chave operacional dentro da planilha.
 # Bases já processadas em versões anteriores são relidas uma única vez,
 # exclusivamente como Termos; Venda, Implantação e Programação não voltam
 # para a fila.
-VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 2}
+VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 3}
 
 
 @dataclass(frozen=True)

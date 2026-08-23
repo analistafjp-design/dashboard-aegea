@@ -390,9 +390,25 @@ def _remover_duplicadas(dataset: Dataset, dados: pd.DataFrame,
     duplicadas = int(dados["chave_unica"].duplicated().sum())
     if duplicadas:
         relatorio.duplicadas_no_arquivo = duplicadas
-        relatorio.avisos.append(
-            f"{duplicadas} registro(s) duplicado(s) no próprio arquivo "
-            f"(chave: {' + '.join(dataset.chave_unica)}) — manteve-se a última ocorrência"
-        )
-        dados = dados.drop_duplicates(subset="chave_unica", keep="last")
+        if dataset.nome == "termos":
+            # As medidas oficiais de Termos no PBIX usam COUNTROWS. Portanto,
+            # duas linhas fisicas iguais continuam valendo dois termos. Como o
+            # banco precisa de uma chave unica para a carga incremental, elas
+            # ficam em um unico fato com quantidade somada.
+            dados["quantidade"] = pd.to_numeric(
+                dados["quantidade"], errors="coerce"
+            ).fillna(1.0)
+            quantidades = dados.groupby("chave_unica")["quantidade"].sum()
+            dados = dados.drop_duplicates(subset="chave_unica", keep="last").copy()
+            dados["quantidade"] = dados["chave_unica"].map(quantidades)
+            relatorio.avisos.append(
+                f"{duplicadas} linha(s) repetida(s) de Termos preservada(s) "
+                "na quantidade, conforme COUNTROWS do Power BI"
+            )
+        else:
+            relatorio.avisos.append(
+                f"{duplicadas} registro(s) duplicado(s) no próprio arquivo "
+                f"(chave: {' + '.join(dataset.chave_unica)}) — manteve-se a última ocorrência"
+            )
+            dados = dados.drop_duplicates(subset="chave_unica", keep="last")
     return dados.reset_index(drop=True)
