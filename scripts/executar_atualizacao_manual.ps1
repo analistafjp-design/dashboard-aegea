@@ -17,6 +17,7 @@ $Requisitos = Join-Path $RaizProjeto "requirements.txt"
 $PastaLocal = Join-Path $RaizProjeto "data\local"
 $MarcaRequisitos = Join-Path $PastaLocal "requisitos.sha256"
 $UrlLocal = "http://127.0.0.1:8000"
+$VersaoEsperada = "1.1.0"
 
 if (-not (Test-Path $Pastas)) {
     Write-Host "Configuracao inicial ainda nao realizada." -ForegroundColor Yellow
@@ -66,10 +67,42 @@ $Codigo = $LASTEXITCODE
 if ($Codigo -ne 0) { exit $Codigo }
 
 $ServidorAtivo = $false
+$VersaoServidor = ""
 try {
     $Resposta = Invoke-WebRequest -Uri "$UrlLocal/api/status" -UseBasicParsing -TimeoutSec 2
     $ServidorAtivo = $Resposta.StatusCode -eq 200
+    if ($ServidorAtivo) {
+        $StatusServidor = $Resposta.Content | ConvertFrom-Json
+        $VersaoServidor = [string]$StatusServidor.versao
+    }
 } catch { $ServidorAtivo = $false }
+
+# O ZIP atualiza os arquivos no disco, mas um Uvicorn que ja estava aberto
+# continua executando o codigo antigo em memoria. Isso fazia os cartoes novos
+# aparecerem junto com respostas antigas da API e deixava os graficos vazios.
+# Ao detectar uma versao diferente, reiniciamos somente o processo que esta
+# ouvindo a porta local do dashboard.
+if ($ServidorAtivo -and $VersaoServidor -ne $VersaoEsperada) {
+    Write-Host "Atualizando o painel que ja estava aberto..." -ForegroundColor Cyan
+    $Conexao = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $Conexao) {
+        $ServidorAtivo = $false
+    } else {
+        $ProcessoServidor = Get-CimInstance Win32_Process `
+            -Filter "ProcessId = $($Conexao.OwningProcess)" -ErrorAction SilentlyContinue
+        $ComandoServidor = if ($ProcessoServidor) { [string]$ProcessoServidor.CommandLine } else { "" }
+        if ($ComandoServidor -match "uvicorn" -and $ComandoServidor -match "app\.main:app") {
+            Stop-Process -Id $Conexao.OwningProcess -Force -ErrorAction Stop
+            Start-Sleep -Milliseconds 700
+            $ServidorAtivo = $false
+        } else {
+            Write-Host "ERRO: a porta 8000 esta sendo usada por outro programa." -ForegroundColor Red
+            Write-Host "Feche esse programa e clique novamente no atalho." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+}
 
 if (-not $ServidorAtivo) {
     Write-Host "Iniciando o painel local..." -ForegroundColor Cyan
@@ -80,7 +113,13 @@ if (-not $ServidorAtivo) {
         Start-Sleep -Seconds 1
         try {
             $Resposta = Invoke-WebRequest -Uri "$UrlLocal/api/status" -UseBasicParsing -TimeoutSec 2
-            if ($Resposta.StatusCode -eq 200) { $ServidorAtivo = $true; break }
+            if ($Resposta.StatusCode -eq 200) {
+                $StatusServidor = $Resposta.Content | ConvertFrom-Json
+                if ([string]$StatusServidor.versao -eq $VersaoEsperada) {
+                    $ServidorAtivo = $true
+                    break
+                }
+            }
         } catch { }
     }
 }
