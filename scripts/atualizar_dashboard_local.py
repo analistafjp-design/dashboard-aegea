@@ -30,13 +30,15 @@ from app.models.tabelas import FatoTermos  # noqa: E402
 
 EXTENSOES = {".xlsx", ".xlsm", ".xls", ".csv"}
 TIPOS_VALIDOS = set(DATASETS)
-# Versao 4 limita o realizado oficial a 110013 em Servicos e 310013 em VCG.
+# Versao 5 reafirma o realizado oficial: apenas 110013 em Servicos e 310013
+# em VCG. O novo numero forca uma releitura unica para corrigir bases locais
+# que tenham sido processadas antes da instalacao da regra estrita.
 # As planilhas de Termos são relidas uma única vez; as demais bases continuam
 # incrementais e não voltam para a fila.
 # Bases já processadas em versões anteriores são relidas uma única vez,
 # exclusivamente como Termos; Venda, Implantação e Programação não voltam
 # para a fila.
-VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 4}
+VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 5}
 
 
 @dataclass(frozen=True)

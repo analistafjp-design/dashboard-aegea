@@ -208,6 +208,16 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
     assert (detalhes_termos["Quantidade"] > 0).all()
     assert set(detalhes_termos["Código Contado"].astype(str)) == {"110013", "310013"}
 
+    # Mesmo com os filtros em "Todos", a exportacao deve repetir o mes de
+    # referencia usado pelo painel, e nao somar meses anteriores.
+    excel_termos_todos = cliente.get("/api/exportar/termos?formato=xlsx")
+    detalhes_todos = pd.read_excel(
+        io.BytesIO(excel_termos_todos.content), sheet_name="Dados Detalhados"
+    )
+    painel_termos = cliente.get("/api/modulo/termos").json()
+    assert detalhes_todos["Quantidade"].sum() == painel_termos["bloco_principal"]["realizado"]
+    assert set(pd.to_datetime(detalhes_todos["Data"]).dt.to_period("M").astype(str)) == {"2026-08"}
+
     geral = cliente.get("/api/exportar/geral?formato=xlsx&ano=2026&mes=8")
     assert geral.status_code == 200
     abas_gerais = pd.read_excel(io.BytesIO(geral.content), sheet_name=None)

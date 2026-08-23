@@ -351,6 +351,13 @@ def _dados_detalhados(nome: str, filtros: Filtros) -> list[dict]:
     dados = consultas.dados(nome, filtros)
     if dados.empty:
         return []
+    # Os cartoes e graficos sempre trabalham com um unico mes de referencia:
+    # o mes filtrado ou, quando a tela esta em "Todos", o mes mais recente da
+    # base. O Excel deve usar exatamente o mesmo recorte para que o total das
+    # linhas detalhadas seja igual ao realizado exibido no painel.
+    if nome in {"termos", "vendas", "implantacao"} and "ano_mes" in dados.columns:
+        periodo = resolver(filtros)
+        dados = dados[dados["ano_mes"] == periodo.ano_mes].copy()
     if nome in {"termos", "vendas", "implantacao"} and "quantidade" in dados.columns:
         quantidade = pd.to_numeric(dados["quantidade"], errors="coerce").fillna(0)
         dados = dados[quantidade > 0].copy()
