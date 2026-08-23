@@ -26,19 +26,24 @@ from app.etl.deteccao import PONTUACAO_MINIMA, identificar  # noqa: E402
 from app.etl.leitura import ler_planilhas  # noqa: E402
 from app.etl.pipeline import processar_arquivo  # noqa: E402
 from app.models.db import criar_banco, sessao  # noqa: E402
-from app.models.tabelas import FatoTermos  # noqa: E402
+from app.models.tabelas import FatoImplantacao, FatoTermos, FatoVendas  # noqa: E402
 
 EXTENSOES = {".xlsx", ".xlsm", ".xls", ".csv"}
 TIPOS_VALIDOS = set(DATASETS)
-# Versao 5 reafirma o realizado oficial: apenas 110013 em Servicos e 310013
-# em VCG. O novo numero forca uma releitura unica para corrigir bases locais
-# que tenham sido processadas antes da instalacao da regra estrita.
-# As planilhas de Termos são relidas uma única vez; as demais bases continuam
-# incrementais e não voltam para a fila.
-# Bases já processadas em versões anteriores são relidas uma única vez,
-# exclusivamente como Termos; Venda, Implantação e Programação não voltam
-# para a fila.
-VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 5}
+# Versões das medidas oficiais do Power BI. A alteração de uma versão força
+# somente uma releitura daquela base, removendo antes a contribuição antiga
+# do mesmo arquivo. Depois da correção, o fluxo volta a ser incremental.
+VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
+    "termos": 6,
+    "vendas": 2,
+    "implantacao": 2,
+}
+
+FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
+    "termos": FatoTermos,
+    "vendas": FatoVendas,
+    "implantacao": FatoImplantacao,
+}
 
 
 @dataclass(frozen=True)
@@ -254,14 +259,14 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         resultados = []
         for tipo in tipos:
             with sessao() as banco:
-                if tipo == "termos":
-                    # Substitui somente a contribuição deste arquivo. Assim,
-                    # registros que deixaram de atender à regra (por exemplo,
-                    # código 210013) saem do banco sem recarregar Venda ou
-                    # Implantação. Se o processamento falhar, a transação faz
-                    # rollback e preserva os dados anteriores.
+                ja_processado = str(caminho) in manifesto["arquivos"]
+                if ja_processado and tipo in FATOS_SUBSTITUIDOS_POR_ARQUIVO:
+                    # Substitui somente a contribuição desta base e arquivo.
+                    # Assim, linhas que deixaram de atender às medidas saem do
+                    # banco. Uma falha provoca rollback e preserva o anterior.
+                    fato = FATOS_SUBSTITUIDOS_POR_ARQUIVO[tipo]
                     banco.execute(
-                        delete(FatoTermos).where(FatoTermos.origem_arquivo == caminho.name)
+                        delete(fato).where(fato.origem_arquivo == caminho.name)
                     )
                 resultado = processar_arquivo(
                     banco, caminho, dataset_forcado=tipo,

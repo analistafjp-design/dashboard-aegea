@@ -105,7 +105,10 @@ def filtrar_termos(dados: pd.DataFrame) -> pd.DataFrame:
     status = saida["status_atividade"].map(_texto)
     status_valido = status.isin({"FINALIZADA", "ENCERRADA COM OCORRENCIA"})
     servicos = (
-        texto.str.contains("110013", regex=False)
+        (
+            texto.str.contains("110013", regex=False)
+            | texto.str.contains("210013", regex=False)
+        )
         & ~recurso.str.contains("VCG", regex=False)
         & ~texto.str.contains("RIOVCGEXTIN", regex=False)
     )
@@ -126,8 +129,12 @@ def filtrar_termos(dados: pd.DataFrame) -> pd.DataFrame:
     texto = saida["servico_adicional"].map(_texto)
     recurso = saida["equipe"].map(_texto)
     eh_oficial = (
-        texto.str.contains("110013", regex=False)
+        (
+            texto.str.contains("110013", regex=False)
+            | texto.str.contains("210013", regex=False)
+        )
         & ~recurso.str.contains("VCG", regex=False)
+        & ~texto.str.contains("RIOVCGEXTIN", regex=False)
     ) | (
         texto.str.contains("310013", regex=False)
         & recurso.str.contains("RIOVCGEXTIN", regex=False)

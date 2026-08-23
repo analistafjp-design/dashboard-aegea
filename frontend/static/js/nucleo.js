@@ -445,9 +445,9 @@
       ));
       document.head.appendChild(script);
     });
-    App._promessaGeradorPdf = carregarScript("/static/js/html2canvas.min.js?v=1.11.0")
-      .then(() => carregarScript("/static/js/jspdf.umd.min.js?v=1.11.0"))
-      .then(() => carregarScript("/static/js/html2pdf.min.js?v=1.11.0"))
+    App._promessaGeradorPdf = carregarScript("/static/js/html2canvas.min.js?v=1.12.0")
+      .then(() => carregarScript("/static/js/jspdf.umd.min.js?v=1.12.0"))
+      .then(() => carregarScript("/static/js/html2pdf.min.js?v=1.12.0"))
       .then(() => window.html2pdf);
     return App._promessaGeradorPdf;
   };

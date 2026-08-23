@@ -206,7 +206,9 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
     abas_termos = pd.read_excel(io.BytesIO(excel_termos.content), sheet_name=None)
     detalhes_termos = abas_termos["Dados Detalhados"]
     assert (detalhes_termos["Quantidade"] > 0).all()
-    assert set(detalhes_termos["Código Contado"].astype(str)) == {"110013", "310013"}
+    assert set(detalhes_termos["Código Contado"].astype(str)) == {
+        "110013 ou 210013", "310013"
+    }
 
     # Mesmo com os filtros em "Todos", a exportacao deve repetir o mes de
     # referencia usado pelo painel, e nao somar meses anteriores.

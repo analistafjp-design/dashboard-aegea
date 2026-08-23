@@ -365,7 +365,7 @@ def _dados_detalhados(nome: str, filtros: Filtros) -> list[dict]:
         return []
     if nome == "termos" and "tipo" in dados.columns:
         dados["codigo_contado"] = dados["tipo"].map({
-            "SERVICOS": "110013",
+            "SERVICOS": "110013 ou 210013",
             "VCG": "310013",
         })
     colunas = [coluna for coluna in COLUNAS_DETALHADAS if coluna in dados.columns]
