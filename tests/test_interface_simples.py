@@ -50,6 +50,9 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert 'texttemplate: "<b>%{value:,.0f}</b><br>%{percent}"' in javascript
     assert 'text: s.valores.map(rotuloValor)' in javascript
     assert 'text: valores.slice().reverse().map(rotuloValor)' in javascript
+    assert "Graficos.anelMeta" in javascript
+    assert "Graficos.barraMeta" in javascript
+    assert 'shape: "bullet"' in javascript
 
 
 def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):

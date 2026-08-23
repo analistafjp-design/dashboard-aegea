@@ -75,6 +75,13 @@
     G.rosca(id, ["Realizado", "A realizar"], [realizado, falta]);
   }
 
+  function visualMeta(id, bloco, tipo) {
+    bloco = bloco || {};
+    const realizado = bloco.realizado || 0;
+    if (tipo === "barra") G.barraMeta(id, realizado, bloco.meta);
+    else G.anelMeta(id, realizado, bloco.meta);
+  }
+
   /* ------------------------------------------------------------------ HOME */
   App.registrar("home", async function () {
     try {
@@ -104,19 +111,16 @@
         { rotulo: "Média Venda - Dia", valor: vi("venda_dia", 1) },
       ]);
       const bloco = (lista, rotulo) => (lista || []).find((b) => b.rotulo === rotulo);
-      roscaMeta("graf-simples-impl-servicos", bloco(implantacao.blocos_meta, "Serviços"));
-      roscaMeta("graf-simples-impl-vcg", bloco(implantacao.blocos_meta, "VCG"));
-      roscaMeta("graf-simples-venda-comercial", bloco(vendas.blocos_meta, "Comercial"));
-      roscaMeta("graf-simples-impl-total", implantacao.bloco_principal);
+      visualMeta("graf-simples-impl-servicos", bloco(implantacao.blocos_meta, "Serviços"), "anel");
+      visualMeta("graf-simples-impl-vcg", bloco(implantacao.blocos_meta, "VCG"), "anel");
+      visualMeta("graf-simples-venda-comercial", bloco(vendas.blocos_meta, "Comercial"), "barra");
+      visualMeta("graf-simples-impl-total", implantacao.bloco_principal, "barra");
       const cidadeVenda = ranking(vendas.top_cidades, "cidade");
-      G.barras("graf-simples-venda-cidade", cidadeVenda.rotulos, cidadeVenda.valores,
-        { mostrarValores: true });
+      G.barrasHorizontais("graf-simples-venda-cidade", cidadeVenda.rotulos, cidadeVenda.valores);
       const equipeVenda = ranking(vendas.top_equipes, "equipe");
-      G.barras("graf-simples-venda-equipe", equipeVenda.rotulos, equipeVenda.valores,
-        { mostrarValores: true });
+      G.barrasHorizontais("graf-simples-venda-equipe", equipeVenda.rotulos, equipeVenda.valores);
       const cidadeImpl = ranking(implantacao.por_cidade.slice(0, 10), "cidade");
-      G.barras("graf-simples-impl-cidade", cidadeImpl.rotulos, cidadeImpl.valores,
-        { mostrarValores: true });
+      G.barrasHorizontais("graf-simples-impl-cidade", cidadeImpl.rotulos, cidadeImpl.valores);
     } catch (e) {
       erro("#simples-implantacao-kpis", e.message);
     }

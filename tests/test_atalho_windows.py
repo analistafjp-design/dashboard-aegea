@@ -25,7 +25,7 @@ def test_botao_chama_apenas_fluxo_manual():
 def test_executor_reinicia_servidor_antigo_antes_de_abrir_o_painel():
     executor = _texto("executar_atualizacao_manual.ps1")
 
-    assert '$VersaoEsperada = "1.3.0"' in executor
+    assert '$VersaoEsperada = "1.4.0"' in executor
     assert "$VersaoServidor -ne $VersaoEsperada" in executor
     assert "Get-NetTCPConnection -LocalPort 8000" in executor
     assert 'Stop-Process -Id $Conexao.OwningProcess' in executor
