@@ -529,6 +529,15 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
   .card, .painel { break-inside: avoid; box-shadow: none; }
 }
 
+/* O PDF visual usa a própria página como imagem. Elementos de interação não
+   devem aparecer no arquivo, mas todo o conteúdo gerencial permanece igual. */
+body.exportando-pdf .barra-exportacao,
+body.exportando-pdf .filtros__acoes,
+body.exportando-pdf .btn--tema,
+body.exportando-pdf .toasts,
+body.exportando-pdf .pular-conteudo { display: none !important; }
+body.exportando-pdf .barra-principal { position: static; }
+
 /* ======================================================== painel simples */
 .pular-conteudo {
   position: fixed; top: 8px; left: 8px; z-index: 1000; padding: 10px 14px;

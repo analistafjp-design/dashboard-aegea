@@ -433,13 +433,78 @@
   };
 
   /* ------------------------------------------------------------ exportar */
+  App._carregarGeradorPdf = function () {
+    if (window.html2pdf) return Promise.resolve(window.html2pdf);
+    if (App._promessaGeradorPdf) return App._promessaGeradorPdf;
+    App._promessaGeradorPdf = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      script.integrity = "sha512-YcsIPGdhPK4P/uRW6/sruonlYj+Q7UHWeKfTAkBW+g83NKMmJhFSqgppuwZItgQLsaW4e5y+g4QhbmeToZPzYw==";
+      script.crossOrigin = "anonymous";
+      script.onload = () => resolve(window.html2pdf);
+      script.onerror = () => reject(new Error(
+        "Não foi possível carregar o gerador de PDF. Verifique a conexão com a internet."
+      ));
+      document.head.appendChild(script);
+    });
+    return App._promessaGeradorPdf;
+  };
+
+  App.nomeArquivoPdf = function (recurso) {
+    const agora = new Date();
+    const dois = (valor) => String(valor).padStart(2, "0");
+    const carimbo = `${agora.getFullYear()}${dois(agora.getMonth() + 1)}${dois(agora.getDate())}`;
+    const nomes = { home: "venda_implantacao", termos: "termos_aplicados", geral: "dashboard_geral" };
+    return `${nomes[recurso] || recurso}_${carimbo}.pdf`;
+  };
+
+  App.baixarPdfVisual = async function (elemento, nomeArquivo) {
+    if (!elemento) throw new Error("A área do relatório não foi encontrada.");
+    const gerador = await App._carregarGeradorPdf();
+    if (!gerador) throw new Error("O gerador de PDF não ficou disponível.");
+    document.body.classList.add("exportando-pdf");
+    try {
+      if (window.Graficos) {
+        window.Graficos.redesenhar();
+        await new Promise((resolve) => setTimeout(resolve, 450));
+      }
+      const largura = Math.max(elemento.scrollWidth, 1180);
+      await gerador().set({
+        margin: [5, 5, 5, 5],
+        filename: nomeArquivo,
+        image: { type: "jpeg", quality: 0.96 },
+        html2canvas: {
+          scale: 1.45,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: largura,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        pagebreak: {
+          mode: ["css", "legacy"],
+          avoid: [".visual-simples", ".indicador-faixa", ".insight", ".titulo-faixa"],
+        },
+      }).from(elemento).save();
+    } finally {
+      document.body.classList.remove("exportando-pdf");
+    }
+  };
+
   App.exportar = function (recurso, formato, extras) {
     if (formato === "pdf") {
       if (recurso === "geral") {
-        window.open(`/relatorio-geral${App.querystring(extras || {})}`, "_blank");
+        window.open(`/relatorio-geral${App.querystring(Object.assign(
+          { baixar_pdf: 1 }, extras || {}
+        ))}`, "_blank");
       } else {
-        window.Graficos.redesenhar();
-        setTimeout(() => window.print(), 250);
+        const elemento = document.querySelector(".app--simples");
+        App.toast("Preparando a imagem completa da página...", "info", "Gerando PDF");
+        App.baixarPdfVisual(elemento, App.nomeArquivoPdf(recurso)).catch((erro) => {
+          App.toast(erro.message || "Não foi possível gerar o PDF.", "erro", "Falha no PDF");
+        });
       }
       return;
     }

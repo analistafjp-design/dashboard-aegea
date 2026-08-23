@@ -200,6 +200,13 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
     excel = cliente.get("/api/exportar/vendas?formato=xlsx&ano=2026&mes=8")
     abas = pd.read_excel(io.BytesIO(excel.content), sheet_name=None)
     assert "Indicadores" in abas
+    assert (abas["Dados Detalhados"]["Quantidade"] > 0).all()
+
+    excel_termos = cliente.get("/api/exportar/termos?formato=xlsx&ano=2026&mes=8")
+    abas_termos = pd.read_excel(io.BytesIO(excel_termos.content), sheet_name=None)
+    detalhes_termos = abas_termos["Dados Detalhados"]
+    assert (detalhes_termos["Quantidade"] > 0).all()
+    assert set(detalhes_termos["Código Contado"].astype(str)) == {"110013", "310013"}
 
     geral = cliente.get("/api/exportar/geral?formato=xlsx&ano=2026&mes=8")
     assert geral.status_code == 200
@@ -211,6 +218,7 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
         abas_gerais["Dados Implantacao"].columns)
     assert {"Data", "Tipo", "Status do Termo", "Arquivo de Origem"}.issubset(
         abas_gerais["Dados Termos"].columns)
+    assert (abas_gerais["Dados Termos"]["Quantidade"] > 0).all()
 
     pdf_geral = cliente.get("/api/exportar/geral?formato=pdf&ano=2026&mes=8")
     assert pdf_geral.status_code == 200

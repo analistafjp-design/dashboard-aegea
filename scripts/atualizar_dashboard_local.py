@@ -14,6 +14,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy import delete
+
 RAIZ_PROJETO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ_PROJETO))
 
@@ -24,15 +26,17 @@ from app.etl.deteccao import PONTUACAO_MINIMA, identificar  # noqa: E402
 from app.etl.leitura import ler_planilhas  # noqa: E402
 from app.etl.pipeline import processar_arquivo  # noqa: E402
 from app.models.db import criar_banco, sessao  # noqa: E402
+from app.models.tabelas import FatoTermos  # noqa: E402
 
 EXTENSOES = {".xlsx", ".xlsm", ".xls", ".csv"}
 TIPOS_VALIDOS = set(DATASETS)
-# Versao 3 tambem preserva a contagem fisica do Power BI quando duas linhas
-# oficiais possuem a mesma chave operacional dentro da planilha.
+# Versao 4 limita o realizado oficial a 110013 em Servicos e 310013 em VCG.
+# As planilhas de Termos são relidas uma única vez; as demais bases continuam
+# incrementais e não voltam para a fila.
 # Bases já processadas em versões anteriores são relidas uma única vez,
 # exclusivamente como Termos; Venda, Implantação e Programação não voltam
 # para a fila.
-VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 3}
+VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {"termos": 4}
 
 
 @dataclass(frozen=True)
@@ -248,6 +252,15 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         resultados = []
         for tipo in tipos:
             with sessao() as banco:
+                if tipo == "termos":
+                    # Substitui somente a contribuição deste arquivo. Assim,
+                    # registros que deixaram de atender à regra (por exemplo,
+                    # código 210013) saem do banco sem recarregar Venda ou
+                    # Implantação. Se o processamento falhar, a transação faz
+                    # rollback e preserva os dados anteriores.
+                    banco.execute(
+                        delete(FatoTermos).where(FatoTermos.origem_arquivo == caminho.name)
+                    )
                 resultado = processar_arquivo(
                     banco, caminho, dataset_forcado=tipo,
                     usuario="atalho-local", arquivar=False,
