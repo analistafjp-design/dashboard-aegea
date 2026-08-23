@@ -56,6 +56,8 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
     assert "Graficos.anelMeta" in javascript
     assert "Graficos.barraMeta" in javascript
     assert 'shape: "bullet"' in javascript
+    assert 'name: "Total"' in javascript
+    assert "bargap: 0.38" in javascript
 
 
 def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):
