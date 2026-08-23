@@ -21,6 +21,13 @@ BONUS_EXCLUSIVO = 0.20            # campos que só existem neste dataset
 PENALIDADE_EXCLUSIVO_ALHEIO = 0.12  # campos que só existem em outro dataset
 BONUS_NOME_ARQUIVO = 0.08
 
+# Algumas exportações do Field Service trazem simultaneamente a chave
+# numérica "Setor" e a descrição "Setor do Recurso.Setor do Recurso".
+# Para os gráficos gerenciais precisamos sempre do nome descritivo.
+COLUNAS_PREFERIDAS = {
+    "setor": ("setordorecursosetordorecurso",),
+}
+
 
 @dataclass
 class Identificacao:
@@ -42,8 +49,21 @@ def mapear_colunas(dataset: Dataset, colunas: list[str]) -> dict[str, str]:
     mapeamento: dict[str, str] = {}
     usadas: set[str] = set()
 
+    # Prioridades explícitas são avaliadas antes do nome interno. Sem isso,
+    # o campo ``setor`` casaria com a coluna numérica "Setor" e ignoraria a
+    # coluna textual usada no Power BI.
+    for campo in dataset.campos:
+        for chave in COLUNAS_PREFERIDAS.get(campo.nome, ()):
+            coluna = disponiveis.get(chave)
+            if coluna is not None and coluna not in usadas:
+                mapeamento[campo.nome] = coluna
+                usadas.add(coluna)
+                break
+
     # 1ª passada: correspondência exata de nome ou sinônimo.
     for campo in dataset.campos:
+        if campo.nome in mapeamento:
+            continue
         for chave in campo.chaves:
             coluna = disponiveis.get(chave)
             if coluna is not None and coluna not in usadas:

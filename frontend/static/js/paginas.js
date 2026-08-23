@@ -172,9 +172,19 @@
       G.barrasHorizontais("graf-termos-equipe", equipes.map((r) => r.equipe),
         equipes.map((r) => r.total));
       const setores = (dados.por_setor || []).filter((r) => r.setor);
-      G.barrasHorizontais("graf-termos-setor", setores.map((r) => r.setor),
+      G.barras("graf-termos-setor", setores.map((r) => r.setor),
         setores.map((r) => r.total), {
           cor: "#0b4f83",
+          mostrarValores: true,
+          nome: "Realizado",
+          layout: {
+            margin: { l: 48, r: 20, t: 36, b: 92 },
+            bargap: 0.46,
+            hovermode: "closest",
+            xaxis: { type: "category", tickangle: -20, automargin: true,
+              gridcolor: "rgba(0,0,0,0)" },
+            yaxis: { rangemode: "tozero", automargin: true, tickformat: ",.0f" },
+          },
         });
       App.tabela("#termos-cidades-tabela", [
         { chave: "cidade", titulo: "Cidade", clique: "cidade" },
