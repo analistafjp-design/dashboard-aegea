@@ -96,6 +96,81 @@ def frente_termos(recurso: object) -> str:
     return "OUTROS"
 
 
+# Tabela de dimensão ``Setor do Recurso`` extraída do modelo oficial do PBIX.
+# A exportação do Field Service traz em ``Setor`` apenas um identificador
+# numérico; o nome exibido no Power BI vem desta relação pelo prefixo de
+# ``Recurso``. Portanto, o painel também deve derivar o setor pelo recurso.
+SETORES_RECURSO = {
+    "RIOPCRTIN": "Pós Corte",
+    "RIOCSSIN": "Fiscalização",
+    "RIOLTRIN": "Leitura",
+    "RIOMLTIN": "Manutenção",
+    "RIOPAVIN": "Pavimentação",
+    "RIOMLTTIN": "Manutenção",
+    "RIOFSCIN": "Fiscalização",
+    "RIOCERIN": "Corte - Religa",
+    "RIORECIN": "Recadastro",
+    "RIOEGCIN": "Esgoto",
+    "RIOCPAIN": "Serviços",
+    "RIOOPEIN": "Operação",
+    "RIOPROIN": "Serviços",
+    "RIOLTRLLIN": "Leitura",
+    "RIOCPATIN": "Serviços",
+    "RIOEGCTIN": "Esgoto",
+    "RIOMNTIN": "Manutenção",
+    "RIOOVAIN": "Operação",
+    "RIOPAVTIN": "Pavimentação",
+    "RIOSETIN": "Setorizada",
+    "RIOCSSLG": "Setorizada",
+    "RIOLTRLG": "Leitura",
+    "RIOMLTLG": "Manutenção",
+    "RIOPAVLG": "Pavimentação",
+    "RIOMLTTL": "Manutenção",
+    "RIOFSCLG": "Fiscalização",
+    "RIOPAVTL": "Pavimentação",
+    "RIOCERLG": "Corte - Religa",
+    "RIORECLG": "Recadastro",
+    "RIOEGCTL": "Esgoto",
+    "RIOCPATL": "Operação",
+    "RIOOPELG": "Operação",
+    "RIOLTRLL": "Leitura",
+    "RIOEGCTLG": "Esgoto",
+    "RIOLTRLLG": "Leitura",
+    "RIOMLTTLG": "Manutenção",
+    "RIOMNTLG": "Manutenção",
+    "RIOPAVTLG": "Pavimentação",
+    "RIOSETLG": "Setorizada",
+    "RIOCOBIN": "Cobrança",
+    "RIOLTRLIN": "Leitura",
+    "RIOVENIN": "Venda",
+    "RIOCERB1": "Corte - Religa B1",
+    "RIOPCRNT": "Recuperação de Cortados",
+    "RIOFSCB1": "Fiscalização B1",
+    "RIOSETB2": "Setorizada B2",
+    "RIOSETLT": "Setorizada",
+    "RIOSETNT": "Setorizada",
+    "RIOVCGPOPIN": "Bairro Legal SFI",
+    "RIOVCGEXTIN": "VCG Rio Bonito",
+    "RIOVCGVARTIN": "VCG Rio Bonito",
+    "RIOCOMIN": "Serviços - Comerciais",
+    "RIOPCRIN": "Pós Corte",
+}
+
+
+def setor_do_recurso(recurso: object) -> str | None:
+    """Reproduz a relação f_Fild[Recurso] -> Setor do Recurso do PBIX."""
+    valor = _texto(recurso)
+    if not valor:
+        return None
+    # Prefixos maiores primeiro evitam que códigos semelhantes se antecipem.
+    return next(
+        (setor for prefixo, setor in sorted(
+            SETORES_RECURSO.items(), key=lambda item: len(item[0]), reverse=True
+        ) if valor.startswith(prefixo)),
+        None,
+    )
+
+
 def filtrar_termos(dados: pd.DataFrame) -> pd.DataFrame:
     if "servico_adicional" not in dados or not dados["servico_adicional"].notna().any():
         return dados
@@ -142,6 +217,9 @@ def filtrar_termos(dados: pd.DataFrame) -> pd.DataFrame:
     eh_vcg = recurso.str.contains("RIOVCGEXTIN", regex=False)
     saida["tipo"] = eh_vcg.map({True: "VCG", False: "SERVICOS"})
     saida["frente"] = saida["equipe"].map(frente_termos)
+    # Não usa a coluna numérica ``Setor`` da exportação: no Power BI o nome
+    # vem da dimensão relacionada ao código do recurso.
+    saida["setor"] = saida["equipe"].map(setor_do_recurso)
     # Coluna calculada `Status Termo` do PBIX: os registros oficiais aqui
     # selecionados são os termos aplicados por cidade. O status operacional
     # da atividade é apenas um filtro e não deve substituir essa classificação.

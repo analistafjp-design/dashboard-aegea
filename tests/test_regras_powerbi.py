@@ -58,6 +58,26 @@ def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():
     assert set(resultado["status_termo"]) == {"Termo aplicado oficial"}
 
 
+def test_termos_derivam_nome_do_setor_pelo_recurso_como_no_pbix():
+    base = pd.DataFrame([
+        {"servico_adicional": "110013 - irregularidade", "status_atividade": "Finalizada",
+         "equipe": "RIOPCRNT-232", "setor": "17"},
+        {"servico_adicional": "110013 - irregularidade", "status_atividade": "Finalizada",
+         "equipe": "RIOFSCIN-005", "setor": "11"},
+        {"servico_adicional": "310013 - irregularidade", "status_atividade": "Finalizada",
+         "equipe": "RIOVCGEXTIN-008", "setor": "6"},
+        {"servico_adicional": "110013 - irregularidade", "status_atividade": "Finalizada",
+         "equipe": "EQUIPE-SEM-MAPEAMENTO", "setor": "NaN"},
+    ])
+
+    resultado = regras.filtrar_termos(base)
+
+    assert list(resultado["setor"][:3]) == [
+        "Recuperação de Cortados", "Fiscalização", "VCG Rio Bonito"
+    ]
+    assert pd.isna(resultado.iloc[3]["setor"])
+
+
 def test_termos_guardam_sinais_operacionais_sem_inflar_realizado():
     base = pd.DataFrame([
         {"servico_adicional": "310025 - termo de não conformidade",
