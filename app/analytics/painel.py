@@ -10,6 +10,7 @@ from app.analytics import (
     home as mod_home,
     implantacao as mod_implantacao,
     programacao as mod_programacao,
+    sla_implantacao as mod_sla_implantacao,
     termos as mod_termos,
     vendas as mod_vendas,
 )
@@ -21,6 +22,7 @@ CALCULADORES = {
     "faturamento": mod_faturamento.calcular,
     "vendas": mod_vendas.calcular,
     "implantacao": mod_implantacao.calcular,
+    "sla_implantacao": mod_sla_implantacao.calcular,
     "programacao": mod_programacao.calcular,
     "cidades": mod_cidades.calcular,
 }
