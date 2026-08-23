@@ -51,13 +51,22 @@ def test_graficos_exibem_quantidade_alem_do_percentual():
 
     assert 'textinfo: "value+percent"' in javascript
     assert 'texttemplate: "<b>%{value:,.0f}</b><br>%{percent}"' in javascript
-    assert 'text: s.valores.map(rotuloValor)' in javascript
     assert 'text: valores.slice().reverse().map(rotuloValor)' in javascript
     assert "Graficos.anelMeta" in javascript
     assert "Graficos.barraMeta" in javascript
     assert 'shape: "bullet"' in javascript
     assert 'name: "Total"' in javascript
-    assert "bargap: 0.38" in javascript
+    assert "ticklabelstandoff: 12" in javascript
+    assert "annotations: rotulos.map" in javascript
+
+
+def test_interface_oferece_exportacao_por_aba_e_geral(cliente, base_carregada):
+    pagina = cliente.get("/").text
+
+    assert 'data-exportar="atual" data-formato="pdf"' in pagina
+    assert 'data-exportar="atual" data-formato="xlsx"' in pagina
+    assert 'data-exportar="geral" data-formato="pdf"' in pagina
+    assert 'data-exportar="geral" data-formato="xlsx"' in pagina
 
 
 def test_interface_tem_navegacao_acessivel_e_layout_responsivo(cliente, base_carregada):

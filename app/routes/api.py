@@ -253,19 +253,35 @@ def exportar(nome: str, formato: str = Query("xlsx"),
 
 
 def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict, str]:
-    if nome == "home":
-        dados = painel.home(filtros)
-        return {
-            "Indicadores": [
-                {"Indicador": c["titulo"], "Valor": c["texto"],
-                 "Comparação": c["texto_variacao"], "Status": c["rotulo_status"]}
-                for c in dados["cards"]
-            ],
-            "Modulos": dados["modulos"],
-            "Insights": [{"Tipo": i["tipo"], "Insight": i["texto"]} for i in dados["insights"]],
-            "Alertas": [{"Categoria": a["categoria"], "Titulo": a["titulo"],
-                         "Descricao": a["descricao"]} for a in dados["alertas"]],
-        }, "Visao Executiva"
+    if nome in {"home", "geral"}:
+        home = painel.home(filtros)
+        vendas = painel.modulo("vendas", filtros)
+        implantacao = painel.modulo("implantacao", filtros)
+        tabelas = {
+            "Resumo Geral": _linhas_indicadores(home.get("cards", [])),
+            "Venda Indicadores": _linhas_indicadores(vendas.get("indicadores", [])),
+            "Venda por Cidade": vendas.get("top_cidades", []),
+            "Venda por Equipe": vendas.get("top_equipes", []),
+            "Implantacao Indicadores": _linhas_indicadores(
+                implantacao.get("indicadores", [])),
+            "Implantacao por Cidade": implantacao.get("por_cidade", []),
+        }
+        if nome == "home":
+            return tabelas, "Venda e Implantacao"
+
+        termos = painel.modulo("termos", filtros)
+        programacao = painel.modulo("programacao", filtros)
+        tabelas.update({
+            "Termos Indicadores": _linhas_indicadores(termos.get("indicadores", [])),
+            "Termos Diario": termos.get("evolucao_diaria_tipo", []),
+            "Termos por Cidade": termos.get("por_cidade_tipo", []),
+            "Termos por Equipe": termos.get("por_equipe_tipo", []),
+            "Programacao Indicadores": _linhas_indicadores(
+                programacao.get("indicadores", [])),
+            "Programacao Agenda": programacao.get("agenda", []),
+            "Programacao por Equipe": programacao.get("por_equipe", []),
+        })
+        return tabelas, "Dashboard Executivo Geral"
 
     if nome == "historico":
         return {"Historico": historico(500)["registros"]}, "Historico de Atualizacoes"
@@ -277,15 +293,26 @@ def _tabelas_para_exportar(nome: str, filtros: Filtros, base: str) -> tuple[dict
         else painel.modulo(nome, filtros)
     tabelas: dict[str, list[dict]] = {}
     if dados.get("indicadores"):
-        tabelas["Indicadores"] = [
-            {"Indicador": i["titulo"], "Valor": i["texto"], "Meta": i["meta"],
-             "Comparação": i["texto_variacao"], "Status": i["rotulo_status"]}
-            for i in dados["indicadores"]
-        ]
+        tabelas["Indicadores"] = _linhas_indicadores(dados["indicadores"])
     for chave in ("blocos_meta", "tabela", "agenda", "evolucao_mensal", "evolucao_diaria",
-                  "por_cidade", "por_equipe", "por_frente", "por_setor", "por_status",
+                  "evolucao_diaria_tipo", "por_cidade", "por_cidade_tipo",
+                  "por_equipe", "por_equipe_tipo", "por_frente", "por_setor", "por_status",
                   "por_regiao", "por_projeto", "funil", "ranking", "abaixo_da_meta"):
         valor = dados.get(chave)
         if isinstance(valor, list) and valor:
             tabelas[chave[:31]] = valor
     return tabelas, dados.get("titulo", nome.title())
+
+
+def _linhas_indicadores(indicadores: list[dict]) -> list[dict]:
+    """Padroniza os cartões do painel para os relatórios PDF e Excel."""
+    return [
+        {
+            "Indicador": item.get("titulo", ""),
+            "Valor": item.get("texto", item.get("valor")),
+            "Meta": item.get("meta"),
+            "Comparação": item.get("texto_variacao", ""),
+            "Status": item.get("rotulo_status", item.get("status", "")),
+        }
+        for item in indicadores
+    ]

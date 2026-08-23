@@ -201,6 +201,16 @@ def test_exportacao_nos_tres_formatos(cliente, base_carregada):
     abas = pd.read_excel(io.BytesIO(excel.content), sheet_name=None)
     assert "Indicadores" in abas
 
+    geral = cliente.get("/api/exportar/geral?formato=xlsx&ano=2026&mes=8")
+    assert geral.status_code == 200
+    abas_gerais = pd.read_excel(io.BytesIO(geral.content), sheet_name=None)
+    assert {"Resumo Geral", "Venda por Cidade", "Termos Diario",
+            "Programacao Agenda"}.issubset(abas_gerais)
+
+    pdf_geral = cliente.get("/api/exportar/geral?formato=pdf&ano=2026&mes=8")
+    assert pdf_geral.status_code == 200
+    assert pdf_geral.content.startswith(b"%PDF")
+
 
 def test_exportacao_em_formato_invalido(cliente, base_carregada):
     assert cliente.get("/api/exportar/home?formato=docx").status_code == 400
