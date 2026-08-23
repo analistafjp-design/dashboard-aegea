@@ -10,6 +10,7 @@ from scripts.atualizar_dashboard_local import (
     carregar_pastas,
     encontrar_arquivos,
     salvar_manifesto,
+    tipos_pendentes,
 )
 
 
@@ -56,6 +57,27 @@ def test_manifesto_e_json_legivel(tmp_path):
     caminho = tmp_path / "manifesto.json"
     salvar_manifesto(caminho, {"versao": 1, "arquivos": {}})
     assert json.loads(caminho.read_text(encoding="utf-8"))["versao"] == 1
+
+
+def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
+    planilha = tmp_path / "atividades.xlsx"
+    planilha.write_bytes(b"conteudo")
+    info = planilha.stat()
+    manifesto = {"versao": 1, "arquivos": {str(planilha.resolve()): {
+        "tamanho": info.st_size,
+        "modificado_ns": info.st_mtime_ns,
+        "bases": ["vendas", "implantacao"],
+        "bases_sem_registros": ["termos"],
+        "versoes_bases": {"vendas": 1, "implantacao": 1, "termos": 1},
+    }}}
+
+    assert tipos_pendentes(
+        planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
+    ) == {"termos"}
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 2
+    assert tipos_pendentes(
+        planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
+    ) == set()
 
 
 def test_arquivo_sem_registro_para_uma_base_nao_e_relido_eternamente(tmp_path, monkeypatch):

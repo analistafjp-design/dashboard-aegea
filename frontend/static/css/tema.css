@@ -587,6 +587,14 @@ html[data-tema="escuro"] .visual-simples h2 { color: var(--text); }
 .faixa-titulo { padding: 9px; background: #0b416f; color: #fff; text-align: center; font-size: 12px; font-weight: 650; }
 .grade-termos { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px; padding: 8px; }
 .grade-termos .visual-simples--largo { grid-column: span 2; }
+.grade-termos .visual-simples--total { grid-column: 1 / -1; }
+.grade-termos .visual-simples--cidade { grid-column: span 2; }
+.termos-insights {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px;
+  padding: 8px 8px 0; background: var(--surface-2);
+}
+.termos-insights .insight { margin: 0; min-height: 66px; background: var(--surface); }
+.termos-insights .insight strong { color: var(--text); font-size: 12px; }
 .programacao-resumo { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 8px; background: #eef2f7; }
 .programacao-resumo > div { min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; color: #102852; }
 .programacao-resumo span, .programacao-resumo label { font-size: 13px; }
@@ -606,6 +614,7 @@ html[data-tema="escuro"] .visual-simples h2 { color: var(--text); }
   .titulo-faixa__resumo, .titulo-faixa__numero { justify-self: center; }
   .grade-roscas, .grade-simples-3 { grid-template-columns: repeat(2, 1fr); }
   .grade-termos { grid-template-columns: 1fr 1fr; }
+  .termos-insights { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 640px) {
   .barra-principal__marca { min-width: auto; }
@@ -614,4 +623,6 @@ html[data-tema="escuro"] .visual-simples h2 { color: var(--text); }
   .faixa-indicadores { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
   .grade-roscas, .grade-simples-3, .grade-termos, .grade-programacao, .programacao-resumo { grid-template-columns: 1fr; }
   .grade-termos .visual-simples--largo { grid-column: span 1; }
+  .grade-termos .visual-simples--cidade { grid-column: span 1; }
+  .termos-insights { grid-template-columns: 1fr; }
 }

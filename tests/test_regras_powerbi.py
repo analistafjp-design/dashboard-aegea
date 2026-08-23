@@ -1,6 +1,9 @@
 import pandas as pd
 
 from app.etl import regras_powerbi as regras
+from app.etl.deteccao import identificar
+from app.etl.leitura import Planilha
+from app.etl.transformacao import transformar
 
 
 def test_venda_comercial_e_vcg_reproduzem_filtros_dax():
@@ -46,6 +49,42 @@ def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():
     ])
     resultado = regras.filtrar_termos(base)
     assert list(resultado["tipo"]) == ["SERVICOS", "VCG"]
+    assert set(resultado["status_termo"]) == {"Termo aplicado oficial"}
+
+
+def test_termos_guardam_sinais_operacionais_sem_inflar_realizado():
+    base = pd.DataFrame([
+        {"servico_adicional": "310025 - termo de não conformidade",
+         "status_atividade": "Encerrada com Ocorrência", "equipe": "RIOVCGEXTIN-001"},
+        {"servico_adicional": "310031 - vistoria pós-varredura; 310013 - irregularidade",
+         "status_atividade": "Finalizada", "equipe": "RIOVCGEXTIN-002"},
+    ])
+
+    resultado = regras.filtrar_termos(base)
+    assert list(resultado["quantidade"]) == [0.0, 1.0]
+    assert set(resultado["status_termo"]) == {
+        "Termo de não conformidade", "Vistoria pós-varredura"
+    }
+
+
+def test_exportacao_field_service_mapeia_status_operacional_para_termos():
+    bruto = pd.DataFrame([
+        {"Data": "19/08/2026", "Cidade": "RIO BONITO", "Recurso": "RIOFSCIN-002",
+         "ID da Atividade": "A-1", "Status da Atividade": "Finalizada",
+         "Serviço adicionais resposta": "110013 - IRREGULARIDADE IDENTIFICADA;"},
+        {"Data": "19/08/2026", "Cidade": "RIO BONITO", "Recurso": "RIOVCGEXTIN-008",
+         "ID da Atividade": "A-2", "Status da Atividade": "Encerrada com Ocorrência",
+         "Serviço adicionais resposta": "310013 - IRREGULARIDADE IDENTIFICADA;"},
+    ])
+    identificacao = identificar(
+        [Planilha("Page 1", bruto, 0)], "Atividades-INTERIOR.xlsx", "termos"
+    )
+
+    assert identificacao.mapeamento["status_atividade"] == "Status da Atividade"
+    assert "status_termo" not in identificacao.mapeamento
+    dados, relatorio = transformar(identificacao)
+    assert relatorio.linhas_validas == 2
+    assert list(dados["tipo"]) == ["SERVICOS", "VCG"]
 
 
 def test_programacao_usa_mapas_de_equipe_regiao_e_projeto_do_pbix():

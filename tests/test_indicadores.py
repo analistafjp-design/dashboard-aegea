@@ -108,6 +108,14 @@ def test_termos_totais_conferem_com_a_planilha(base_carregada, dias_uteis_agosto
     assert indicadores["realizado_total"]["valor"] == dias_uteis_agosto * 2
     assert indicadores["realizado_servicos"]["valor"] == dias_uteis_agosto
     assert indicadores["realizado_vcg"]["valor"] == dias_uteis_agosto
+    assert dados["evolucao_diaria_tipo"]
+    datas_diarias = [linha["data"] for linha in dados["evolucao_diaria_tipo"]]
+    assert datas_diarias == sorted(datas_diarias)
+    assert dados["por_cidade_tipo"]
+    assert dados["por_equipe_tipo"]
+    assert dados["insights_executivos"]
+    primeira_cidade = dados["por_cidade_tipo"][0]
+    assert primeira_cidade["total"] == primeira_cidade["servicos"] + primeira_cidade["vcg"]
 
 
 def test_meta_de_termos_e_a_soma_dos_segmentos(base_carregada):

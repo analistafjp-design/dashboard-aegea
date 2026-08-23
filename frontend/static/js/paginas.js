@@ -129,17 +129,48 @@
       document.getElementById("termos-dias").textContent = App.numero(dados.periodo.dias_uteis_restantes);
       document.getElementById("termos-total").textContent = App.numero(dados.bloco_principal.realizado);
       document.getElementById("termos-atingimento").textContent = App.percentual(dados.bloco_principal.atingimento);
-      faixaIndicadores("#termos-resumo", (dados.blocos_meta || []).map((b) => ({
-        rotulo: b.rotulo, valor: `${App.numero(b.realizado)} de ${App.numero(b.meta)}`,
-      })));
-      const diario = serieDiaria(dados.evolucao_diaria);
-      G.barras("graf-termos-diario", diario.datas, diario.diario, { mostrarValores: true });
-      roscaMeta("graf-termos-servicos", (dados.blocos_meta || []).find((b) => b.rotulo === "Serviços"));
-      roscaMeta("graf-termos-vcg", (dados.blocos_meta || []).find((b) => b.rotulo === "VCG"));
-      const frente = ranking(dados.por_frente, "frente");
-      G.barras("graf-termos-frente", frente.rotulos, frente.valores, { mostrarValores: true });
-      const cidade = ranking(dados.por_cidade, "cidade");
-      G.barrasHorizontais("graf-termos-cidade", cidade.rotulos, cidade.valores);
+      const principal = dados.bloco_principal || {};
+      const servicos = (dados.blocos_meta || []).find((b) => b.rotulo === "Serviços") || {};
+      const vcg = (dados.blocos_meta || []).find((b) => b.rotulo === "VCG") || {};
+      faixaIndicadores("#termos-resumo", [
+        { rotulo: "Serviços", valor: `${App.numero(servicos.realizado)} de ${App.numero(servicos.meta)}` },
+        { rotulo: "VCG", valor: `${App.numero(vcg.realizado)} de ${App.numero(vcg.meta)}` },
+        { rotulo: "Média / Dia Útil", valor: App.numero(principal.media_dia, 1) },
+        { rotulo: "Necessário / Dia", valor: App.numero(principal.necessario_por_dia, 1) },
+        { rotulo: "Projeção do Mês", valor: App.numero(principal.projecao) },
+      ]);
+
+      const insights = document.querySelector("#termos-insights");
+      insights.innerHTML = (dados.insights_executivos || []).map((item) => `
+        <article class="insight insight--${App.escapar(item.tipo)}">
+          <span class="insight__icone">${item.tipo === "alerta" ? "!" : "●"}</span>
+          <div><strong>${App.escapar(item.titulo)}</strong><br>${App.escapar(item.texto)}</div>
+        </article>`).join("");
+
+      const diario = dados.evolucao_diaria_tipo || [];
+      G.empilhadoComMeta("graf-termos-diario",
+        diario.map((r) => r.data), [
+          { nome: "Serviços", valores: diario.map((r) => r.servicos), cor: "#0b4f83" },
+          { nome: "VCG", valores: diario.map((r) => r.vcg), cor: "#1698f5" },
+        ], diario.map((r) => r.meta_dia));
+      roscaMeta("graf-termos-servicos", servicos);
+      roscaMeta("graf-termos-vcg", vcg);
+
+      const cidades = dados.por_cidade_tipo || [];
+      G.empilhadoHorizontal("graf-termos-cidade", cidades.map((r) => r.cidade), [
+        { nome: "Serviços", valores: cidades.map((r) => r.servicos), cor: "#0b4f83" },
+        { nome: "VCG", valores: cidades.map((r) => r.vcg), cor: "#1698f5" },
+      ]);
+      const equipes = dados.por_equipe_tipo || [];
+      G.barrasHorizontais("graf-termos-equipe", equipes.map((r) => r.equipe),
+        equipes.map((r) => r.total));
+      App.tabela("#termos-cidades-tabela", [
+        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+        { chave: "servicos", titulo: "Serviços", tipo: "numero" },
+        { chave: "vcg", titulo: "VCG", tipo: "numero" },
+        { chave: "total", titulo: "Total", tipo: "numero" },
+        { chave: "participacao", titulo: "Participação", tipo: "percentual" },
+      ], cidades);
     } catch (e) {
       erro("#termos-resumo", e.message);
     }
