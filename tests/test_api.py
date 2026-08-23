@@ -266,8 +266,13 @@ def test_configuracoes_salvam_e_recusam_valor_invalido(cliente):
 def test_alertas_e_insights_respondem(cliente, base_carregada):
     alertas = cliente.get("/api/alertas?ano=2026&mes=8").json()
     assert alertas["resumo"]["total"] == len(alertas["alertas"])
+    assert all({"acao", "prazo", "indicador"} <= set(item) for item in alertas["alertas"])
     insights = cliente.get("/api/insights?ano=2026&mes=8").json()
     assert isinstance(insights["insights"], list)
+
+    exportacao = cliente.get("/api/exportar/alertas?formato=xlsx&ano=2026&mes=8")
+    assert exportacao.status_code == 200
+    assert "spreadsheetml" in exportacao.headers["content-type"]
 
 
 def test_metas_expoem_acompanhamento(cliente, base_carregada):

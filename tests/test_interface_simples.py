@@ -5,15 +5,28 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 
 
-def test_menu_principal_tem_apenas_as_duas_telas_de_uso_diario(cliente, base_carregada):
+def test_menu_principal_tem_as_tres_telas_de_uso_diario(cliente, base_carregada):
     pagina = cliente.get("/").text
 
     assert "Venda e Implantação" in pagina
     assert "Termos Aplicados" in pagina
+    assert "Direcionamento" in pagina
     assert 'data-chave="programacao"' not in pagina
     assert 'data-chave="atualizacao"' not in pagina
-    assert 'data-chave="alertas"' not in pagina
+    assert 'data-chave="alertas"' in pagina
     assert 'data-chave="analises"' not in pagina
+
+
+def test_direcionamento_mostra_diagnostico_acao_e_prazo(cliente, base_carregada):
+    pagina = cliente.get("/alertas").text
+    javascript = (RAIZ / "frontend" / "static" / "js" / "paginas.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Direcionamento e próximos passos" in pagina
+    assert "Plano de ação recomendado" in pagina
+    assert "Próximo passo" in javascript
+    assert "Fazer hoje" in javascript
 
 
 def test_home_reproduz_estrutura_enxuta_da_referencia(cliente, base_carregada):
@@ -26,6 +39,10 @@ def test_home_reproduz_estrutura_enxuta_da_referencia(cliente, base_carregada):
     assert "graf-simples-venda-cidade" in pagina
     assert "graf-simples-venda-equipe" in pagina
     assert "graf-simples-impl-cidade" in pagina
+    assert "FATURAMENTO DE IMPLANTAÇÃO" in pagina
+    assert 'id="faturamento-servicos"' in pagina
+    assert 'id="faturamento-vcg"' in pagina
+    assert 'id="faturamento-valor-total"' in pagina
     assert "graf-simples-tendencia" not in pagina
 
 
