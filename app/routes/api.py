@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
@@ -327,6 +328,7 @@ COLUNAS_DETALHADAS = {
     "setor": "Setor do Recurso",
     "canal": "Canal",
     "tipo": "Tipo",
+    "codigo_contado": "Código Contado",
     "status_termo": "Status do Termo",
     "matricula": "Matrícula",
     "servico": "Serviço",
@@ -339,10 +341,26 @@ COLUNAS_DETALHADAS = {
 
 
 def _dados_detalhados(nome: str, filtros: Filtros) -> list[dict]:
-    """Linhas normalizadas da base, próximas da estrutura da planilha de origem."""
+    """Linhas contabilizadas pelas medidas, em estrutura próxima da origem.
+
+    Os painéis somam ``quantidade``. Portanto, uma ocorrência com quantidade
+    zero é apenas contexto operacional e não pode aparecer no Excel como se
+    fizesse parte do realizado. Aplicar a mesma regra aqui evita divergência
+    entre cartões, gráficos e arquivo baixado.
+    """
     dados = consultas.dados(nome, filtros)
     if dados.empty:
         return []
+    if nome in {"termos", "vendas", "implantacao"} and "quantidade" in dados.columns:
+        quantidade = pd.to_numeric(dados["quantidade"], errors="coerce").fillna(0)
+        dados = dados[quantidade > 0].copy()
+    if dados.empty:
+        return []
+    if nome == "termos" and "tipo" in dados.columns:
+        dados["codigo_contado"] = dados["tipo"].map({
+            "SERVICOS": "110013",
+            "VCG": "310013",
+        })
     colunas = [coluna for coluna in COLUNAS_DETALHADAS if coluna in dados.columns]
     detalhes = dados[colunas].rename(columns=COLUNAS_DETALHADAS)
     if "Data" in detalhes.columns:

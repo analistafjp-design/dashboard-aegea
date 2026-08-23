@@ -34,7 +34,16 @@
         document.body.classList.add("relatorio-geral--pronto");
         setTimeout(function () {
           window.Graficos.redesenhar();
-          setTimeout(function () { window.print(); }, 450);
+          if (new URLSearchParams(window.location.search).get("baixar_pdf") === "1") {
+            App.baixarPdfVisual(
+              document.body,
+              App.nomeArquivoPdf("geral")
+            ).then(function () {
+              setTimeout(function () { window.close(); }, 500);
+            }).catch(function (erro) {
+              App.toast(erro.message || "Não foi possível gerar o PDF.", "erro", "Falha no PDF");
+            });
+          }
         }, 450);
       }).catch(function (erro) {
         App.toast(erro.message || "Não foi possível montar o relatório.", "erro");

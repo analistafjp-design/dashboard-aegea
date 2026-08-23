@@ -46,6 +46,8 @@ def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():
          "equipe": "RIOVCGEXTIN-001"},
         {"servico_adicional": "310013 - irregularidade", "status_atividade": "Finalizada",
          "equipe": "RIORECIN-002"},
+        {"servico_adicional": "210013 - não entra na medida oficial",
+         "status_atividade": "Finalizada", "equipe": "RIORECIN-003"},
     ])
     resultado = regras.filtrar_termos(base)
     assert list(resultado["tipo"]) == ["SERVICOS", "VCG"]

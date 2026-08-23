@@ -70,17 +70,21 @@ def test_interface_oferece_exportacao_por_aba_e_geral(cliente, base_carregada):
     assert 'data-exportar="geral" data-formato="xlsx"' in pagina
 
 
-def test_pdf_visual_usa_impressao_da_pagina_e_relatorio_geral(cliente, base_carregada):
+def test_pdf_visual_baixa_imagem_da_pagina_e_relatorio_geral(cliente, base_carregada):
     javascript = (RAIZ / "frontend" / "static" / "js" / "nucleo.js").read_text(
         encoding="utf-8"
     )
     relatorio = cliente.get("/relatorio-geral?ano=2026&mes=8").text
 
-    assert "setTimeout(() => window.print()" in javascript
+    assert "html2pdf.bundle.min.js" in javascript
+    assert "App.baixarPdfVisual" in javascript
+    assert "window.print()" not in javascript
     assert "/relatorio-geral" in javascript
     assert "ACOMPANHAMENTO VENDA E IMPLANTAÇÃO" in relatorio
     assert "ACOMPANHAMENTO DE TERMOS APLICADOS" in relatorio
-    assert "window.print()" in relatorio
+    assert "baixar_pdf" in relatorio
+    assert "App.baixarPdfVisual" in relatorio
+    assert "window.print()" not in relatorio
     assert "PROGRAMAÇÃO DIÁRIA" not in relatorio
 
 
