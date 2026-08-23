@@ -38,6 +38,8 @@ def test_termos_e_programacao_priorizam_indicadores_operacionais(cliente, base_c
     assert "graf-termos-total-meta" in termos
     assert "graf-termos-cidade" in termos
     assert "graf-termos-equipe" in termos
+    assert "graf-termos-setor" in termos
+    assert "Realizado por Setor do Recurso" in termos
     assert "termos-insights" in termos
     assert "Leitura Gerencial por Cidade" in termos
     assert "PROGRAMAÇÃO DIÁRIA" in programacao

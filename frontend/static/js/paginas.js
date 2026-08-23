@@ -171,6 +171,11 @@
       const equipes = dados.por_equipe_tipo || [];
       G.barrasHorizontais("graf-termos-equipe", equipes.map((r) => r.equipe),
         equipes.map((r) => r.total));
+      const setores = (dados.por_setor || []).filter((r) => r.setor);
+      G.barrasHorizontais("graf-termos-setor", setores.map((r) => r.setor),
+        setores.map((r) => r.total), {
+          cor: "#0b4f83",
+        });
       App.tabela("#termos-cidades-tabela", [
         { chave: "cidade", titulo: "Cidade", clique: "cidade" },
         { chave: "servicos", titulo: "Serviços", tipo: "numero" },

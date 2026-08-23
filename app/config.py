@@ -32,7 +32,7 @@ class Config:
     # O atualizador do Windows compara esta versao com o servidor que ja esta
     # aberto. Quando o codigo do painel muda, uma versao diferente garante que
     # o processo antigo seja encerrado e reiniciado antes de abrir o navegador.
-    APP_VERSAO = "1.12.0"
+    APP_VERSAO = "1.13.0"
     DEBUG = _env("DEBUG", "false").lower() in ("1", "true", "yes")
 
     BASE_DIR = BASE_DIR

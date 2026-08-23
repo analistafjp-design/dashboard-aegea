@@ -113,6 +113,8 @@ def test_termos_totais_conferem_com_a_planilha(base_carregada, dias_uteis_agosto
     assert datas_diarias == sorted(datas_diarias)
     assert dados["por_cidade_tipo"]
     assert dados["por_equipe_tipo"]
+    assert dados["por_setor"]
+    assert sum(item["total"] for item in dados["por_setor"]) == dias_uteis_agosto * 2
     assert dados["insights_executivos"]
     primeira_cidade = dados["por_cidade_tipo"][0]
     assert primeira_cidade["total"] == primeira_cidade["servicos"] + primeira_cidade["vcg"]
