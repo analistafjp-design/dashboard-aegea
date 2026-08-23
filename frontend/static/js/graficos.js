@@ -91,16 +91,29 @@
   Graficos.barras = function (id, rotulos, valores, opcoes) {
     opcoes = opcoes || {};
     const c = cores();
+    const etiquetas = opcoes.etiquetasValor ? rotulos.map((rotulo, indice) => ({
+      x: rotulo,
+      y: valores[indice],
+      text: `<b>${valores[indice].toLocaleString("pt-BR")}</b>`,
+      showarrow: false,
+      yshift: 13,
+      bgcolor: opcoes.corEtiqueta || opcoes.cor || c.linha,
+      bordercolor: opcoes.corEtiqueta || opcoes.cor || c.linha,
+      borderpad: 4,
+      font: { color: "#ffffff", size: 11 },
+    })) : undefined;
+    const layout = Object.assign({}, opcoes.layout || {});
+    if (etiquetas) layout.annotations = (layout.annotations || []).concat(etiquetas);
     desenhar(id, [{
       type: "bar", x: rotulos, y: valores,
       marker: { color: opcoes.cor || c.linha, line: { width: 0 } },
       name: opcoes.nome || "Realizado",
       hovertemplate: "%{x}<br><b>%{y:,.0f}</b><extra></extra>",
-      text: opcoes.mostrarValores ? valores.map((v) => v.toLocaleString("pt-BR")) : undefined,
-      texttemplate: opcoes.mostrarValores ? "<b>%{text}</b>" : undefined,
-      textposition: opcoes.mostrarValores ? "outside" : undefined,
+      text: opcoes.mostrarValores && !opcoes.etiquetasValor ? valores.map((v) => v.toLocaleString("pt-BR")) : undefined,
+      texttemplate: opcoes.mostrarValores && !opcoes.etiquetasValor ? "<b>%{text}</b>" : undefined,
+      textposition: opcoes.mostrarValores && !opcoes.etiquetasValor ? "outside" : undefined,
       cliponaxis: false,
-    }], opcoes.layout);
+    }], layout);
   };
 
   /** Barras horizontais — ideal para rankings. */

@@ -176,14 +176,17 @@
         setores.map((r) => r.total), {
           cor: "#0b4f83",
           mostrarValores: true,
+          etiquetasValor: true,
           nome: "Realizado",
           layout: {
-            margin: { l: 48, r: 20, t: 36, b: 92 },
-            bargap: 0.46,
+            margin: { l: 20, r: 18, t: 32, b: 62 },
+            bargap: 0.48,
             hovermode: "closest",
-            xaxis: { type: "category", tickangle: -20, automargin: true,
+            showlegend: false,
+            xaxis: { type: "category", tickangle: 0, automargin: true,
+              tickfont: { size: 10 },
               gridcolor: "rgba(0,0,0,0)" },
-            yaxis: { rangemode: "tozero", automargin: true, tickformat: ",.0f" },
+            yaxis: { rangemode: "tozero", visible: false, fixedrange: true },
           },
         });
       App.tabela("#termos-cidades-tabela", [
