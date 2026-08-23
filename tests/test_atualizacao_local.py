@@ -68,15 +68,38 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
         "modificado_ns": info.st_mtime_ns,
         "bases": ["vendas", "implantacao"],
         "bases_sem_registros": ["termos"],
-        "versoes_bases": {"vendas": 1, "implantacao": 1, "termos": 1},
+        "versoes_bases": {"vendas": 2, "implantacao": 2, "termos": 1},
     }}}
 
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == {"termos"}
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 5
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 6
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
+    ) == set()
+
+
+def test_mudanca_das_medidas_reprocessa_venda_e_implantacao(tmp_path):
+    planilha = tmp_path / "interior.xlsx"
+    planilha.write_bytes(b"conteudo")
+    info = planilha.stat()
+    manifesto = {"versao": 1, "arquivos": {str(planilha.resolve()): {
+        "tamanho": info.st_size,
+        "modificado_ns": info.st_mtime_ns,
+        "bases": ["vendas", "implantacao"],
+        "versoes_bases": {"vendas": 1, "implantacao": 1},
+    }}}
+
+    assert tipos_pendentes(
+        planilha.resolve(), {"vendas", "implantacao"}, manifesto
+    ) == {"vendas", "implantacao"}
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"].update({
+        "vendas": 2,
+        "implantacao": 2,
+    })
+    assert tipos_pendentes(
+        planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == set()
 
 

@@ -46,11 +46,15 @@ def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():
          "equipe": "RIOVCGEXTIN-001"},
         {"servico_adicional": "310013 - irregularidade", "status_atividade": "Finalizada",
          "equipe": "RIORECIN-002"},
-        {"servico_adicional": "210013 - não entra na medida oficial",
+        {"servico_adicional": "210013 - irregularidade de serviços",
          "status_atividade": "Finalizada", "equipe": "RIORECIN-003"},
+        {"servico_adicional": "110013 - RIOVCGEXTIN não entra em serviços",
+         "status_atividade": "Finalizada", "equipe": "RIORECIN-004"},
+        {"servico_adicional": "210013 - equipe VCG não entra em serviços",
+         "status_atividade": "Finalizada", "equipe": "RIOVCGPOPIN-001"},
     ])
     resultado = regras.filtrar_termos(base)
-    assert list(resultado["tipo"]) == ["SERVICOS", "VCG"]
+    assert list(resultado["tipo"]) == ["SERVICOS", "VCG", "SERVICOS"]
     assert set(resultado["status_termo"]) == {"Termo aplicado oficial"}
 
 
