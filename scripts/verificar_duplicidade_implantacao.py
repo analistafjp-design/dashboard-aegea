@@ -73,6 +73,17 @@ def _por_mes() -> None:
     print("\nTotal por mês:")
     total = dados.groupby("ano_mes", as_index=False).agg(**agregacoes).sort_values("ano_mes")
     print(total.to_string(index=False))
+
+    if "origem_arquivo" in dados.columns:
+        # Duas planilhas alimentando o mesmo mês é o que dobra o total.
+        print("\nPor arquivo de origem e mês:")
+        origem = (dados.groupby(["origem_arquivo", "ano_mes"], as_index=False)
+                  .agg(**agregacoes)
+                  .sort_values(["origem_arquivo", "ano_mes"]))
+        print(origem.to_string(index=False))
+        print(f"\nArquivos alimentando a implantação: "
+              f"{dados['origem_arquivo'].nunique()}")
+
     print(f"\nMeses na base: {dados['ano_mes'].nunique()} "
           f"({dados['ano_mes'].min()} a {dados['ano_mes'].max()})")
     if identificador:
