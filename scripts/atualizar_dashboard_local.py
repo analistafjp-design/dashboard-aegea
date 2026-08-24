@@ -36,7 +36,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 6,
-    "implantacao": 5,
+    "implantacao": 6,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {

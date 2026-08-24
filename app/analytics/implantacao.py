@@ -12,6 +12,7 @@ import pandas as pd
 from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.periodo import Periodo, resolver
+from app.etl.regras_powerbi import EQUIPES_VCG
 from app.utils.texto import sem_acento
 
 
@@ -21,18 +22,23 @@ DEPARTAMENTOS_FATURAMENTO = {
 }
 
 
-def _frente(dados, termo: str):
-    """Linhas cuja Frente contém o termo, como o CONTAINSSTRING do PBIX.
+def _eh_vcg(dados):
+    """Máscara das equipes VCG.
 
-    As medidas recortam por `Interior[Frente]`, não pela classificação
-    Serviços/VCG derivada. A diferença importa: a frente `Venda` não contém
-    nenhum dos dois termos, então fica fora das duas medidas.
+    Só RIOVCGPOPIN, RIOVCGEXTIN e RIOVCGVENIN são VCG; todas as demais
+    equipes entram em Serviços nesta visão. A frente gravada não serve
+    sozinha porque nela existe também `Venda`, que aqui é Serviços.
     """
-    if dados is None or dados.empty or "frente" not in dados.columns:
+    equipe = dados["equipe"].map(lambda v: sem_acento(str(v)).upper())
+    return equipe.apply(lambda v: any(c in v for c in EQUIPES_VCG))
+
+
+def _frente(dados, alvo: str):
+    """Recorta a base em VCG ou Serviços."""
+    if dados is None or dados.empty or "equipe" not in dados.columns:
         return dados.iloc[0:0] if dados is not None else dados
-    alvo = sem_acento(termo).upper()
-    frente = dados["frente"].map(lambda v: sem_acento(str(v)).upper())
-    return dados[frente.str.contains(alvo, regex=False, na=False)]
+    vcg = _eh_vcg(dados)
+    return dados[vcg] if alvo == "VCG" else dados[~vcg]
 
 
 def _identificador(dados) -> str | None:
@@ -48,13 +54,13 @@ def _identificador(dados) -> str | None:
 
 
 def _unicas(dados, *agrupamento: str):
-    """Uma linha por implantação — a medida conta matrículas distintas.
+    """Uma linha por matrícula — a mesma ordem não conta duas vezes.
 
-    A mesma matrícula reaparece na planilha quando a ordem é lançada em
-    outra data ou por outra equipe, e como a chave do fato inclui data,
-    serviço e equipe, cada lançamento virava uma linha contada. `agrupamento`
-    reproduz o contexto de filtro do DISTINCTCOUNT: por cidade, a contagem é
-    de matrículas distintas dentro de cada cidade.
+    A mesma matrícula reaparece a cada arquivo diário em que a ordem foi
+    lançada, com data ou equipe diferentes, e como a chave do fato inclui
+    esses campos cada lançamento virava uma linha. `agrupamento` acrescenta
+    dimensões à chave: por cidade, a contagem é de matrículas distintas
+    dentro de cada cidade.
     """
     if dados is None or dados.empty:
         return dados
@@ -115,27 +121,20 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     realizado = _oficial(do_mes)
     realizado_todos = _oficial(dados)  # histórico, para a evolução mensal
 
-    linhas_servicos = _frente(realizado, "SERVICOS")
-    linhas_vcg = _frente(realizado, "VCG")
-
-    # As duas medidas do PBIX agregam de formas diferentes, e é proposital:
-    # `Implantação Mês - Serviços` soma [Total Implantação] (COUNTROWS), então
-    # duas execuções da mesma ligação valem duas; `Implantação Mês - VCG` usa
-    # DISTINCTCOUNT(Interior[Matrícula]), então valem uma.
+    # A mesma matrícula não se repete dentro do mês e da frente. É essa regra
+    # que impede a produção de ser contada de novo a cada arquivo diário em
+    # que a ordem reaparece.
+    linhas_servicos = _unicas(_frente(realizado, "SERVICOS"))
+    linhas_vcg = _unicas(_frente(realizado, "VCG"))
     servicos = nucleo.total(linhas_servicos)
-    vcg = nucleo.total(_unicas(linhas_vcg))
-    # Implantação Geral = Serviços + VCG, como define a medida do PBIX.
+    vcg = nucleo.total(linhas_vcg)
     total_impl = _somar(servicos, vcg)
 
-    # Média Implantação Dia: as duas usam [Total Implantação] no numerador —
-    # inclusive VCG, que aqui conta linhas, e não matrículas distintas — sobre
-    # o DISTINCTCOUNT(Data) da frente.
-    dias_servicos = (float(linhas_servicos["data"].nunique())
-                     if not linhas_servicos.empty else 0.0)
-    dias_vcg = (float(linhas_vcg["data"].nunique())
-                if not linhas_vcg.empty else 0.0)
-    media_servicos_dia = servicos / dias_servicos if dias_servicos else None
-    media_vcg_dia = (nucleo.total(linhas_vcg) / dias_vcg) if dias_vcg else None
+    # Média diária = realizado / dias úteis decorridos do período. Não se
+    # divide por quantidade de meses nem por datas com produção.
+    dias_uteis = float(periodo.dias_uteis_decorridos or 0)
+    media_servicos_dia = servicos / dias_uteis if dias_uteis and servicos else None
+    media_vcg_dia = vcg / dias_uteis if dias_uteis and vcg else None
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)

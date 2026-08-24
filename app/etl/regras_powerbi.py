@@ -40,6 +40,9 @@ def frente_interior(recurso: object) -> str:
 
 EQUIPES_VCG = ("RIOVCGPOPIN", "RIOVCGEXTIN", "RIOVCGVENIN")
 
+# As duas atividades que contam como implantação.
+TIPOS_IMPLANTACAO = ("LIGACAO DE AGUA", "LIGACAO DE ESGOTO")
+
 
 def _equipe_vcg(recurso: object) -> bool:
     valor = _texto(recurso)
@@ -108,8 +111,10 @@ def filtrar_implantacoes(dados: pd.DataFrame) -> pd.DataFrame:
     saida = dados.copy()
     atividade = saida["tipo_atividade"].map(_texto)
 
-    # Preservar todas as atividades de "Ligação de Água", independente do status
-    saida = saida[atividade == "LIGACAO DE AGUA"].copy()
+    # Ligação de Água e de Esgoto são as duas atividades de implantação.
+    # Todos os status seguem na base: o realizado é marcado adiante, e as
+    # ordens em aberto alimentam o acompanhamento de SLA.
+    saida = saida[atividade.isin(TIPOS_IMPLANTACAO)].copy()
     if saida.empty:
         return saida
 
