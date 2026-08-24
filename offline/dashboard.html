@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard Executivo — Interior</title>
+  <style>
+    :root{--navy:#073e6b;--blue:#1767c8;--cyan:#35a7d6;--green:#14975c;--gold:#d99a16;--ink:#102a43;--muted:#6b7f94;--line:#d8e2ee;--bg:#f1f5f9}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px Arial,sans-serif}
+    header{display:flex;align-items:center;gap:12px;padding:16px 28px;color:#fff;background:linear-gradient(110deg,#07365d,#0e588e);border-bottom:4px solid #2c9ae8}
+    header b{font-size:19px}
+    .mark{display:grid;place-items:center;width:42px;height:42px;border-radius:11px;background:#2175d2;font-weight:800}
+    .safe{margin-left:auto;color:#cce8fa;font-size:12px}
+    .shell{width:min(1400px,calc(100% - 28px));margin:16px auto 48px}
+    .upload,.filters,.panel{border:1px solid var(--line);border-radius:12px;background:#fff}
+    .upload{display:flex;align-items:center;gap:14px;padding:18px}
+    .upload strong{display:block;margin-bottom:4px}
+    .upload span{color:var(--muted);font-size:11px}
+    .upload button{margin-left:auto;padding:11px 15px;border:0;border-radius:8px;color:#fff;background:var(--blue);font-weight:700;cursor:pointer}
+    .filters{display:none;grid-template-columns:repeat(5,minmax(110px,1fr));gap:10px;margin-top:12px;padding:13px}
+    .filters label{display:grid;gap:5px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase}
+    .filters select,.filters input{height:38px;padding:0 10px;border:1px solid #c8d5e2;border-radius:7px;background:#fff}
+    .period{display:none;justify-content:space-between;margin-top:12px;padding:14px 17px;border-radius:11px;color:#fff;background:linear-gradient(90deg,#0a4777,#106a9f)}
+    .period small{color:#bfe1f7}
+    .section-title{margin:20px 2px 8px;font-weight:800}
+    .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    .card{position:relative;display:grid;place-items:center;align-content:center;min-height:92px;overflow:hidden;border:1px solid var(--line);border-radius:11px;background:#fff}
+    .card:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--blue)}
+    .card.green:before{background:var(--green)}
+    .card.cyan:before{background:var(--cyan)}
+    .card.gold:before{background:var(--gold)}
+    .card b{color:#08417e;font-size:25px}
+    .card small{margin-top:4px;color:#78879b;font-size:9px;font-weight:800;text-transform:uppercase;text-align:center;padding:0 6px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .panel{padding:18px}
+    .panel h2{margin:0 0 14px;font-size:15px}
+    .audit{display:grid;gap:9px}
+    .audit div{display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid #edf1f5;color:var(--muted);font-size:11px}
+    .audit b{color:#0b4c85}
+    .rules{font-size:11px;line-height:1.7;color:var(--muted)}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .actions button{padding:9px 12px;border:1px solid #b9cbe0;border-radius:7px;color:#155499;background:#fff;font-weight:700;cursor:pointer}
+    .error{display:none;margin-top:10px;padding:12px;border:1px solid #fecaca;border-radius:8px;color:#991b1b;background:#fff1f2}
+    .tabela-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th,td{padding:7px 8px;text-align:left;border-bottom:1px solid #edf1f5;white-space:nowrap}
+    th{color:var(--muted);font-size:10px;text-transform:uppercase}
+    td.num,th.num{text-align:right}
+    tr.falha td{color:#991b1b;background:#fff7f7}
+    .vazio{padding:14px;color:var(--muted);font-size:12px}
+    @media(max-width:850px){.cards{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+    @media(max-width:480px){.cards,.filters{grid-template-columns:1fr}.safe{display:none}.upload{align-items:flex-start;flex-direction:column}.upload button{width:100%;margin:0}}
+    @media print{.upload,.filters,.actions{display:none!important}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark">DE</div><b>Dashboard Executivo — Interior</b>
+    <span class="safe">Processamento local · sem internet</span>
+  </header>
+  <main class="shell">
+    <section class="upload">
+      <div>
+        <strong id="uploadTitle">Selecione a pasta DashBoard - Interior</strong>
+        <span>O painel recalcula tudo do zero e mantém uma cópia de cada arquivo.</span>
+      </div>
+      <button onclick="document.getElementById('folder').click()">Escolher pasta</button>
+      <input id="folder" type="file" multiple webkitdirectory directory accept=".xlsx,.xls,.csv" hidden>
+    </section>
+    <div class="error" id="error"></div>
+
+    <section class="filters" id="filters">
+      <label>Ano<select id="year"></select></label>
+      <label>Mês<select id="month"></select></label>
+      <label>Cidade<select id="city"></select></label>
+      <label>Frente<select id="front">
+        <option value="TODAS">Todas</option>
+        <option value="SERVICOS">Serviços</option>
+        <option value="VCG">VCG</option>
+      </select></label>
+      <label>Dias úteis<input id="days" type="number" min="1" max="62"></label>
+    </section>
+    <section class="period" id="period"><b id="periodLabel">Período</b><small id="periodInfo"></small></section>
+
+    <div id="dashboard" hidden>
+      <div class="section-title">Venda, implantação e faturamento</div>
+      <section class="cards">
+        <article class="card green"><b id="impTotal">0</b><small>Implantação geral</small></article>
+        <article class="card"><b id="impServ">0</b><small>Implantação Serviços</small></article>
+        <article class="card"><b id="impServDay">0,0</b><small>Serviços / dia útil</small></article>
+        <article class="card cyan"><b id="impVcg">0</b><small>Implantação VCG</small></article>
+        <article class="card cyan"><b id="impVcgDay">0,0</b><small>VCG / dia útil</small></article>
+      </section>
+      <section class="cards" style="margin-top:10px">
+        <article class="card gold"><b id="saleTotal">0</b><small>Total venda</small></article>
+        <article class="card"><b id="saleCom">0</b><small>Venda comercial</small></article>
+        <article class="card cyan"><b id="saleVcg">0</b><small>Venda VCG</small></article>
+        <article class="card gold"><b id="saleOther">0</b><small>Outros canais</small></article>
+        <article class="card gold"><b id="saleDay">0,0</b><small>Média venda / dia</small></article>
+      </section>
+
+      <div class="section-title">Termos aplicados</div>
+      <section class="cards">
+        <article class="card green"><b id="termTotal">0</b><small>Realizado total</small></article>
+        <article class="card"><b id="termServ">0</b><small>Realizado Serviços</small></article>
+        <article class="card cyan"><b id="termVcg">0</b><small>Realizado VCG</small></article>
+        <article class="card"><b id="termDay">0,0</b><small>Termos / dia útil</small></article>
+        <article class="card"><b id="termCidades">0</b><small>Cidades com termo</small></article>
+      </section>
+      <section class="grid">
+        <article class="panel">
+          <h2>Termos por mês</h2>
+          <div class="tabela-wrap" id="termPorMes"></div>
+        </article>
+        <article class="panel">
+          <h2>Termos por cidade</h2>
+          <div class="tabela-wrap" id="termPorCidade"></div>
+        </article>
+      </section>
+
+      <div class="section-title">Auditoria</div>
+      <section class="grid">
+        <article class="panel">
+          <h2>Cobertura</h2>
+          <div class="audit">
+            <div><span>Planilhas na pasta</span><b id="filesCount">0</b></div>
+            <div><span>Cópias ignoradas</span><b id="ignoredCount">0</b></div>
+            <div><span>Planilhas não reconhecidas</span><b id="failCount">0</b></div>
+            <div><span>Linhas lidas</span><b id="rawCount">0</b></div>
+            <div><span>Implantações únicas</span><b id="auditImp">0</b></div>
+            <div><span>Vendas consideradas</span><b id="auditSales">0</b></div>
+            <div><span>Termos aplicados</span><b id="auditTerms">0</b></div>
+          </div>
+          <div class="actions">
+            <button id="export">Exportar conferência</button>
+            <button id="exportAudit">Exportar auditoria</button>
+            <button onclick="window.print()">Salvar PDF</button>
+          </div>
+        </article>
+        <article class="panel">
+          <h2>Regras ativas</h2>
+          <div class="rules">
+            ✓ Implantação: Finalizada + Ligação de Água/Esgoto + matrícula única por mês e frente.<br>
+            ✓ VCG são RIOVCGPOPIN, RIOVCGEXTIN e RIOVCGVENIN; as demais equipes entram em Serviços.<br>
+            ✓ Venda Comercial: Venda Potenciais/Factíveis; 113001 continua comercial mesmo em equipe VCG.<br>
+            ✓ Venda VCG: equipes VCG; inclui o código 313001.<br>
+            ✓ Outros canais: códigos 114003 e 118048.<br>
+            ✓ Termos: códigos 110013, 210013, 310013, 310031 e 310025 em Código/Descrição ou nas
+            respostas de serviços adicionais e posteriores; Finalizada ou Encerrada com Ocorrência.<br>
+            ✓ Termo VCG: somente RIOVCGEXTIN com 310013.<br>
+            ✓ Cópias: mesmo nome-base na mesma subpasta, variando só o sufixo (1), (2).
+          </div>
+        </article>
+      </section>
+      <section class="panel" style="margin-top:12px">
+        <h2>Arquivos lidos</h2>
+        <div class="tabela-wrap" id="auditFiles"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="xlsx.full.min.js"></script>
+  <script src="regras.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    const R = window.Regras;
+    const $ = (id) => document.getElementById(id);
+    const txt = (id, v) => { $(id).textContent = v; };
+    const dec = (n) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+    let linhas = [];
+    let auditoria = [];
+    let atual = { imp: [], vendas: [], termos: [] };
+
+    function fmtMes(m) {
+      const [a, mo] = m.split("-").map(Number);
+      return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })
+        .format(new Date(Date.UTC(a, mo - 1, 1))).replace(/^./, (x) => x.toUpperCase());
+    }
+
+    function opcoes(id, valores, todos) {
+      const e = $(id), anterior = e.value;
+      e.innerHTML = '<option value="' + todos[0] + '">' + todos[1] + "</option>"
+        + valores.map((v) => '<option value="' + v + '">' + (id === "month" ? fmtMes(v) : v) + "</option>").join("");
+      if ([...e.options].some((o) => o.value === anterior)) e.value = anterior;
+    }
+
+    function tabela(destino, colunas, registros, vazio) {
+      if (!registros.length) { $(destino).innerHTML = '<div class="vazio">' + vazio + "</div>"; return; }
+      const cab = colunas.map((c) => '<th class="' + (c.num ? "num" : "") + '">' + c.titulo + "</th>").join("");
+      const corpo = registros.map((r) => "<tr" + (r._falha ? ' class="falha"' : "") + ">"
+        + colunas.map((c) => '<td class="' + (c.num ? "num" : "") + '">' + (r[c.chave] ?? "—") + "</td>").join("")
+        + "</tr>").join("");
+      $(destino).innerHTML = "<table><thead><tr>" + cab + "</tr></thead><tbody>" + corpo + "</tbody></table>";
+    }
+
+    function agrupar(registros, campo) {
+      const mapa = new Map();
+      registros.forEach((r) => {
+        const chave = r[campo] || "Não informado";
+        const item = mapa.get(chave) || { chave, servicos: 0, vcg: 0, total: 0 };
+        if (r.frenteTermo === "VCG") item.vcg++; else item.servicos++;
+        item.total++;
+        mapa.set(chave, item);
+      });
+      return [...mapa.values()].sort((a, b) => b.total - a.total);
+    }
+
+    function atualizar() {
+      const ano = $("year").value, mes = $("month").value;
+      const cidade = $("city").value, frente = $("front").value;
+      const recorte = linhas.filter((r) => (ano === "TODOS" || r.ano === ano)
+        && (mes === "TODOS" || r.mes === mes)
+        && (cidade === "TODAS" || r.cidade === cidade)
+        && (frente === "TODAS" || r.frente === frente));
+
+      const imp = R.implantacoes(recorte);
+      const serv = imp.filter((r) => r.frente === "SERVICOS");
+      const vcg = imp.filter((r) => r.frente === "VCG");
+      const vendas = R.vendas(recorte);
+      const termos = R.termos(recorte);
+      const dias = +$("days").value || R.diasUteis(recorte);
+      atual = { imp, vendas, termos };
+
+      txt("impTotal", serv.length + vcg.length);
+      txt("impServ", serv.length);
+      txt("impVcg", vcg.length);
+      txt("impServDay", dec(serv.length / dias));
+      txt("impVcgDay", dec(vcg.length / dias));
+
+      txt("saleTotal", vendas.length);
+      txt("saleCom", vendas.filter((r) => r.canal === "COMERCIAL").length);
+      txt("saleVcg", vendas.filter((r) => r.canal === "VCG").length);
+      txt("saleOther", vendas.filter((r) => r.canal === "OUTROS").length);
+      txt("saleDay", dec(vendas.length / dias));
+
+      const termServ = termos.filter((r) => r.frenteTermo === "SERVICOS").length;
+      const termVcg = termos.filter((r) => r.frenteTermo === "VCG").length;
+      txt("termTotal", termos.length);
+      txt("termServ", termServ);
+      txt("termVcg", termVcg);
+      txt("termDay", dec(termos.length / dias));
+      txt("termCidades", new Set(termos.map((r) => r.cidade).filter(Boolean)).size);
+
+      const colunas = (rotulo) => [
+        { chave: "rotulo", titulo: rotulo },
+        { chave: "servicos", titulo: "Serviços", num: true },
+        { chave: "vcg", titulo: "VCG", num: true },
+        { chave: "total", titulo: "Total", num: true },
+      ];
+      tabela("termPorMes", colunas("Mês"),
+        agrupar(termos, "mes").sort((a, b) => a.chave.localeCompare(b.chave))
+          .map((r) => Object.assign({}, r, { rotulo: fmtMes(r.chave) })),
+        "Nenhum termo aplicado no recorte.");
+      tabela("termPorCidade", colunas("Cidade"),
+        agrupar(termos, "cidade").slice(0, 15).map((r) => Object.assign({}, r, { rotulo: r.chave })),
+        "Nenhum termo aplicado no recorte.");
+
+      txt("auditImp", imp.length);
+      txt("auditSales", vendas.length);
+      txt("auditTerms", termos.length);
+      txt("periodLabel", mes !== "TODOS" ? fmtMes(mes) : ano !== "TODOS" ? "Ano " + ano : "Todos os períodos");
+      txt("periodInfo", dias + " dias úteis · matrícula única dentro de cada mês e frente");
+    }
+
+    function baixar(nome, linhasCsv) {
+      const csv = "﻿" + linhasCsv
+        .map((l) => l.map((v) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = nome; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    $("folder").onchange = async (evento) => {
+      const arquivos = [...evento.target.files].filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
+      if (!arquivos.length) return;
+      txt("uploadTitle", "Lendo planilhas…");
+      $("error").style.display = "none";
+      try {
+        const escolhidos = R.selecionarCopias(arquivos);
+        const todas = [];
+        auditoria = [];
+        let lidas = 0;
+        for (const arquivo of arquivos) {
+          const caminho = arquivo.webkitRelativePath || arquivo.name;
+          if (!escolhidos.has(arquivo)) {
+            auditoria.push({ caminho, aba: "—", cabecalho: "—", lidas: 0, importadas: 0,
+              motivo: "Cópia do mesmo arquivo" });
+            continue;
+          }
+          const wb = XLSX.read(await arquivo.arrayBuffer(), { type: "array", cellDates: true });
+          const aba = wb.SheetNames.find((n) => R.N(n) === "PAGE 1") || wb.SheetNames[0];
+          const matriz = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, defval: "", raw: true });
+          const lido = R.registros(matriz);
+          let importadas = 0;
+          lido.linhas.forEach((linha) => {
+            const registro = R.normalizar(linha, { nome: arquivo.name, caminho });
+            if (registro) { todas.push(registro); importadas++; }
+          });
+          lidas += lido.linhas.length;
+          auditoria.push({
+            caminho, aba, cabecalho: lido.cabecalho >= 0 ? lido.cabecalho + 1 : "—",
+            lidas: lido.linhas.length, importadas,
+            // Quando nada entra, a auditoria mostra os cabeçalhos achados —
+            // é o que permite acrescentar um alias sem adivinhação.
+            motivo: lido.motivo ? lido.motivo + ": " + lido.cabecalhos.join(", ")
+              : (importadas ? "" : "Nenhuma linha com data válida"),
+            _falha: !importadas,
+          });
+        }
+        if (!todas.length) {
+          throw new Error("Nenhuma linha com data válida foi encontrada. "
+            + "Veja em Auditoria quais cabeçalhos cada planilha trouxe.");
+        }
+        linhas = todas;
+
+        const anos = [...new Set(linhas.map((r) => r.ano))].sort().reverse();
+        const meses = [...new Set(linhas.map((r) => r.mes))].sort().reverse();
+        const cidades = [...new Set(linhas.map((r) => r.cidade).filter(Boolean))].sort();
+        opcoes("year", anos, ["TODOS", "Todos"]);
+        opcoes("month", meses, ["TODOS", "Todos"]);
+        opcoes("city", cidades, ["TODAS", "Todas"]);
+        $("year").value = meses[0].slice(0, 4);
+        $("month").value = meses[0];
+        $("days").value = R.diasUteis(linhas.filter((r) => r.mes === meses[0]));
+
+        $("filters").style.display = "grid";
+        $("period").style.display = "flex";
+        $("dashboard").hidden = false;
+        const falhas = auditoria.filter((a) => a._falha).length;
+        txt("filesCount", arquivos.length);
+        txt("ignoredCount", arquivos.length - escolhidos.size);
+        txt("failCount", falhas);
+        txt("rawCount", lidas.toLocaleString("pt-BR"));
+        tabela("auditFiles", [
+          { chave: "caminho", titulo: "Arquivo" },
+          { chave: "aba", titulo: "Aba" },
+          { chave: "cabecalho", titulo: "Linha do cabeçalho", num: true },
+          { chave: "lidas", titulo: "Lidas", num: true },
+          { chave: "importadas", titulo: "Importadas", num: true },
+          { chave: "motivo", titulo: "Observação" },
+        ], auditoria, "Nenhuma planilha lida.");
+        txt("uploadTitle", arquivos.length + " planilha(s) na pasta · " + escolhidos.size + " lida(s)");
+        atualizar();
+      } catch (erro) {
+        $("error").textContent = erro.message;
+        $("error").style.display = "block";
+        txt("uploadTitle", "Selecione a pasta DashBoard - Interior");
+      }
+    };
+
+    ["year", "month", "city", "front"].forEach((id) => {
+      $(id).onchange = () => {
+        if (id === "year") {
+          const ano = $("year").value;
+          const meses = [...new Set(linhas.filter((r) => ano === "TODOS" || r.ano === ano)
+            .map((r) => r.mes))].sort().reverse();
+          opcoes("month", meses, ["TODOS", "Todos"]);
+        }
+        $("days").value = R.diasUteis(linhas.filter((r) =>
+          ($("year").value === "TODOS" || r.ano === $("year").value)
+          && ($("month").value === "TODOS" || r.mes === $("month").value)));
+        atualizar();
+      };
+    });
+    $("days").oninput = atualizar;
+
+    $("export").onclick = () => {
+      const dia = (r) => r.data.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+      baixar("conferencia-interior.csv", [
+        ["Tipo", "Mês", "Data", "Frente/Canal", "Matrícula", "ID", "Equipe", "Cidade",
+          "Atividade", "Código/Descrição", "Arquivo"],
+        ...atual.imp.map((r) => ["IMPLANTAÇÃO", r.mes, dia(r), r.frente, r.matricula, r.id,
+          r.recurso, r.cidade, r.atividade, r.codigo, r.caminho]),
+        ...atual.vendas.map((r) => ["VENDA", r.mes, dia(r), r.canal, r.matricula, r.id,
+          r.recurso, r.cidade, r.atividade, r.codigo, r.caminho]),
+        ...atual.termos.map((r) => ["TERMO APLICADO", r.mes, dia(r), r.frenteTermo, r.matricula, r.id,
+          r.recurso, r.cidade, r.atividade, r.codigo, r.caminho]),
+      ]);
+    };
+
+    $("exportAudit").onclick = () => {
+      baixar("auditoria-interior.csv", [
+        ["Arquivo", "Aba", "Linha do cabeçalho", "Lidas", "Importadas", "Observação"],
+        ...auditoria.map((a) => [a.caminho, a.aba, a.cabecalho, a.lidas, a.importadas, a.motivo]),
+      ]);
+    };
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+DASHBOARD EXECUTIVO - INTERIOR
+
+COMO USAR
+1. Extraia todos os arquivos do ZIP para uma pasta.
+2. Clique duas vezes em ABRIR_DASHBOARD.cmd.
+3. No painel, clique em "Escolher pasta" e selecione:
+   C:\Users\<voce>\OneDrive - AEGEA...\DashBoard - Interior
+   Pode escolher a pasta raiz: as subpastas sao lidas junto.
+
+O painel funciona sem internet e nao envia as planilhas para servidor
+nenhum. Tudo e calculado no proprio navegador.
+
+Mantenha dashboard.html, regras.js e xlsx.full.min.js na mesma pasta.
+
+O QUE O PAINEL MOSTRA
+- Venda, implantacao e faturamento
+- Termos aplicados (realizado total, Servicos e VCG, por mes e por cidade)
+- Auditoria: cada planilha lida, com aba, linha do cabecalho, linhas lidas
+  e importadas, e o motivo quando nada e aproveitado
+
+REGRAS APLICADAS
+- Implantacao: status Finalizada, atividade Ligacao de Agua ou de Esgoto,
+  e a mesma matricula nao se repete dentro do mes e da frente. E essa
+  regra que impede a producao de ser contada de novo a cada arquivo
+  diario em que a ordem reaparece.
+- VCG sao RIOVCGPOPIN, RIOVCGEXTIN e RIOVCGVENIN. As demais equipes
+  entram em Servicos.
+- Venda Comercial: Venda Potenciais/Factiveis; o codigo 113001 continua
+  comercial mesmo quando a equipe e VCG.
+- Venda VCG: equipes VCG; inclui o codigo 313001.
+- Outros Canais: codigos 114003 e 118048.
+- Termos: codigos 110013, 210013, 310013, 310031 e 310025, procurados em
+  Codigo/Descricao e nas respostas de servicos adicionais e posteriores.
+  Vale status Finalizada ou Encerrada com Ocorrencia.
+- Termo VCG: somente RIOVCGEXTIN com o codigo 310013.
+- Copias: sao consideradas copias apenas planilhas da MESMA subpasta com
+  o mesmo nome-base, variando so o sufixo (1), (2). Fica a mais recente.
+  Arquivos diferentes com a mesma data no nome NAO sao copias.
+
+SE UM NUMERO PARECER ERRADO
+Abra a secao Auditoria. Ela lista cada planilha com quantas linhas foram
+lidas e quantas entraram. Quando uma planilha nao e reconhecida, a
+observacao mostra os cabecalhos encontrados nela.
+
+PARA CONFERIR SEM ABRIR O NAVEGADOR (opcional, precisa do Node.js)
+   node conferir.js caminho\da\planilha.xlsx
+   node testar.js
+O primeiro aplica as mesmas regras e imprime os numeros por mes; o
+segundo roda as verificacoes das regras.
