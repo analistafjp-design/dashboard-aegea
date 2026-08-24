@@ -7,6 +7,8 @@ Implantação Não Faturada, Valor Total Faturado, Falta Total.
 """
 from __future__ import annotations
 
+import pandas as pd
+
 from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
@@ -21,6 +23,60 @@ DEPARTAMENTOS_FATURAMENTO = {
 
 def _tipo(dados, tipo: str):
     return dados[dados["tipo"] == tipo] if "tipo" in dados.columns else dados.iloc[0:0]
+
+
+def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
+    """Consolida o realizado como DISTINCTCOUNT mensal de matrícula por time.
+
+    A exportação operacional pode trazer a mesma matrícula mais de uma vez,
+    inclusive com protocolos, datas ou equipes diferentes. No Power BI, cada
+    matrícula representa uma implantação no mês; somar ``quantidade`` infla
+    os cartões, gráficos e rankings.
+
+    Registros sem matrícula não podem ser agrupados com segurança e, por isso,
+    continuam usando a quantidade informada na planilha.
+    """
+    if dados is None or dados.empty:
+        return dados
+
+    realizadas = dados.copy()
+    if "conta_realizado" in realizadas.columns:
+        mascara_realizado = realizadas["conta_realizado"].fillna(True).astype(bool)
+        realizadas = realizadas[mascara_realizado].copy()
+    if realizadas.empty or "matricula" not in realizadas.columns:
+        return realizadas
+
+    matricula = realizadas["matricula"].astype("string").str.strip()
+    tem_matricula = (
+        matricula.notna()
+        & matricula.ne("")
+        & ~matricula.str.upper().isin({"NAO INFORMADO", "NAN", "NONE", "NULL"})
+    )
+
+    identificadas = realizadas[tem_matricula].copy()
+    sem_matricula = realizadas[~tem_matricula].copy()
+
+    if not identificadas.empty:
+        identificadas["_matricula_distinta"] = matricula[tem_matricula].str.upper()
+        ordenacao = [
+            coluna for coluna in ("data", "importado_em")
+            if coluna in identificadas.columns
+        ]
+        if ordenacao:
+            identificadas = identificadas.sort_values(ordenacao, kind="stable")
+        chave = ["_matricula_distinta"]
+        # Serviços e VCG são medidas independentes e o Geral é a soma delas.
+        # Portanto, uma matrícula só é duplicada dentro do mesmo time.
+        if "tipo" in identificadas.columns:
+            chave.insert(0, "tipo")
+        if "ano_mes" in identificadas.columns:
+            chave.insert(0, "ano_mes")
+        identificadas = identificadas.drop_duplicates(chave, keep="last")
+        # DISTINCTCOUNT: cada matrícula consolidada vale exatamente uma.
+        identificadas["quantidade"] = 1.0
+        identificadas = identificadas.drop(columns="_matricula_distinta")
+
+    return pd.concat([identificadas, sem_matricula], ignore_index=True, sort=False)
 
 
 def _linha_faturamento(rotulo: str, implantacoes, faturadas, nao_faturadas,
@@ -46,19 +102,21 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     todos = consultas.dados("implantacao",
                             Filtros(**{**filtros.__dict__, "ano": None, "mes": None}))
     dados = consultas.dados("implantacao", filtros)
-    do_mes = dados[dados["ano_mes"] == periodo.ano_mes] if not dados.empty else dados
+    realizadas_todas = _realizadas_unicas(todos)
+    realizadas = _realizadas_unicas(dados)
+    do_mes = (
+        realizadas[realizadas["ano_mes"] == periodo.ano_mes]
+        if not realizadas.empty else realizadas
+    )
     faturamento_base = consultas.dados("faturamento_implantacao", filtros)
     faturamento_mes = (
         faturamento_base[faturamento_base["ano_mes"] == periodo.ano_mes]
         if not faturamento_base.empty else faturamento_base
     )
 
-    # Filtrar apenas as implantações que contam para o realizado (conta_realizado=True)
-    conta_realizado = do_mes[do_mes.get("conta_realizado", True)] if not do_mes.empty else do_mes
-
-    total_impl = nucleo.total(conta_realizado)
-    servicos = nucleo.total(_tipo(conta_realizado, TIPO_SERVICOS))
-    vcg = nucleo.total(_tipo(conta_realizado, TIPO_VCG))
+    total_impl = nucleo.total(do_mes)
+    servicos = nucleo.total(_tipo(do_mes, TIPO_SERVICOS))
+    vcg = nucleo.total(_tipo(do_mes, TIPO_VCG))
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
@@ -121,7 +179,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
                     if qtd_faturada is not None and total_impl else None)
     pct_nao_faturado = None if pct_faturado is None else round(100 - pct_faturado, 1)
 
-    _, anterior = nucleo.comparar_meses(todos, periodo)
+    _, anterior = nucleo.comparar_meses(realizadas_todas, periodo)
 
     # Calcular média diária separada por frente
     dias_uteis = max(1, periodo.dias_uteis_decorridos)
@@ -211,9 +269,13 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "por_frente": faturamento_por_frente,
         },
         "sla": sla_dados,
-        "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
-        "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),
-        "evolucao_vcg": nucleo.evolucao_mensal(_tipo(dados, TIPO_VCG)).to_dict("records"),
+        "evolucao_mensal": nucleo.evolucao_mensal(realizadas).to_dict("records"),
+        "evolucao_servicos": nucleo.evolucao_mensal(
+            _tipo(realizadas, TIPO_SERVICOS)
+        ).to_dict("records"),
+        "evolucao_vcg": nucleo.evolucao_mensal(
+            _tipo(realizadas, TIPO_VCG)
+        ).to_dict("records"),
         "evolucao_diaria": nucleo.evolucao_diaria(do_mes).to_dict("records"),
         "por_cidade": nucleo.ranking(do_mes, "cidade", top=15).to_dict("records"),
         "por_frente": nucleo.ranking(do_mes, "frente").to_dict("records"),
