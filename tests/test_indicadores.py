@@ -138,6 +138,22 @@ def test_implantacao_normaliza_matricula_numerica_do_excel():
     assert total(_realizadas_unicas(base)) == 1.0
 
 
+def test_implantacao_exige_status_finalizada_quando_status_esta_disponivel():
+    base = pd.DataFrame([
+        {"ano_mes": "2026-08", "matricula": "1", "tipo": "SERVICOS",
+         "status_atividade": "Finalizada", "quantidade": 1.0},
+        {"ano_mes": "2026-08", "matricula": "2", "tipo": "SERVICOS",
+         "status_atividade": "Em andamento", "quantidade": 1.0},
+        {"ano_mes": "2026-08", "matricula": "3", "tipo": "VCG",
+         "status_atividade": None, "quantidade": 1.0},
+    ])
+
+    resultado = _realizadas_unicas(base)
+
+    assert resultado["matricula"].tolist() == ["1"]
+    assert total(resultado) == 1.0
+
+
 def test_bloco_meta_sem_meta_cadastrada_nao_inventa_numero():
     periodo = montar(2026, 8, date(2026, 8, 21))
     bloco = bloco_meta(100.0, None, periodo)
