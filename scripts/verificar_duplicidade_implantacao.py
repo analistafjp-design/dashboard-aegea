@@ -38,14 +38,61 @@ def _contadas(mes: str | None) -> pd.DataFrame:
     return dados
 
 
+def _por_mes() -> None:
+    """Quanto cada mês tem, por frente — a base inteira, sem recorte.
+
+    Responde de imediato se um total alto é a soma de vários meses ou se
+    está concentrado num mês só.
+    """
+    criar_banco()
+    dados = consultas.dados("implantacao")
+    if dados.empty:
+        print("Base de implantação vazia.")
+        return
+    if "conta_realizado" in dados.columns:
+        dados = dados[dados["conta_realizado"] == True]  # noqa: E712
+    if dados.empty:
+        print("Nenhuma implantação finalizada na base.")
+        return
+
+    identificador = next(
+        (c for c in ("matricula", "protocolo")
+         if c in dados.columns and dados[c].notna().any()), None)
+
+    print("IMPLANTAÇÃO POR MÊS (base inteira, só finalizadas)")
+    print("=" * 62)
+    colunas = ["ano_mes"] + (["frente"] if "frente" in dados.columns else [])
+    agregacoes = {"linhas": ("ano_mes", "size")}
+    if identificador:
+        agregacoes["distintos"] = (identificador, "nunique")
+    resumo = (dados.groupby(colunas, as_index=False)
+              .agg(**agregacoes)
+              .sort_values(colunas))
+    print(resumo.to_string(index=False))
+
+    print("\nTotal por mês:")
+    total = dados.groupby("ano_mes", as_index=False).agg(**agregacoes).sort_values("ano_mes")
+    print(total.to_string(index=False))
+    print(f"\nMeses na base: {dados['ano_mes'].nunique()} "
+          f"({dados['ano_mes'].min()} a {dados['ano_mes'].max()})")
+    if identificador:
+        print(f"Identificador usado na contagem distinta: {identificador}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mes", help="Recorte AAAA-MM (padrão: todos os meses)")
+    parser.add_argument("--por-mes", action="store_true",
+                        help="Mostra quanto cada mês tem, por frente, e encerra")
     parser.add_argument("--listar", type=int, default=10,
                         help="Quantos identificadores repetidos detalhar (padrão: 10)")
     parser.add_argument("--resumo", action="store_true",
                         help="Só os números, sem o detalhe linha a linha")
     args = parser.parse_args()
+
+    if args.por_mes:
+        _por_mes()
+        return 0
 
     dados = _contadas(args.mes)
     if dados.empty:

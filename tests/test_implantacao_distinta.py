@@ -36,7 +36,7 @@ def base():
                 s.add(FatoImplantacao(
                     chave_unica=f"chave-{i}",
                     data=linha.get("data", MES.replace(day=10)),
-                    ano_mes="2026-08",
+                    ano_mes=linha.get("data", MES.replace(day=10)).strftime("%Y-%m"),
                     cidade_id=_dim(cidades, DimCidade, linha.get("cidade", "Marica")),
                     equipe_id=_dim(equipes, DimEquipe, linha.get("equipe", "EQ-1")),
                     frente_id=_dim(frentes, DimFrente, linha.get("frente", "Servicos")),
@@ -176,3 +176,21 @@ def test_todas_as_frentes_com_vcg_no_nome_somam_em_vcg(base):
 
     assert _indicador(payload, "impl_vcg") == 3
     assert _indicador(payload, "impl_servicos") is None
+
+
+def test_filtro_de_mes_separa_cada_mes(base):
+    """Cada mês responde só pelo que é dele — o filtro não soma o histórico."""
+    from app.analytics import implantacao as modulo
+
+    payload = base([
+        {"matricula": f"jul-{i}", "data": date(2026, 7, 15)} for i in range(100)
+    ] + [
+        {"matricula": f"ago-{i}", "data": MES.replace(day=15)} for i in range(175)
+    ])
+    del payload  # o interesse está nas duas consultas abaixo
+
+    julho = modulo.calcular(Filtros(ano=2026, mes=7))
+    agosto = modulo.calcular(Filtros(ano=2026, mes=8))
+
+    assert _indicador(julho, "impl_servicos") == 100
+    assert _indicador(agosto, "impl_servicos") == 175
