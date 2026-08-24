@@ -57,6 +57,11 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     servicos = nucleo.total(_tipo(do_mes, TIPO_SERVICOS))
     vcg = nucleo.total(_tipo(do_mes, TIPO_VCG))
 
+    # Calcular médias diárias separadas por frente
+    dias_uteis = max(1, periodo.dias_uteis_decorridos)
+    media_servicos_dia = (servicos / dias_uteis) if servicos is not None else None
+    media_vcg_dia = (vcg / dias_uteis) if vcg is not None else None
+
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
     meta_vcg = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "VCG", filtros)
@@ -145,6 +150,14 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         nucleo.indicador_realizado(
             "impl_vcg", "Implantação VCG", vcg, meta_vcg,
             pergunta="Como está VCG?", explicacao="Implantações classificadas como VCG."),
+        nucleo.indicador_realizado(
+            "impl_servicos_dia", "Implantação Serviços / Dia", media_servicos_dia, casas=1,
+            pergunta="Qual o ritmo diário de Serviços?",
+            explicacao="Serviços divididos pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
+            "impl_vcg_dia", "Implantação VCG / Dia", media_vcg_dia, casas=1,
+            pergunta="Qual o ritmo diário de VCG?",
+            explicacao="VCG dividido pelos dias úteis decorridos."),
         nucleo.indicador_realizado(
             "impl_faturada", "Implantação Faturada", qtd_faturada,
             pergunta="Quanto já foi faturado?",
