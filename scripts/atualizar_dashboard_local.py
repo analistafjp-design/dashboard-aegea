@@ -35,7 +35,7 @@ TIPOS_VALIDOS = set(DATASETS)
 # do mesmo arquivo. Depois da correção, o fluxo volta a ser incremental.
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
-    "vendas": 3,
+    "vendas": 4,
     "implantacao": 3,
 }
 

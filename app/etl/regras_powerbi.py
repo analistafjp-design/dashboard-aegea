@@ -46,39 +46,56 @@ def _equipe_vcg(recurso: object) -> bool:
     return any(codigo in valor for codigo in EQUIPES_VCG)
 
 
-def _comercial(recurso: pd.Series, codigo: pd.Series) -> pd.Series:
-    """Transcreve a medida `Venda Comercial` do PBIX.
+# Venda de água factível: entra em Venda VCG mesmo quando o Tipo de
+# Atividade não é "Venda Potenciais/Factíveis".
+CODIGO_FACTIVEL_AGUA = "313001"
 
-    A regra não é apenas "equipe não-VCG": uma venda lançada por RIOVCGVENIN
-    com o código 113001 é comercial, apesar de a equipe ser VCG. Sem essa
-    exceção essas vendas apareciam no canal errado.
+
+def _marcar_vendas(saida: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """`Venda Comercial` e `Venda VCG` do PBIX, uma marca para cada.
+
+    As duas medidas se sobrepõem de propósito: uma venda do RIOVCGVENIN com
+    código 113001 é comercial pela exceção do DAX de Comercial e continua
+    sendo VCG pelo DAX de VCG, que só descarta o 114003. Marcar cada uma
+    separadamente é o que permite os dois números conviverem.
     """
-    permitido = ~codigo.str.contains("114003|118048", regex=True)
-    excecao = recurso.str.contains("RIOVCGVENIN", regex=False) & \
-        codigo.str.contains("113001", regex=False)
+    atividade = saida["tipo_atividade"].map(_texto)
+    status = saida["status_atividade"].map(_texto)
+    codigo = saida["codigo_descricao"].map(_texto)
+    recurso = saida["equipe"].map(_texto)
+
+    finalizada = status == "FINALIZADA"
+    venda_potencial = atividade == "VENDA POTENCIAIS/FACTIVEIS"
     vcg = recurso.apply(lambda v: any(c in v for c in EQUIPES_VCG))
-    return permitido & (~vcg | excecao)
+
+    excecao = (recurso.str.contains("RIOVCGVENIN", regex=False)
+               & codigo.str.contains("113001", regex=False))
+    comercial = (venda_potencial & finalizada
+                 & ~codigo.str.contains("114003|118048", regex=True)
+                 & (~vcg | excecao))
+
+    factivel_agua = codigo.str.contains(CODIGO_FACTIVEL_AGUA, regex=False)
+    conta_vcg = (vcg & finalizada
+                 & ~codigo.str.contains("114003", regex=False)
+                 & (venda_potencial | factivel_agua))
+    return comercial, conta_vcg
 
 
 def filtrar_vendas(dados: pd.DataFrame) -> pd.DataFrame:
     if "tipo_atividade" not in dados or not dados["tipo_atividade"].notna().any():
         return dados
     saida = dados.copy()
-    atividade = saida["tipo_atividade"].map(_texto)
-    status = saida["status_atividade"].map(_texto)
-    codigo = saida["codigo_descricao"].map(_texto)
-    recurso = saida["equipe"].map(_texto)
-    vcg = saida["equipe"].map(_equipe_vcg)
-    base = (atividade == "VENDA POTENCIAIS/FACTIVEIS") & (status == "FINALIZADA")
-    comercial = _comercial(recurso, codigo)
-    vcg_valido = vcg & ~codigo.str.contains("114003", regex=False)
-    saida = saida[base & (comercial | vcg_valido)].copy()
+    comercial, conta_vcg = _marcar_vendas(saida)
+    saida = saida[comercial | conta_vcg].copy()
     if saida.empty:
         return saida
+    comercial, conta_vcg = _marcar_vendas(saida)
+    saida["conta_comercial"] = comercial
+    saida["conta_vcg"] = conta_vcg
     saida["frente"] = saida["equipe"].map(frente_interior)
-    saida["canal"] = _comercial(
-        saida["equipe"].map(_texto), saida["codigo_descricao"].map(_texto)
-    ).map({True: "COMERCIAL", False: "VCG"})
+    # `canal` continua existindo para os recortes por dimensão; quando a
+    # venda conta nas duas medidas, ela aparece pelo lado comercial.
+    saida["canal"] = comercial.map({True: "COMERCIAL", False: "VCG"})
     saida["quantidade"] = 1.0
     return saida
 

@@ -1,23 +1,35 @@
-"""Regra `Venda Comercial` do PBIX, incluindo a exceção do RIOVCGVENIN."""
+"""Regras `Venda Comercial` e `Venda VCG` do PBIX.
+
+As duas medidas se sobrepõem de propósito: a mesma venda pode contar nas
+duas, então cada linha carrega uma marca por medida.
+"""
 import pandas as pd
 
 from app.etl.regras_powerbi import filtrar_vendas
 
 
 def _linhas(*casos):
+    """(equipe, código) ou (equipe, código, tipo de atividade)."""
     return pd.DataFrame([
         {
-            "tipo_atividade": "Venda Potenciais/Factíveis",
+            "tipo_atividade": caso[2] if len(caso) > 2 else "Venda Potenciais/Factíveis",
             "status_atividade": "Finalizada",
-            "equipe": equipe,
-            "codigo_descricao": codigo,
+            "equipe": caso[0],
+            "codigo_descricao": caso[1],
         }
-        for equipe, codigo in casos
+        for caso in casos
     ])
 
 
 def _canais(df):
     return dict(zip(df["equipe"], df["canal"]))
+
+
+def _marcas(df):
+    return {
+        linha["equipe"]: (linha["conta_comercial"], linha["conta_vcg"])
+        for _, linha in df.iterrows()
+    }
 
 
 def test_equipe_comum_e_comercial():
@@ -30,10 +42,29 @@ def test_equipe_vcg_e_vcg():
     assert _canais(resultado) == {"RIOVCGEXTIN-005": "VCG"}
 
 
-def test_riovcgvenin_com_113001_conta_como_comercial():
-    """A exceção do DAX: equipe VCG, mas a venda é comercial."""
+def test_riovcgvenin_com_113001_conta_nas_duas_medidas():
+    """A exceção torna a venda comercial sem tirá-la de VCG.
+
+    O DAX de Comercial abre exceção para o RIOVCGVENIN com 113001; o de VCG
+    só descarta o 114003, então continua contando essa mesma linha.
+    """
     resultado = filtrar_vendas(_linhas(("RIOVCGVENIN-002", "113001-VENDA POTENCIAL")))
-    assert _canais(resultado) == {"RIOVCGVENIN-002": "COMERCIAL"}
+    assert _marcas(resultado) == {"RIOVCGVENIN-002": (True, True)}
+
+
+def test_codigo_313001_conta_em_vcg_mesmo_com_outro_tipo_de_atividade():
+    """Venda factível de água entra em VCG fora de Venda Potenciais/Factíveis."""
+    resultado = filtrar_vendas(_linhas(
+        ("RIOVCGEXTIN-007", "313001-VENDAS FACTÍVEL ÁGUA", "Ligação de Água"),
+    ))
+    assert _marcas(resultado) == {"RIOVCGEXTIN-007": (False, True)}
+
+
+def test_codigo_313001_de_equipe_comum_nao_vira_vcg():
+    resultado = filtrar_vendas(_linhas(
+        ("RIORECIN-009", "313001-VENDAS FACTÍVEL ÁGUA", "Ligação de Água"),
+    ))
+    assert resultado.empty
 
 
 def test_riovcgvenin_com_outro_codigo_continua_vcg():

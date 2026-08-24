@@ -141,6 +141,11 @@ class FatoVendas(Base):
     equipe_id: Mapped[int | None] = mapped_column(ForeignKey("dim_equipe.id"), index=True)
     frente_id: Mapped[int | None] = mapped_column(ForeignKey("dim_frente.id"), index=True)
     canal: Mapped[str] = mapped_column(String(30), index=True)  # COMERCIAL|VCG|OUTROS
+    # As medidas do PBIX se sobrepõem: uma venda do RIOVCGVENIN com código
+    # 113001 conta em Venda Comercial E em Venda VCG. Um único canal
+    # exclusivo não representa isso, então cada medida tem sua marca.
+    conta_comercial: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    conta_vcg: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     matricula: Mapped[str | None] = mapped_column(String(60), index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)
     valor: Mapped[float | None] = mapped_column(Float, nullable=True)

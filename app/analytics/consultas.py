@@ -68,6 +68,7 @@ def _stmt_vendas():
     return (
         select(
             FatoVendas.data, FatoVendas.ano_mes, FatoVendas.canal,
+            FatoVendas.conta_comercial, FatoVendas.conta_vcg,
             FatoVendas.quantidade, FatoVendas.valor, FatoVendas.matricula,
             FatoVendas.origem_arquivo, FatoVendas.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
