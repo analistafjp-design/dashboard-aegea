@@ -26,14 +26,11 @@ def _tipo(dados, tipo: str):
 
 
 def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
-    """Aplica as medidas do PBIX: Serviços soma; VCG distingue matrícula.
+    """Conta uma implantação finalizada por matrícula, mês e frente.
 
-    ``Implantação Mês - Serviços`` usa ``[Total Implantação]``. Já
-    ``Implantação Mês - VCG`` usa ``DISTINCTCOUNT(Interior[Matrícula])``.
-    Portanto, a deduplicação por matrícula deve acontecer somente no VCG.
-
-    Registros sem matrícula não podem ser agrupados com segurança e, por isso,
-    continuam usando a quantidade informada na planilha.
+    Linhas sem matrícula não entram no indicador: não há como garantir que
+    representem uma implantação distinta. A mesma matrícula pode contar de
+    novo em outro mês ou em outra frente.
     """
     if dados is None or dados.empty:
         return dados
@@ -45,43 +42,32 @@ def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
 
     if (realizadas.empty or "matricula" not in realizadas.columns
             or "tipo" not in realizadas.columns):
-        return realizadas
+        return realizadas.iloc[0:0].copy()
 
-    tipo = realizadas["tipo"].astype("string").str.strip().str.upper()
-    servicos = realizadas[~tipo.eq(TIPO_VCG)].copy()
-    vcg = realizadas[tipo.eq(TIPO_VCG)].copy()
-    if vcg.empty:
-        return realizadas
-
-    matricula = vcg["matricula"].astype("string").str.strip()
+    matricula = realizadas["matricula"].astype("string").str.strip().str.upper()
+    matricula = matricula.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
     tem_matricula = (
         matricula.notna()
         & matricula.ne("")
-        & ~matricula.str.upper().isin({"NAO INFORMADO", "NAN", "NONE", "NULL"})
+        & ~matricula.isin({"NAO INFORMADO", "NÃO INFORMADO", "NAN", "NONE", "NULL"})
     )
+    identificadas = realizadas[tem_matricula].copy()
+    if identificadas.empty:
+        return identificadas
 
-    identificadas = vcg[tem_matricula].copy()
-    sem_matricula = vcg[~tem_matricula].copy()
-
-    if not identificadas.empty:
-        identificadas["_matricula_distinta"] = matricula[tem_matricula].str.upper()
-        ordenacao = [
-            coluna for coluna in ("data", "importado_em")
-            if coluna in identificadas.columns
-        ]
-        if ordenacao:
-            identificadas = identificadas.sort_values(ordenacao, kind="stable")
-        chave = ["_matricula_distinta"]
-        if "ano_mes" in identificadas.columns:
-            chave.insert(0, "ano_mes")
-        identificadas = identificadas.drop_duplicates(chave, keep="last")
-        # DISTINCTCOUNT: cada matrícula consolidada vale exatamente uma.
-        identificadas["quantidade"] = 1.0
-        identificadas = identificadas.drop(columns="_matricula_distinta")
-
-    return pd.concat(
-        [servicos, identificadas, sem_matricula], ignore_index=True, sort=False
-    )
+    identificadas["_matricula_distinta"] = matricula[tem_matricula]
+    ordenacao = [
+        coluna for coluna in ("data", "importado_em")
+        if coluna in identificadas.columns
+    ]
+    if ordenacao:
+        identificadas = identificadas.sort_values(ordenacao, kind="stable")
+    chave = ["tipo", "_matricula_distinta"]
+    if "ano_mes" in identificadas.columns:
+        chave.insert(0, "ano_mes")
+    identificadas = identificadas.drop_duplicates(chave, keep="last")
+    identificadas["quantidade"] = 1.0
+    return identificadas.drop(columns="_matricula_distinta")
 
 
 def _linha_faturamento(rotulo: str, implantacoes, faturadas, nao_faturadas,
