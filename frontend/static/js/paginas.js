@@ -114,14 +114,12 @@
         App.numero(implantacao.bloco_principal.meta);
       document.getElementById("simples-dias-restantes").textContent =
         App.numero(dados.periodo.dias_uteis_restantes);
-      const implVcg = porChave(implantacao.indicadores, "impl_vcg").valor;
-      const dias = dados.periodo.dias_uteis_decorridos || 0;
       faixaIndicadores("#simples-implantacao-kpis", [
         { rotulo: "Implantação Geral", valor: ii("total_implantacao") },
         { rotulo: "Implantação Serviços", valor: ii("impl_servicos") },
-        { rotulo: "Implantação Serviços / Dia", valor: ii("media_dia", 1) },
+        { rotulo: "Implantação Serviços / Dia", valor: ii("impl_servicos_dia", 1) },
         { rotulo: "Implantação Mês - VCG", valor: ii("impl_vcg") },
-        { rotulo: "Implantação VCG / Dia", valor: implVcg === null || !dias ? "—" : App.numero(implVcg / dias, 1) },
+        { rotulo: "Implantação VCG / Dia", valor: ii("impl_vcg_dia", 1) },
       ]);
       faixaIndicadores("#simples-vendas-kpis", [
         { rotulo: "Total Venda", valor: vi("total_venda") },
