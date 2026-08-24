@@ -68,9 +68,14 @@ def filtrar_implantacoes(dados: pd.DataFrame) -> pd.DataFrame:
     if "tipo_atividade" not in dados or not dados["tipo_atividade"].notna().any():
         return dados
     saida = dados.copy()
-    # O arquivo próprio de implantação já define o universo da medida. Não se
-    # limita a Ligação de Água: uma implantação finalizada de esgoto também é
-    # implantação. A deduplicação por matrícula acontece na camada analítica.
+    atividade = saida["tipo_atividade"].map(_texto)
+    # Medida de Implantação: ligações de água e de esgoto. Os arquivos
+    # Atividades-INTERIOR também contêm Venda, Termos e diversas outras O.S.;
+    # elas não podem entrar no indicador de implantação.
+    saida = saida[atividade.isin({"LIGACAO DE AGUA", "LIGACAO DE ESGOTO"})].copy()
+    if saida.empty:
+        return saida
+
     status = saida["status_atividade"].map(_texto)
     saida["conta_realizado"] = (status == "FINALIZADA")
 
