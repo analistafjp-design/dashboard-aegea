@@ -26,12 +26,11 @@ def _tipo(dados, tipo: str):
 
 
 def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
-    """Consolida o realizado como DISTINCTCOUNT mensal de matrícula por time.
+    """Aplica as medidas do PBIX: Serviços soma; VCG distingue matrícula.
 
-    A exportação operacional pode trazer a mesma matrícula mais de uma vez,
-    inclusive com protocolos, datas ou equipes diferentes. No Power BI, cada
-    matrícula representa uma implantação no mês; somar ``quantidade`` infla
-    os cartões, gráficos e rankings.
+    ``Implantação Mês - Serviços`` usa ``[Total Implantação]``. Já
+    ``Implantação Mês - VCG`` usa ``DISTINCTCOUNT(Interior[Matrícula])``.
+    Portanto, a deduplicação por matrícula deve acontecer somente no VCG.
 
     Registros sem matrícula não podem ser agrupados com segurança e, por isso,
     continuam usando a quantidade informada na planilha.
@@ -43,18 +42,26 @@ def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
     if "conta_realizado" in realizadas.columns:
         mascara_realizado = realizadas["conta_realizado"].fillna(True).astype(bool)
         realizadas = realizadas[mascara_realizado].copy()
-    if realizadas.empty or "matricula" not in realizadas.columns:
+
+    if (realizadas.empty or "matricula" not in realizadas.columns
+            or "tipo" not in realizadas.columns):
         return realizadas
 
-    matricula = realizadas["matricula"].astype("string").str.strip()
+    tipo = realizadas["tipo"].astype("string").str.strip().str.upper()
+    servicos = realizadas[~tipo.eq(TIPO_VCG)].copy()
+    vcg = realizadas[tipo.eq(TIPO_VCG)].copy()
+    if vcg.empty:
+        return realizadas
+
+    matricula = vcg["matricula"].astype("string").str.strip()
     tem_matricula = (
         matricula.notna()
         & matricula.ne("")
         & ~matricula.str.upper().isin({"NAO INFORMADO", "NAN", "NONE", "NULL"})
     )
 
-    identificadas = realizadas[tem_matricula].copy()
-    sem_matricula = realizadas[~tem_matricula].copy()
+    identificadas = vcg[tem_matricula].copy()
+    sem_matricula = vcg[~tem_matricula].copy()
 
     if not identificadas.empty:
         identificadas["_matricula_distinta"] = matricula[tem_matricula].str.upper()
@@ -65,10 +72,6 @@ def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
         if ordenacao:
             identificadas = identificadas.sort_values(ordenacao, kind="stable")
         chave = ["_matricula_distinta"]
-        # Serviços e VCG são medidas independentes e o Geral é a soma delas.
-        # Portanto, uma matrícula só é duplicada dentro do mesmo time.
-        if "tipo" in identificadas.columns:
-            chave.insert(0, "tipo")
         if "ano_mes" in identificadas.columns:
             chave.insert(0, "ano_mes")
         identificadas = identificadas.drop_duplicates(chave, keep="last")
@@ -76,7 +79,9 @@ def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
         identificadas["quantidade"] = 1.0
         identificadas = identificadas.drop(columns="_matricula_distinta")
 
-    return pd.concat([identificadas, sem_matricula], ignore_index=True, sort=False)
+    return pd.concat(
+        [servicos, identificadas, sem_matricula], ignore_index=True, sort=False
+    )
 
 
 def _linha_faturamento(rotulo: str, implantacoes, faturadas, nao_faturadas,
