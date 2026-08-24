@@ -36,9 +36,18 @@ def _realizadas_unicas(dados: pd.DataFrame) -> pd.DataFrame:
         return dados
 
     realizadas = dados.copy()
-    if "conta_realizado" in realizadas.columns:
-        mascara_realizado = realizadas["conta_realizado"].fillna(True).astype(bool)
+    status = (
+        realizadas["status_atividade"].astype("string").str.strip().str.upper()
+        if "status_atividade" in realizadas.columns else None
+    )
+    if status is not None and status.notna().any():
+        mascara_realizado = status == "FINALIZADA"
+        realizadas = realizadas[mascara_realizado.fillna(False)].copy()
+    elif "conta_realizado" in realizadas.columns:
+        mascara_realizado = realizadas["conta_realizado"].fillna(False).astype(bool)
         realizadas = realizadas[mascara_realizado].copy()
+    else:
+        return realizadas.iloc[0:0].copy()
 
     if (realizadas.empty or "matricula" not in realizadas.columns
             or "tipo" not in realizadas.columns):
