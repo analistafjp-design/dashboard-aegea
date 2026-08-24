@@ -41,7 +41,7 @@ def _fontes_atuais(pasta: Path) -> list[Path]:
         caminho for caminho, tipos in selecionados.items()
         if "implantacao" in tipos
     )
-    if len(por_nome) >= 2:
+    if por_nome:
         return por_nome
 
     print(
