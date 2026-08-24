@@ -24,7 +24,7 @@ def test_venda_comercial_e_vcg_reproduzem_filtros_dax():
     assert list(resultado["quantidade"]) == [1.0, 1.0]
 
 
-def test_implantacao_exige_ligacao_de_agua_finalizada_e_classifica_frente():
+def test_implantacao_aceita_ligacoes_e_classifica_frente():
     base = pd.DataFrame([
         {"tipo_atividade": "Ligação de Água", "status_atividade": "Finalizada",
          "equipe": "RIOMLTIN-001"},
@@ -32,13 +32,17 @@ def test_implantacao_exige_ligacao_de_agua_finalizada_e_classifica_frente():
          "equipe": "RIOVCGPOPIN-001"},
         {"tipo_atividade": "Ligação de Água", "status_atividade": "Iniciada",
          "equipe": "RIOMLTIN-002"},
+        {"tipo_atividade": "Ligação de Esgoto", "status_atividade": "Finalizada",
+         "equipe": "RIOMLTIN-003"},
+        {"tipo_atividade": "Venda Potenciais/Factíveis", "status_atividade": "Finalizada",
+         "equipe": "RIOVCGEXTIN-001"},
     ])
     resultado = regras.filtrar_implantacoes(base)
-    # Agora preserva todas as "Ligação de Água", mas marca apenas as finalizadas
-    assert list(resultado["tipo"]) == ["SERVICOS", "VCG", "SERVICOS"]
-    assert list(resultado["frente"]) == ["Serviços", "VCG Bairro Legal - SFI", "Serviços"]
-    # Verifica que apenas as 2 primeiras contam para o realizado
-    assert list(resultado["conta_realizado"]) == [True, True, False]
+    assert list(resultado["tipo"]) == ["SERVICOS", "VCG", "SERVICOS", "SERVICOS"]
+    assert list(resultado["frente"]) == [
+        "Serviços", "VCG Bairro Legal - SFI", "Serviços", "Serviços",
+    ]
+    assert list(resultado["conta_realizado"]) == [True, True, False, True]
 
 
 def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():
