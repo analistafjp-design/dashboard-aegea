@@ -59,22 +59,28 @@ def test_implantacao_usa_so_relatorios_proprios_e_snapshot_mais_novo(tmp_path):
     assert resultado[vendas] == {"vendas", "termos"}
 
 
-def test_implantacao_prefere_fotografia_diaria_de_data_mais_recente(tmp_path):
+def test_implantacao_usa_um_arquivo_por_dia_e_mantem_todos_os_dias(tmp_path):
     julho = tmp_path / "Atividades-INTERIOR_31_07_26 (3).xlsx"
-    agosto_antigo = tmp_path / "Atividades-INTERIOR_23_08_26.xlsx"
-    agosto_atual = tmp_path / "Atividades-INTERIOR_24_08_26.xlsx"
-    for caminho in (julho, agosto_antigo, agosto_atual):
+    agosto_copia_antiga = tmp_path / "Atividades-INTERIOR_23_08_26.xlsx"
+    agosto_copia_atual = tmp_path / "Atividades-INTERIOR_23_08_26 (1).xlsx"
+    agosto_outro_dia = tmp_path / "Atividades-INTERIOR_22_08_26.xlsx"
+    for caminho in (julho, agosto_copia_antiga, agosto_copia_atual, agosto_outro_dia):
         caminho.write_bytes(b"planilha")
+    os.utime(agosto_copia_antiga, ns=(1, 1))
+    os.utime(agosto_copia_atual, ns=(2, 2))
     arquivos = {
         caminho: {"vendas", "implantacao", "termos"}
-        for caminho in (julho, agosto_antigo, agosto_atual)
+        for caminho in (
+            julho, agosto_copia_antiga, agosto_copia_atual, agosto_outro_dia,
+        )
     }
 
     resultado = selecionar_fontes_implantacao(arquivos)
 
-    assert "implantacao" not in resultado[julho]
-    assert "implantacao" not in resultado[agosto_antigo]
-    assert "implantacao" in resultado[agosto_atual]
+    assert "implantacao" in resultado[julho]
+    assert "implantacao" not in resultado[agosto_copia_antiga]
+    assert "implantacao" in resultado[agosto_copia_atual]
+    assert "implantacao" in resultado[agosto_outro_dia]
 
 
 def test_manifesto_pula_arquivo_inalterado_e_detecta_alteracao(tmp_path):
@@ -117,13 +123,13 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
         "versoes_bases": {"vendas": 2, "implantacao": 2, "termos": 1},
     }}}
 
-    # Implantacao também está pendente porque a versão mudou de 2 para 9
+    # Implantacao também está pendente porque a versão mudou de 2 para 10
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == {"implantacao", "termos"}
-    # Atualizando termos de 1 para 8 e implantacao de 2 para 9
+    # Atualizando termos de 1 para 8 e implantacao de 2 para 10
     manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 8
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 9
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 10
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == set()
@@ -147,12 +153,12 @@ def test_mudanca_das_medidas_reprocessa_venda_e_implantacao(tmp_path):
         "vendas": 2,
         "implantacao": 2,
     })
-    # Implantacao ainda está pendente porque espera versão 9 agora
+    # Implantacao ainda está pendente porque espera versão 10 agora
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == {"implantacao"}
-    # Atualizar para versão 9
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 9
+    # Atualizar para versão 10
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 10
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == set()
