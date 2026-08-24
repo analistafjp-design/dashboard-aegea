@@ -127,22 +127,51 @@ def test_media_por_dia_usa_o_total_distinto(base):
     assert _indicador(payload, "impl_servicos_dia") == pytest.approx(1.0)
 
 
-def test_protocolo_tem_prioridade_sobre_matricula(base):
-    """A medida do PBIX conta Cód. Protocolo Origem, não matrícula."""
+def test_matricula_tem_prioridade_sobre_protocolo(base):
+    """A medida conta DISTINCTCOUNT(Interior[Matrícula])."""
     payload = base([
         {"matricula": "1", "protocolo": "P-100"},
-        {"matricula": "2", "protocolo": "P-100"},  # mesmo protocolo
+        {"matricula": "2", "protocolo": "P-100"},  # mesmo protocolo, matrículas distintas
         {"matricula": "3", "protocolo": "P-200"},
     ])
 
-    assert _indicador(payload, "total_implantacao") == 2
+    assert _indicador(payload, "total_implantacao") == 3
 
 
-def test_sem_protocolo_a_matricula_segue_valendo(base):
+def test_sem_matricula_o_protocolo_segue_valendo(base):
     payload = base([
-        {"matricula": "1", "protocolo": None},
-        {"matricula": "1", "protocolo": None, "data": MES.replace(day=12)},
-        {"matricula": "2", "protocolo": None},
+        {"matricula": None, "protocolo": "P-1"},
+        {"matricula": None, "protocolo": "P-1", "data": MES.replace(day=12)},
+        {"matricula": None, "protocolo": "P-2"},
     ])
 
     assert _indicador(payload, "total_implantacao") == 2
+
+
+def test_frente_fora_de_servicos_e_vcg_nao_entra_em_nenhuma_medida(base):
+    """As medidas recortam por CONTAINSSTRING(Frente, ...).
+
+    A frente `Venda` não contém "Serviços" nem "VCG", então essas linhas
+    ficam fora das duas — e, por consequência, fora do Geral.
+    """
+    payload = base([
+        {"matricula": "1", "frente": "Serviços"},
+        {"matricula": "2", "frente": "VCG Rio Bonito"},
+        {"matricula": "3", "frente": "Venda"},
+        {"matricula": "4", "frente": "Não Informado"},
+    ])
+
+    assert _indicador(payload, "impl_servicos") == 1
+    assert _indicador(payload, "impl_vcg") == 1
+    assert _indicador(payload, "total_implantacao") == 2
+
+
+def test_todas_as_frentes_com_vcg_no_nome_somam_em_vcg(base):
+    payload = base([
+        {"matricula": "1", "frente": "VCG"},
+        {"matricula": "2", "frente": "VCG Rio Bonito"},
+        {"matricula": "3", "frente": "VCG Bairro Legal/SFI"},
+    ])
+
+    assert _indicador(payload, "impl_vcg") == 3
+    assert _indicador(payload, "impl_servicos") is None

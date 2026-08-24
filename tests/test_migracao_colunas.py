@@ -29,13 +29,18 @@ def banco_da_versao_anterior():
             c.execute(sa.text(f"DROP INDEX IF EXISTS ix_fato_implantacao_{coluna}"))
         for coluna in NOVAS:
             c.execute(sa.text(f"ALTER TABLE fato_implantacao DROP COLUMN {coluna}"))
+        # A frente precisa existir: as medidas recortam por
+        # CONTAINSSTRING(Frente, "Serviços" / "VCG").
+        c.execute(sa.text("INSERT INTO dim_frente (nome, chave) VALUES ('Serviços','SERVICOS')"))
+        frente_id = c.execute(sa.text("SELECT id FROM dim_frente WHERE chave='SERVICOS'")).scalar()
         for i in range(3):
             c.execute(sa.text(
                 "INSERT INTO fato_implantacao"
-                " (chave_unica, data, ano_mes, tipo, quantidade, faturado, importado_em)"
-                " VALUES (:k, :d, :am, 'SERVICOS', 1.0, 0, :ts)"
-            ), {"k": f"antiga{i}", "d": date.today(),
-                "am": agora.strftime("%Y-%m"), "ts": agora})
+                " (chave_unica, data, ano_mes, tipo, frente_id, matricula,"
+                "  quantidade, faturado, importado_em)"
+                " VALUES (:k, :d, :am, 'SERVICOS', :f, :m, 1.0, 0, :ts)"
+            ), {"k": f"antiga{i}", "d": date.today(), "f": frente_id,
+                "m": f"M{i}", "am": agora.strftime("%Y-%m"), "ts": agora})
     return agora
 
 
