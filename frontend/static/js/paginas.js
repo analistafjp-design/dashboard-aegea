@@ -102,6 +102,76 @@
       </table>`;
   }
 
+  /** Prazo em horas vira um texto que o gestor lê sem converter nada. */
+  function prazoTexto(horas) {
+    if (horas === null || horas === undefined) return "—";
+    const atrasado = horas < 0;
+    const total = Math.abs(horas);
+    const dias = Math.floor(total / 24);
+    const resto = Math.round(total % 24);
+    const medida = dias >= 1 ? `${dias}d ${resto}h` : `${Math.round(total)}h`;
+    return atrasado ? `${medida} em atraso` : `faltam ${medida}`;
+  }
+
+  function dataHoraTexto(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return "—";
+    const dois = (n) => String(n).padStart(2, "0");
+    return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()} ${dois(d.getHours())}:${dois(d.getMinutes())}`;
+  }
+
+  /** Painel de SLA da implantação: vencidas, a vencer e onde estão. */
+  function painelSla(sla) {
+    sla = sla || {};
+    const vencidas = sla.vencidas || 0;
+    const aVencer = sla.a_vencer || 0;
+
+    const descricao = document.getElementById("implantacao-sla-descricao");
+    if (descricao) {
+      descricao.textContent = vencidas || aVencer
+        ? `Vencida = prazo já passou. A vencer = falta até ${sla.janela_horas || 48}h `
+          + "para o prazo ou 80% do tempo já consumido."
+        : "Nenhuma ordem em aberto passou do prazo nem está perto de passar.";
+    }
+
+    const resumo = document.getElementById("implantacao-sla-resumo");
+    if (resumo) {
+      resumo.innerHTML = [
+        App.miniInfo("Vencidas", App.numero(vencidas),
+          vencidas ? `em ${App.numero(sla.cidades)} cidade(s)` : "nenhuma"),
+        App.miniInfo("A vencer", App.numero(aVencer),
+          aVencer ? `janela de ${sla.janela_horas || 48}h` : "nenhuma"),
+        App.miniInfo("Em aberto", App.numero(sla.total),
+          sla.cidade_mais_critica ? `pior cidade: ${sla.cidade_mais_critica}` : ""),
+      ].join("");
+    }
+
+    App.tabela("#implantacao-sla-cidades", [
+      { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+      { chave: "vencidas", titulo: "Vencidas", tipo: "numero" },
+      { chave: "proximas", titulo: "A vencer", tipo: "numero" },
+      { chave: "total", titulo: "Total", tipo: "numero" },
+    ], sla.por_cidade, { vazio: "Nenhuma cidade com ordem vencida ou a vencer." });
+
+    const detalhes = (sla.detalhes || []).slice(0, 20).map((linha) => ({
+      situacao: linha.situacao === "VENCIDO" ? "Vencida" : "A vencer",
+      matricula: linha.matricula,
+      cidade: linha.cidade,
+      equipe: linha.equipe,
+      prazo: dataHoraTexto(linha.fim_sla),
+      restante: prazoTexto(linha.tempo_restante_horas),
+    }));
+    App.tabela("#implantacao-sla-detalhes", [
+      { chave: "situacao", titulo: "Situação" },
+      { chave: "matricula", titulo: "Matrícula" },
+      { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+      { chave: "equipe", titulo: "Equipe", clique: "equipe" },
+      { chave: "prazo", titulo: "Fim da SLA" },
+      { chave: "restante", titulo: "Prazo" },
+    ], detalhes, { vazio: "Nenhuma ordem vencida ou a vencer." });
+  }
+
   /* ------------------------------------------------------------------ HOME */
   App.registrar("home", async function () {
     try {
@@ -308,6 +378,7 @@
       matrizMeta("#implantacao-matriz", dados.blocos_meta);
       document.getElementById("implantacao-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
       App.renderKpis("#implantacao-cards", dados.indicadores);
+      painelSla(dados.sla);
 
       document.getElementById("implantacao-faturamento").innerHTML = [
         App.miniInfo("Quantidade faturada", App.numero(f.quantidade_faturada)),

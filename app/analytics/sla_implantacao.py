@@ -1,11 +1,11 @@
 """Análise de SLA para implantações com acompanhamento de atrasos e prazos."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 
-from app.analytics import consultas, nucleo
+from app.analytics import consultas
 from app.analytics.base import Filtros
 from app.analytics.periodo import Periodo, resolver
 from app.utils.log import get_logger
@@ -14,6 +14,18 @@ logger = get_logger("sla_implantacao")
 
 # Status que não devem ser acompanhados em SLA
 STATUS_IGNORADOS = {"FINALIZADA", "ENCERRADA COM OCORRENCIA", "CANCELADA", "CANCELADO"}
+
+# Uma ordem entra em "a vencer" quando falta esta janela para o prazo ou
+# quando já consumiu esta fração do intervalo contratado.
+JANELA_HORAS = 48
+LIMITE_CONSUMIDO = 0.8
+
+VAZIO = {
+    "vencidas": 0, "a_vencer": 0, "total": 0,
+    "cidades": 0, "equipes": 0, "janela_horas": JANELA_HORAS,
+    "cidade_mais_critica": None,
+    "por_cidade": [], "detalhes": [],
+}
 
 
 def _eh_aberta(status: str) -> bool:
@@ -44,189 +56,122 @@ def _data_referencia(periodo: Periodo) -> datetime:
     return ultimo_dia.replace(hour=23, minute=59, second=59)
 
 
-def _classificar_sla(inicio: datetime | None, fim: datetime | None,
-                     referencia: datetime) -> str | None:
-    """Classifica o status do SLA: VENCIDO, PROXIMO ou NORMAL."""
-    if pd.isna(inicio) or pd.isna(fim):
-        return None
+def _derivar(dados: pd.DataFrame, referencia: datetime) -> pd.DataFrame:
+    """Colunas de SLA para a base inteira, de uma vez.
 
-    if not isinstance(inicio, datetime):
-        return None
-    if not isinstance(fim, datetime):
-        return None
+    Uma ordem só entra na análise quando tem os dois marcos de prazo. Sem
+    `inicio_sla` ou sem `fim_sla` não há intervalo para medir, e chutar um
+    deles inventaria atraso onde a planilha não afirma nada.
+    """
+    saida = pd.DataFrame(index=dados.index)
+    ref = pd.Timestamp(referencia)
 
-    # Vencida: fim < referencia
-    if fim < referencia:
-        return "VENCIDO"
+    inicio = pd.to_datetime(dados.get("inicio_sla"), errors="coerce")
+    fim = pd.to_datetime(dados.get("fim_sla"), errors="coerce")
+    tem_prazo = inicio.notna() & fim.notna()
 
-    # A vencer: dentro de 48h OU consumiu 80% do intervalo
-    tempo_restante = fim - referencia
-    intervalo_total = fim - inicio
+    intervalo = (fim - inicio).dt.total_seconds()
+    restante = (fim - ref).dt.total_seconds()
+    consumido = ((ref - inicio).dt.total_seconds() / intervalo).where(intervalo > 0)
 
-    # Condição 1: faltam no máximo 48 horas
-    if tempo_restante <= timedelta(hours=48):
-        return "PROXIMO"
+    vencido = tem_prazo & (fim < ref)
+    proximo = tem_prazo & ~vencido & (
+        (restante <= JANELA_HORAS * 3600) | (consumido >= LIMITE_CONSUMIDO)
+    )
 
-    # Condição 2: pelo menos 80% consumido
-    if intervalo_total.total_seconds() > 0:
-        consumido = (referencia - inicio).total_seconds() / intervalo_total.total_seconds()
-        if consumido >= 0.8:
-            return "PROXIMO"
+    saida["sla_status"] = None
+    saida.loc[tem_prazo, "sla_status"] = "NORMAL"
+    saida.loc[proximo, "sla_status"] = "PROXIMO"
+    saida.loc[vencido, "sla_status"] = "VENCIDO"
 
-    return "NORMAL"
-
-
-def _calcular_percentual_consumido(inicio: datetime | None, fim: datetime | None,
-                                    referencia: datetime) -> float | None:
-    """Calcula o percentual do intervalo SLA já consumido."""
-    if pd.isna(inicio) or pd.isna(fim):
-        return None
-
-    if not isinstance(inicio, datetime) or not isinstance(fim, datetime):
-        return None
-
-    intervalo_total = (fim - inicio).total_seconds()
-    if intervalo_total <= 0:
-        return None
-
-    consumido = (referencia - inicio).total_seconds()
-    percentual = (consumido / intervalo_total) * 100
-    return max(0, min(100, percentual))  # Clamp entre 0 e 100
+    saida["inicio_sla"] = inicio
+    saida["fim_sla"] = fim
+    saida["horas_restantes"] = (restante / 3600).where(tem_prazo)
+    saida["percentual_consumido"] = (consumido * 100).clip(0, 100).where(tem_prazo)
+    return saida
 
 
-def _calcular_tempo_restante(inicio: datetime | None, fim: datetime | None,
-                               referencia: datetime) -> timedelta | None:
-    """Retorna o tempo restante (negativo se vencido)."""
-    if pd.isna(inicio) or pd.isna(fim):
-        return None
+def _iso(valor: object) -> str | None:
+    """Data em texto ISO — NaT vira None em vez de quebrar o JSON."""
+    return None if pd.isna(valor) else pd.Timestamp(valor).isoformat()
 
-    if not isinstance(fim, datetime):
-        return None
 
-    return fim - referencia
+def _numero(valor: object) -> float | None:
+    return None if pd.isna(valor) else float(valor)
 
 
 def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
-    """Calcula SLA para implantações abertas."""
+    """Situação de SLA das implantações ainda em aberto.
+
+    O prazo não respeita a virada do mês: uma ordem aberta em julho continua
+    vencendo em agosto. Por isso o recorte de ano/mês do painel é ignorado
+    aqui — só as dimensões (cidade, frente, equipe) filtram.
+    """
     periodo = periodo or resolver(filtros)
     referencia = _data_referencia(periodo)
 
-    # Buscar todas as implantações (incluindo as não finalizadas)
-    todos_dados = consultas.dados("implantacao",
-                                   Filtros(**{**filtros.__dict__, "ano": None, "mes": None}))
+    dados = consultas.dados("implantacao",
+                            Filtros(**{**filtros.__dict__, "ano": None, "mes": None}))
+    if dados.empty or "fim_sla" not in dados.columns:
+        return dict(VAZIO)
 
-    # Filtrar apenas as abertas (de qualquer período, não apenas o selecionado)
-    if todos_dados.empty:
-        return {
-            "vencidas": 0, "a_vencer": 0, "total": 0,
-            "cidades": 0, "equipes": 0, "janela_horas": 48,
-            "cidade_mais_critica": None,
-            "por_cidade": [], "detalhes": [],
-        }
+    dados = dados.join(_derivar(dados, referencia), rsuffix="_sla_calc")
+    abertos = (dados[dados["status_atividade"].map(_eh_aberta)]
+               if "status_atividade" in dados.columns else dados)
 
-    # Adicionar colunas de SLA
-    todos_dados["eh_aberta"] = todos_dados["status_atividade"].apply(_eh_aberta)
-    todos_dados["sla_status"] = todos_dados.apply(
-        lambda r: _classificar_sla(r.get("inicio_sla"), r.get("fim_sla"), referencia),
-        axis=1
-    )
-    todos_dados["percentual_consumido"] = todos_dados.apply(
-        lambda r: _calcular_percentual_consumido(r.get("inicio_sla"), r.get("fim_sla"), referencia),
-        axis=1
-    )
-    todos_dados["tempo_restante"] = todos_dados.apply(
-        lambda r: _calcular_tempo_restante(r.get("inicio_sla"), r.get("fim_sla"), referencia),
-        axis=1
-    )
-
-    # Apenas as abertas
-    abertos = todos_dados[todos_dados["eh_aberta"]].copy()
-
-    if abertos.empty:
-        return {
-            "vencidas": 0, "a_vencer": 0, "total": 0,
-            "cidades": 0, "equipes": 0, "janela_horas": 48,
-            "cidade_mais_critica": None,
-            "por_cidade": [], "detalhes": [],
-        }
-
-    # Separar por status
     vencidas = abertos[abertos["sla_status"] == "VENCIDO"]
     proximas = abertos[abertos["sla_status"] == "PROXIMO"]
+    criticas = pd.concat([vencidas, proximas]) if len(vencidas) or len(proximas) else vencidas
+    if criticas.empty:
+        return dict(VAZIO) | {"total": len(abertos)}
 
-    qtd_vencidas = len(vencidas)
-    qtd_proximas = len(proximas)
-    qtd_total = len(abertos)
-    cidades_afetadas = set()
-    equipes_afetadas = set()
-
-    for status_grupo in [vencidas, proximas]:
-        for _, row in status_grupo.iterrows():
-            if pd.notna(row.get("cidade")):
-                cidades_afetadas.add(row["cidade"])
-            if pd.notna(row.get("equipe")):
-                equipes_afetadas.add(row["equipe"])
-
-    # Ranking por cidade
+    # O ranking mostra só quem tem algo a tratar: uma cidade com 40 ordens
+    # todas dentro do prazo não é notícia num painel de atraso.
     por_cidade = []
-    if not abertos.empty and "cidade" in abertos.columns:
-        ranking = abertos.groupby("cidade").agg({
-            "sla_status": lambda x: (
-                (x == "VENCIDO").sum(),
-                (x == "PROXIMO").sum(),
-                len(x)
+    if "cidade" in criticas.columns:
+        ranking = (
+            criticas.assign(
+                _vencida=(criticas["sla_status"] == "VENCIDO").astype(int),
+                _proxima=(criticas["sla_status"] == "PROXIMO").astype(int),
             )
-        }).reset_index()
-        ranking.columns = ["cidade", "stats"]
-        ranking[["vencidas", "proximas", "total"]] = pd.DataFrame(
-            ranking["stats"].tolist(), index=ranking.index
+            .groupby("cidade", as_index=False)
+            .agg(vencidas=("_vencida", "sum"), proximas=("_proxima", "sum"))
         )
-        ranking = ranking[["cidade", "vencidas", "proximas", "total"]].copy()
-        ranking = ranking.sort_values("vencidas", ascending=False).head(10)
+        ranking["total"] = ranking["vencidas"] + ranking["proximas"]
+        ranking = ranking.sort_values(
+            ["vencidas", "proximas", "cidade"], ascending=[False, False, True]
+        ).head(10)
         por_cidade = ranking.to_dict("records")
 
-    # Determinar cidade mais crítica
-    cidade_mais_critica = None
-    if por_cidade:
-        cidade_mais_critica = por_cidade[0]["cidade"]
-
-    # Detalhes: ordenar vencidas primeiro, depois próximas
     detalhes = []
-    for df_grupo in [vencidas, proximas]:
-        if df_grupo.empty:
+    for grupo in (vencidas, proximas):
+        if grupo.empty:
             continue
-
-        df_sorted = df_grupo.sort_values(
-            "tempo_restante",
-            ascending=True,  # Menores primeiros (mais urgentes)
-            na_position="last"
-        ).head(50)  # Máximo 50 por grupo
-
-        for _, row in df_sorted.iterrows():
+        # Mais urgente primeiro: o mais atrasado no topo das vencidas, o de
+        # prazo mais curto no topo das próximas.
+        ordenado = grupo.sort_values("horas_restantes", na_position="last").head(50)
+        for _, linha in ordenado.iterrows():
             detalhes.append({
-                "situacao": row.get("sla_status", "NORMAL"),
-                "matricula": row.get("matricula"),
-                "cidade": row.get("cidade"),
-                "frente": row.get("frente"),
-                "equipe": row.get("equipe"),
-                "status_atividade": row.get("status_atividade"),
-                "inicio_sla": row.get("inicio_sla"),
-                "fim_sla": row.get("fim_sla"),
-                "tempo_restante_horas": (
-                    row.get("tempo_restante").total_seconds() / 3600
-                    if pd.notna(row.get("tempo_restante")) else None
-                ),
-                "percentual_consumido": row.get("percentual_consumido"),
+                "situacao": linha["sla_status"],
+                "matricula": linha.get("matricula"),
+                "cidade": linha.get("cidade"),
+                "frente": linha.get("frente"),
+                "equipe": linha.get("equipe"),
+                "status_atividade": linha.get("status_atividade"),
+                "inicio_sla": _iso(linha.get("inicio_sla")),
+                "fim_sla": _iso(linha.get("fim_sla")),
+                "tempo_restante_horas": _numero(linha.get("horas_restantes")),
+                "percentual_consumido": _numero(linha.get("percentual_consumido")),
             })
 
     return {
-        "vencidas": qtd_vencidas,
-        "a_vencer": qtd_proximas,
-        "total": qtd_total,
-        "cidades": len(cidades_afetadas),
-        "equipes": len(equipes_afetadas),
-        "janela_horas": 48,
-        "cidade_mais_critica": cidade_mais_critica,
+        "vencidas": len(vencidas),
+        "a_vencer": len(proximas),
+        "total": len(abertos),
+        "cidades": int(criticas["cidade"].nunique()) if "cidade" in criticas.columns else 0,
+        "equipes": int(criticas["equipe"].nunique()) if "equipe" in criticas.columns else 0,
+        "janela_horas": JANELA_HORAS,
+        "cidade_mais_critica": por_cidade[0]["cidade"] if por_cidade else None,
         "por_cidade": por_cidade,
         "detalhes": detalhes,
     }
