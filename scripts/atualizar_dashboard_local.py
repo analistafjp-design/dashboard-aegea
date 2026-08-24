@@ -8,6 +8,7 @@ para o Render ou para outro servidor.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import re
 import sys
@@ -38,7 +39,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 2,
-    "implantacao": 8,
+    "implantacao": 9,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
@@ -117,6 +118,43 @@ def selecionar_fontes_implantacao(
     entrarem como implantação. Cópias como ``arquivo (1).xlsx`` também não
     podem ser somadas: são fotografias sucessivas da mesma base.
     """
+    # A pasta operacional contém fotografias diárias completas com nomes como
+    # Atividades-INTERIOR_24_08_26.xlsx. Implantação deve ser reconstruída
+    # somente a partir da fotografia de data mais recente, não da soma de todas.
+    fotografias: list[tuple[date, Path]] = []
+    for caminho, tipos in arquivos.items():
+        if "implantacao" not in tipos:
+            continue
+        nome = _nome_comparacao(caminho)
+        if "atividades" not in nome or "interior" not in nome:
+            continue
+        achados = re.findall(r"(\d{2})[_-](\d{2})[_-](\d{2,4})", nome)
+        if not achados:
+            continue
+        dia, mes, ano = achados[-1]
+        ano_int = int(ano)
+        if ano_int < 100:
+            ano_int += 2000
+        try:
+            fotografias.append((date(ano_int, int(mes), int(dia)), caminho))
+        except ValueError:
+            continue
+
+    if fotografias:
+        maior_data = max(item[0] for item in fotografias)
+        da_data = [
+            caminho for data_arquivo, caminho in fotografias
+            if data_arquivo == maior_data
+        ]
+        atual = max(
+            da_data,
+            key=lambda item: (item.stat().st_mtime_ns, item.name.casefold()),
+        )
+        for caminho, tipos in arquivos.items():
+            if "implantacao" in tipos and caminho != atual:
+                tipos.discard("implantacao")
+        return {caminho: tipos for caminho, tipos in arquivos.items() if tipos}
+
     candidatos: dict[str, list[Path]] = {}
     for caminho, tipos in arquivos.items():
         if "implantacao" not in tipos:
