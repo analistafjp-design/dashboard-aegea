@@ -1,10 +1,12 @@
 """Regras de negócio dos indicadores: meta, atingimento, projeção e 'sem dados'."""
 from datetime import date
 
+import pandas as pd
 import pytest
 
 from app.analytics import metas as mod_metas
 from app.analytics import painel
+from app.analytics.implantacao import _realizadas_unicas
 from app.analytics.base import (
     AZUL,
     CINZA,
@@ -57,6 +59,50 @@ def test_media_diaria_protege_divisao_por_zero():
     assert media_diaria(100, 0) is None
     assert media_diaria(None, 10) is None
     assert media_diaria(100, 20) == 5.0
+
+
+def test_implantacao_distinta_por_matricula_no_mes():
+    """140 linhas da validação devem equivaler a 138 implantações."""
+    linhas = [
+        {
+            "ano_mes": "2026-08", "data": date(2026, 8, 1),
+            "matricula": f"M-{indice:03d}", "tipo": "VCG",
+            "quantidade": 1.0, "conta_realizado": True,
+        }
+        for indice in range(138)
+    ]
+    # As duas repetições reproduzem o caso real: uma matrícula reaparece
+    # depois e outra pode vir de um protocolo diferente.
+    linhas.extend([
+        {**linhas[0], "data": date(2026, 8, 10)},
+        {**linhas[1], "data": date(2026, 8, 13)},
+    ])
+
+    resultado = _realizadas_unicas(pd.DataFrame(linhas))
+
+    assert len(linhas) == 140
+    assert len(resultado) == 138
+    assert total(resultado) == 138.0
+
+
+def test_implantacao_distinta_preserva_meses_e_registros_sem_matricula():
+    base = pd.DataFrame([
+        {"ano_mes": "2026-07", "data": date(2026, 7, 10), "matricula": "100",
+         "tipo": "SERVICOS", "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 10), "matricula": "100",
+         "tipo": "SERVICOS", "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 10), "matricula": "100",
+         "tipo": "VCG", "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 11), "matricula": None,
+         "tipo": "SERVICOS", "quantidade": 2.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 12), "matricula": "200",
+         "tipo": "VCG", "quantidade": 1.0, "conta_realizado": False},
+    ])
+
+    resultado = _realizadas_unicas(base)
+
+    assert len(resultado) == 4
+    assert total(resultado) == 5.0
 
 
 def test_bloco_meta_sem_meta_cadastrada_nao_inventa_numero():
