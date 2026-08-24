@@ -84,7 +84,7 @@ def test_implantacao_distinta_por_matricula_no_mes():
     assert total(resultado) == 3.0
 
 
-def test_implantacao_distinta_preserva_meses_e_registros_sem_matricula():
+def test_implantacao_distinta_preserva_meses_e_descarta_sem_matricula():
     base = pd.DataFrame([
         {"ano_mes": "2026-07", "data": date(2026, 7, 10), "matricula": "100",
          "tipo": "SERVICOS", "quantidade": 1.0, "conta_realizado": True},
@@ -100,11 +100,11 @@ def test_implantacao_distinta_preserva_meses_e_registros_sem_matricula():
 
     resultado = _realizadas_unicas(base)
 
-    assert len(resultado) == 4
-    assert total(resultado) == 5.0
+    assert len(resultado) == 3
+    assert total(resultado) == 3.0
 
 
-def test_implantacao_servicos_mantem_soma_e_vcg_distingue_matricula():
+def test_implantacao_distingue_matricula_em_servicos_e_vcg():
     base = pd.DataFrame([
         {"ano_mes": "2026-08", "data": date(2026, 8, 1), "matricula": "1",
          "tipo": "SERVICOS", "equipe": "EQUIPE-001", "servico": "LIGACAO",
@@ -122,9 +122,20 @@ def test_implantacao_servicos_mantem_soma_e_vcg_distingue_matricula():
 
     resultado = _realizadas_unicas(base)
 
-    assert total(resultado[resultado["tipo"] == "SERVICOS"]) == 2.0
+    assert total(resultado[resultado["tipo"] == "SERVICOS"]) == 1.0
     assert total(resultado[resultado["tipo"] == "VCG"]) == 1.0
-    assert total(resultado) == 3.0
+    assert total(resultado) == 2.0
+
+
+def test_implantacao_normaliza_matricula_numerica_do_excel():
+    base = pd.DataFrame([
+        {"ano_mes": "2026-08", "matricula": "123", "tipo": "VCG",
+         "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "matricula": "123.0", "tipo": "VCG",
+         "quantidade": 1.0, "conta_realizado": True},
+    ])
+
+    assert total(_realizadas_unicas(base)) == 1.0
 
 
 def test_bloco_meta_sem_meta_cadastrada_nao_inventa_numero():
