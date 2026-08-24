@@ -1,16 +1,18 @@
 DASHBOARD EXECUTIVO - INTERIOR
 
 COMO USAR
-1. Extraia todos os arquivos do ZIP para uma pasta.
-2. Clique duas vezes em ABRIR_DASHBOARD.cmd.
+1. Extraia o ZIP para uma pasta (nao abra de dentro do ZIP).
+2. Clique duas vezes em dashboard.html, ou em ABRIR_DASHBOARD.cmd.
 3. No painel, clique em "Escolher pasta" e selecione:
    C:\Users\<voce>\OneDrive - AEGEA...\DashBoard - Interior
    Pode escolher a pasta raiz: as subpastas sao lidas junto.
 
-O painel funciona sem internet e nao envia as planilhas para servidor
-nenhum. Tudo e calculado no proprio navegador.
+O dashboard.html e um arquivo unico e se basta: o leitor de planilhas e as
+regras de calculo vao dentro dele. Nao precisa de nenhum arquivo ao lado,
+nao precisa de internet e nenhuma planilha sai do seu computador.
 
-Mantenha dashboard.html, regras.js e xlsx.full.min.js na mesma pasta.
+Se o painel avisar que esta incompleto, o arquivo foi cortado no caminho
+(copiado pela metade, ou aberto de dentro do ZIP). Extraia o ZIP de novo.
 
 O QUE O PAINEL MOSTRA
 - Venda, implantacao e faturamento
@@ -47,3 +49,8 @@ PARA CONFERIR SEM ABRIR O NAVEGADOR (opcional, precisa do Node.js)
    node testar.js
 O primeiro aplica as mesmas regras e imprime os numeros por mes; o
 segundo roda as verificacoes das regras.
+
+PARA QUEM FOR ALTERAR AS REGRAS
+As regras moram em regras.js e a tela em dashboard.fonte.html. Depois de
+mexer em qualquer um dos dois, rode "node gerar.js" para remontar o
+dashboard.html entregue. O testar.js avisa se voce esquecer.

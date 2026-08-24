@@ -8,9 +8,17 @@
 (function (raiz) {
   "use strict";
 
-  /** Texto comparável: sem acento, sem espaço sobrando, em maiúsculas. */
+  /**
+   * Texto comparável: sem acento, sem espaço sobrando, em maiúsculas.
+   *
+   * A faixa dos acentos vai escrita com escapes (u0300 a u036f), nunca com
+   * os sinais em si: lida em outra codificação que não UTF-8, a faixa fica
+   * invertida e o arquivo inteiro deixa de carregar — foi o que derrubou o
+   * painel. Todo o código aqui é ASCII pelo mesmo motivo, e testar.js
+   * confere isso; só comentário leva acento.
+   */
   const N = (v) => String(v ?? "")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 
   /** Cabeçalho comparável: só letras e números, para casar variações. */
   const H = (v) => N(v).replace(/[^A-Z0-9]/g, "");
@@ -132,7 +140,7 @@
   function normalizar(linha, origem) {
     const d = data(celula(linha, [
       "Data", "Data da Atividade", "Data Atividade", "Dt Atividade",
-      "Data Finalização", "Data de Finalização", "Data Execução", "Data da Execução",
+      "Data Finalizacao", "Data de Finalizacao", "Data Execucao", "Data da Execucao",
     ]));
     if (!d) return null;
     const recurso = N(celula(linha, ["Recurso", "Equipe"]));
@@ -140,20 +148,20 @@
       data: d,
       mes: mesDe(d),
       ano: String(d.getUTCFullYear()),
-      matricula: identidade(celula(linha, ["Matrícula", "Matricula"])),
+      matricula: identidade(celula(linha, ["Matricula"])),
       id: identidade(celula(linha, ["ID da Atividade", "Id Atividade", "ID"])),
       protocolo: identidade(celula(linha, [
-        "Cód. Protocolo Origem", "Codigo Protocolo Origem", "Protocolo Origem",
+        "Cod. Protocolo Origem", "Codigo Protocolo Origem", "Protocolo Origem",
         "P.O", "PO", "NUMERO_OS", "Numero OS",
       ])),
       status: N(celula(linha, ["Status da Atividade", "Status"])),
-      atividade: N(celula(linha, ["Tipo de Atividade", "Atividade", "Serviço"])),
-      codigo: N(celula(linha, ["Código/Descrição", "Codigo/Descricao"])),
-      extras: N(celula(linha, ["Serviço adicionais resposta", "Servico adicionais resposta"]))
-        + " " + N(celula(linha, ["Serviço posteriores resposta", "Servico posteriores resposta"])),
+      atividade: N(celula(linha, ["Tipo de Atividade", "Atividade", "Servico"])),
+      codigo: N(celula(linha, ["Codigo/Descricao"])),
+      extras: N(celula(linha, ["Servico adicionais resposta"]))
+        + " " + N(celula(linha, ["Servico posteriores resposta"])),
       recurso,
       frente: ehVcg(recurso) ? "VCG" : "SERVICOS",
-      cidade: N(celula(linha, ["Cidade", "Município", "Municipio"])),
+      cidade: N(celula(linha, ["Cidade", "Municipio"])),
       arquivo: origem.nome,
       caminho: origem.caminho,
     };

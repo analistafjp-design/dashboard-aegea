@@ -6,6 +6,7 @@
 "use strict";
 
 const assert = require("assert");
+const fs = require("fs");
 const path = require("path");
 const Regras = require(path.join(__dirname, "regras.js")).Regras;
 
@@ -210,6 +211,40 @@ caso("conta do dia 1 até o último dia com movimento", () => {
   // Agosto de 2026 começa num sábado; até o dia 10 há 6 dias úteis.
   const dias = Regras.diasUteis([linha({ data: new Date(Date.UTC(2026, 7, 10)) })]);
   assert.strictEqual(dias, 6);
+});
+
+console.log("\nARQUIVO ENTREGUE");
+caso("regras.js não tem caractere fora do ASCII no código", () => {
+  // Um acento dentro de uma regex ou de um texto do código quebra o painel
+  // quando o navegador lê o arquivo em outra codificação: foi assim que a
+  // faixa de acentos derrubou o dashboard inteiro.
+  const fonte = fs.readFileSync(path.join(__dirname, "regras.js"), "utf8");
+  let bloco = false;
+  const sujas = [];
+  fonte.split("\n").forEach((linhaFonte, i) => {
+    let codigo = linhaFonte;
+    if (bloco) {
+      const fim = codigo.indexOf("*/");
+      if (fim < 0) return;
+      codigo = codigo.slice(fim + 2);
+      bloco = false;
+    }
+    codigo = codigo.replace(/\/\*[\s\S]*?\*\//g, "");
+    const abre = codigo.indexOf("/*");
+    if (abre >= 0) { codigo = codigo.slice(0, abre); bloco = true; }
+    codigo = codigo.replace(/\/\/.*$/, "");
+    if ([...codigo].some((c) => c.codePointAt(0) > 126)) sujas.push(i + 1);
+  });
+  assert.deepStrictEqual(sujas, [], "linha(s) com acento no código: " + sujas);
+});
+
+caso("dashboard.html está em dia com regras.js e xlsx.full.min.js", () => {
+  // O painel entregue é um arquivo só, com as bibliotecas embutidas. Se
+  // alguém mexer em regras.js e esquecer de rodar gerar.js, o usuário abre
+  // um dashboard com a regra antiga sem perceber.
+  const entregue = fs.readFileSync(require("./gerar.js").SAIDA, "utf8");
+  assert.strictEqual(entregue, require("./gerar.js").montar(),
+    "rode: node offline/gerar.js");
 });
 
 console.log(`\n${passou} verificação(ões) passaram.`);
