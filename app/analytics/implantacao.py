@@ -59,15 +59,20 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
 
     # Calcular médias diárias separadas por frente
     # Usa DISTINCTCOUNT de datas onde houve implantação (como DAX)
-    do_mes_finalizado = do_mes[do_mes.get("conta_realizado", True) == True] if not do_mes.empty else do_mes  # noqa: E712
+    if not do_mes.empty and "conta_realizado" in do_mes.columns:
+        do_mes_finalizado = do_mes[do_mes["conta_realizado"] == True]  # noqa: E712
+    else:
+        do_mes_finalizado = do_mes
 
     servicos_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_SERVICOS))
     vcg_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_VCG))
 
-    dias_servicos = (float(_tipo(do_mes_finalizado, TIPO_SERVICOS)["data"].nunique())
-                     if not do_mes_finalizado.empty else 0)
-    dias_vcg = (float(_tipo(do_mes_finalizado, TIPO_VCG)["data"].nunique())
-                if not do_mes_finalizado.empty else 0)
+    if not do_mes_finalizado.empty:
+        dias_servicos = float(_tipo(do_mes_finalizado, TIPO_SERVICOS)["data"].nunique())
+        dias_vcg = float(_tipo(do_mes_finalizado, TIPO_VCG)["data"].nunique())
+    else:
+        dias_servicos = 0
+        dias_vcg = 0
 
     media_servicos_dia = (servicos_finalizado / dias_servicos if dias_servicos > 0 else None)
     media_vcg_dia = (vcg_finalizado / dias_vcg if dias_vcg > 0 else None)
