@@ -62,17 +62,16 @@ def test_media_diaria_protege_divisao_por_zero():
 
 
 def test_implantacao_distinta_por_matricula_no_mes():
-    """140 linhas da validação devem equivaler a 138 implantações."""
+    """Linhas repetidas devem equivaler a uma implantação por matrícula."""
     linhas = [
         {
             "ano_mes": "2026-08", "data": date(2026, 8, 1),
             "matricula": f"M-{indice:03d}", "tipo": "VCG",
             "quantidade": 1.0, "conta_realizado": True,
         }
-        for indice in range(138)
+        for indice in range(3)
     ]
-    # As duas repetições reproduzem o caso real: uma matrícula reaparece
-    # depois e outra pode vir de um protocolo diferente.
+    # Duas matrículas reaparecem em registros operacionais posteriores.
     linhas.extend([
         {**linhas[0], "data": date(2026, 8, 10)},
         {**linhas[1], "data": date(2026, 8, 13)},
@@ -80,9 +79,9 @@ def test_implantacao_distinta_por_matricula_no_mes():
 
     resultado = _realizadas_unicas(pd.DataFrame(linhas))
 
-    assert len(linhas) == 140
-    assert len(resultado) == 138
-    assert total(resultado) == 138.0
+    assert len(linhas) == 5
+    assert len(resultado) == 3
+    assert total(resultado) == 3.0
 
 
 def test_implantacao_distinta_preserva_meses_e_registros_sem_matricula():
