@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
+import unicodedata
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,7 +38,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 2,
-    "implantacao": 6,
+    "implantacao": 7,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
@@ -98,6 +100,48 @@ def encontrar_arquivos(entradas: list[PastaMonitorada]) -> dict[Path, set[str]]:
             resolvido = arquivo.resolve()
             encontrados.setdefault(resolvido, set()).update(entrada.tipos)
     return encontrados
+
+
+def _nome_comparacao(caminho: Path) -> str:
+    texto = unicodedata.normalize("NFKD", caminho.stem.casefold())
+    return "".join(c for c in texto if not unicodedata.combining(c))
+
+
+def selecionar_fontes_implantacao(
+    arquivos: dict[Path, set[str]],
+) -> dict[Path, set[str]]:
+    """Usa somente os relatórios próprios e atuais de implantação.
+
+    Exportações do Field Service compartilham as mesmas centenas de colunas.
+    Por isso, detectar apenas pelo cabeçalho fazia relatórios de outras rotinas
+    entrarem como implantação. Cópias como ``arquivo (1).xlsx`` também não
+    podem ser somadas: são fotografias sucessivas da mesma base.
+    """
+    candidatos: dict[str, list[Path]] = {}
+    for caminho, tipos in arquivos.items():
+        if "implantacao" not in tipos:
+            continue
+        nome = _nome_comparacao(caminho)
+        if "implantacao" not in nome:
+            tipos.discard("implantacao")
+            continue
+        if "servicos" in nome:
+            familia = "servicos"
+        elif "vcg" in nome or "validacao" in nome:
+            familia = "vcg"
+        else:
+            familia = re.sub(r"\s*\(\d+\)$", "", nome).strip()
+        candidatos.setdefault(familia, []).append(caminho)
+
+    for caminhos in candidatos.values():
+        atual = max(
+            caminhos,
+            key=lambda item: (item.stat().st_mtime_ns, item.name.casefold()),
+        )
+        for caminho in caminhos:
+            if caminho != atual:
+                arquivos[caminho].discard("implantacao")
+    return {caminho: tipos for caminho, tipos in arquivos.items() if tipos}
 
 
 def assinatura(caminho: Path) -> dict[str, int]:
@@ -204,7 +248,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         print("ERRO   Nenhuma pasta foi configurada.")
         return 1
 
-    arquivos = encontrar_arquivos(entradas)
+    arquivos = selecionar_fontes_implantacao(encontrar_arquivos(entradas))
     if not arquivos:
         print("ERRO   Nenhuma planilha foi encontrada nas pastas configuradas.")
         return 1
@@ -214,7 +258,10 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
     # removidos ou renomeados deixavam linhas orfas no SQLite e inflavam o
     # DISTINCTCOUNT mesmo quando a planilha atual estava correta.
     reconstrucoes = manifesto.setdefault("reconstrucoes_em_andamento", {})
-    reconstruindo_implantacao = int(reconstrucoes.get("implantacao", 0)) == 6
+    versao_implantacao = VERSOES_REGRAS["implantacao"]
+    reconstruindo_implantacao = (
+        int(reconstrucoes.get("implantacao", 0)) == versao_implantacao
+    )
     if not reconstruindo_implantacao:
         reconstruindo_implantacao = any(
             "implantacao" in permitidos
@@ -225,7 +272,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
             for caminho, permitidos in arquivos.items()
         )
         if reconstruindo_implantacao:
-            reconstrucoes["implantacao"] = 6
+            reconstrucoes["implantacao"] = versao_implantacao
             salvar_manifesto(manifesto_arquivo, manifesto)
 
     pendentes = {
