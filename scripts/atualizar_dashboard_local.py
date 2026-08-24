@@ -38,7 +38,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 2,
-    "implantacao": 7,
+    "implantacao": 8,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
@@ -254,7 +254,7 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         return 1
 
     manifesto = carregar_manifesto(manifesto_arquivo)
-    # A versao 6 exige reconstruir a tabela inteira uma vez. Antes, arquivos
+    # Uma nova versão de Implantação reconstrói a tabela inteira uma vez. Antes, arquivos
     # removidos ou renomeados deixavam linhas orfas no SQLite e inflavam o
     # DISTINCTCOUNT mesmo quando a planilha atual estava correta.
     reconstrucoes = manifesto.setdefault("reconstrucoes_em_andamento", {})
