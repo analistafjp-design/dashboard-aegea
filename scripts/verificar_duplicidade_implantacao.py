@@ -39,6 +39,8 @@ def main() -> int:
     parser.add_argument("--mes", help="Recorte AAAA-MM (padrão: todos os meses)")
     parser.add_argument("--listar", type=int, default=10,
                         help="Quantas matrículas repetidas detalhar (padrão: 10)")
+    parser.add_argument("--resumo", action="store_true",
+                        help="Só os números, sem o detalhe linha a linha")
     args = parser.parse_args()
 
     dados = _contadas(args.mes)
@@ -79,21 +81,47 @@ def main() -> int:
     repetidas = (com_matricula.groupby("matricula").size()
                  .sort_values(ascending=False))
     repetidas = repetidas[repetidas > 1]
-    print(f"{len(repetidas)} matrícula(s) repetida(s). "
-          f"Detalhando as {min(args.listar, len(repetidas))} maiores:\n")
 
     colunas = [c for c in ("data", "cidade", "equipe", "frente", "servico")
                if c in dados.columns]
-    for matricula in repetidas.head(args.listar).index:
-        grupo = com_matricula[com_matricula["matricula"] == matricula]
-        # Mostrar só o que difere entre as linhas explica por que a chave
-        # única não as uniu.
-        difere = [c for c in colunas if grupo[c].nunique(dropna=False) > 1]
-        print(f"  matrícula {matricula}: {len(grupo)} linhas — "
-              f"difere em {', '.join(difere) if difere else 'nada visível'}")
-        print(grupo[colunas].to_string(index=False, max_rows=6))
-        print()
 
+    # A decisão da correção depende disto: repetição com o MESMO serviço é a
+    # mesma implantação lançada duas vezes; com serviço diferente pode ser
+    # duas atividades legítimas na mesma ligação.
+    mesmo_servico, servico_diferente = [], []
+    for matricula in repetidas.index:
+        grupo = com_matricula[com_matricula["matricula"] == matricula]
+        alvo = (servico_diferente
+                if "servico" in grupo and grupo["servico"].nunique(dropna=False) > 1
+                else mesmo_servico)
+        alvo.append((matricula, grupo))
+
+    def _excedente(pares: list) -> int:
+        return sum(len(g) - 1 for _, g in pares)
+
+    print(f"{len(repetidas)} matrícula(s) repetida(s):")
+    print(f"  mesmo serviço ......... {len(mesmo_servico)} matrícula(s), "
+          f"{_excedente(mesmo_servico)} linha(s) a mais")
+    print(f"  serviço diferente ..... {len(servico_diferente)} matrícula(s), "
+          f"{_excedente(servico_diferente)} linha(s) a mais")
+
+    if not args.resumo:
+        print(f"\nDetalhando as {min(args.listar, len(repetidas))} maiores:\n")
+        for matricula in repetidas.head(args.listar).index:
+            grupo = com_matricula[com_matricula["matricula"] == matricula]
+            difere = [c for c in colunas if grupo[c].nunique(dropna=False) > 1]
+            print(f"  matrícula {matricula}: {len(grupo)} linhas — "
+                  f"difere em {', '.join(difere) if difere else 'nada visível'}")
+            print(grupo[colunas].to_string(index=False, max_rows=6))
+            print()
+
+    # Repetido no fim porque o detalhe rola a tela e esconde o cabeçalho.
+    print("-" * 60)
+    print(f"RESUMO ({recorte})")
+    print(f"  total do painel ....... {total:.0f}")
+    print(f"  matrículas distintas .. {distintas}")
+    print(f"  contadas a mais ....... {excedente} ({pct:.1f}% do total)")
+    print(f"  total sem repetir ..... {total - excedente:.0f}")
     return 1
 
 
