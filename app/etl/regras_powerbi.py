@@ -68,14 +68,9 @@ def filtrar_implantacoes(dados: pd.DataFrame) -> pd.DataFrame:
     if "tipo_atividade" not in dados or not dados["tipo_atividade"].notna().any():
         return dados
     saida = dados.copy()
-    atividade = saida["tipo_atividade"].map(_texto)
-
-    # Preservar todas as atividades de "Ligação de Água", independente do status
-    saida = saida[atividade == "LIGACAO DE AGUA"].copy()
-    if saida.empty:
-        return saida
-
-    # Marcar quais contam para o realizado: apenas as finalizadas
+    # O arquivo próprio de implantação já define o universo da medida. Não se
+    # limita a Ligação de Água: uma implantação finalizada de esgoto também é
+    # implantação. A deduplicação por matrícula acontece na camada analítica.
     status = saida["status_atividade"].map(_texto)
     saida["conta_realizado"] = (status == "FINALIZADA")
 
