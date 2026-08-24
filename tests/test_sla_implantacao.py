@@ -55,13 +55,25 @@ def test_prazo_no_passado_conta_como_vencida(base):
     assert resultado["a_vencer"] == 0
 
 
-def test_prazo_dentro_da_janela_de_48h_conta_como_a_vencer(base):
+def test_prazo_dentro_da_janela_de_tres_dias_conta_como_a_vencer(base):
     resultado = base([{
         "inicio_sla": AGORA - timedelta(days=30),
-        "fim_sla": AGORA + timedelta(hours=10),
+        "fim_sla": AGORA + timedelta(days=2, hours=20),
     }])
     assert resultado["vencidas"] == 0
     assert resultado["a_vencer"] == 1
+    assert resultado["janela_dias"] == 3
+
+
+def test_prazo_alem_de_tres_dias_fica_de_fora(base):
+    # 4 dias para o fim, com só metade do intervalo consumido: nem a janela
+    # de 3 dias nem a regra dos 80% alcançam esta ordem.
+    resultado = base([{
+        "inicio_sla": AGORA - timedelta(days=4),
+        "fim_sla": AGORA + timedelta(days=4),
+    }])
+    assert resultado["a_vencer"] == 0
+    assert resultado["com_prazo"] == 1
 
 
 def test_oitenta_por_cento_consumido_conta_como_a_vencer(base):

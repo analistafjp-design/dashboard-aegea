@@ -17,12 +17,14 @@ STATUS_IGNORADOS = {"FINALIZADA", "ENCERRADA COM OCORRENCIA", "CANCELADA", "CANC
 
 # Uma ordem entra em "a vencer" quando falta esta janela para o prazo ou
 # quando já consumiu esta fração do intervalo contratado.
-JANELA_HORAS = 48
+JANELA_DIAS = 3
+JANELA_HORAS = JANELA_DIAS * 24
 LIMITE_CONSUMIDO = 0.8
 
 VAZIO = {
     "vencidas": 0, "a_vencer": 0, "total": 0, "com_prazo": 0,
-    "cidades": 0, "equipes": 0, "janela_horas": JANELA_HORAS,
+    "cidades": 0, "equipes": 0,
+    "janela_horas": JANELA_HORAS, "janela_dias": JANELA_DIAS,
     "cidade_mais_critica": None,
     "por_cidade": [], "detalhes": [],
 }
@@ -176,6 +178,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         "cidades": int(criticas["cidade"].nunique()) if "cidade" in criticas.columns else 0,
         "equipes": int(criticas["equipe"].nunique()) if "equipe" in criticas.columns else 0,
         "janela_horas": JANELA_HORAS,
+        "janela_dias": JANELA_DIAS,
         "cidade_mais_critica": por_cidade[0]["cidade"] if por_cidade else None,
         "por_cidade": por_cidade,
         "detalhes": detalhes,

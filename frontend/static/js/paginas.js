@@ -129,14 +129,14 @@
     sla = sla || {};
     const vencidas = sla.vencidas || 0;
     const aVencer = sla.a_vencer || 0;
-    const janela = sla.janela_horas || 48;
+    const janela = sla.janela_dias || 3;
 
     const descricao = document.querySelector(ids.descricao);
     if (descricao) {
       let texto;
       if (vencidas || aVencer) {
-        texto = `Vencida = o prazo já passou. A vencer = falta até ${janela}h para o `
-          + "prazo ou 80% do tempo já foi consumido.";
+        texto = `Vencida = o prazo já passou. A vencer = falta até ${janela} dia(s) para `
+          + "o prazo ou 80% do tempo já foi consumido.";
       } else if (!sla.com_prazo) {
         // Sem isso o painel zerado seria lido como "está tudo em dia".
         texto = "Nenhuma ordem em aberto tem Início e Fim da SLA preenchidos, "
@@ -155,7 +155,7 @@
         App.miniInfo("Vencidas", App.numero(vencidas),
           vencidas ? `em ${App.numero(sla.cidades)} cidade(s)` : "nenhuma"),
         App.miniInfo("A vencer", App.numero(aVencer),
-          aVencer ? `janela de ${janela}h` : "nenhuma"),
+          aVencer ? `janela de ${janela} dia(s)` : "nenhuma"),
         App.miniInfo("Em aberto", App.numero(sla.total),
           sla.cidade_mais_critica ? `pior cidade: ${sla.cidade_mais_critica}`
             : `${App.numero(sla.com_prazo)} com prazo`),
@@ -199,17 +199,19 @@
         App.numero(implantacao.bloco_principal.meta);
       document.getElementById("simples-dias-restantes").textContent =
         App.numero(dados.periodo.dias_uteis_restantes);
+      const sla = implantacao.sla || {};
+      const dias = sla.janela_dias || 3;
       faixaIndicadores("#simples-implantacao-kpis", [
         { rotulo: "Implantação Geral", valor: ii("total_implantacao") },
         { rotulo: "Implantação Serviços", valor: ii("impl_servicos") },
         { rotulo: "Implantação Serviços / Dia", valor: ii("impl_servicos_dia", 1) },
         { rotulo: "Implantação Mês - VCG", valor: ii("impl_vcg") },
         { rotulo: "Implantação VCG / Dia", valor: ii("impl_vcg_dia", 1) },
+        // Sem prazo carregado o cartão mostraria zero, que se lê como
+        // "está tudo em dia". Um traço deixa claro que falta o dado.
+        { rotulo: `A Vencer em ${dias} Dias`,
+          valor: sla.com_prazo ? App.numero(sla.a_vencer || 0) : "—" },
       ]);
-      painelSla(implantacao.sla, {
-        resumo: "#simples-sla-resumo", descricao: "#simples-sla-descricao",
-        cidades: "#simples-sla-cidades", detalhes: "#simples-sla-detalhes",
-      });
       faixaIndicadores("#simples-vendas-kpis", [
         { rotulo: "Total Venda", valor: vi("total_venda") },
         { rotulo: "Venda Comercial", valor: vi("venda_comercial") },
