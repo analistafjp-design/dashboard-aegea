@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from app.etl.datasets import DATASETS, VENDAS, get_dataset
+from app.etl.datasets import DATASETS, IMPLANTACAO, VENDAS, get_dataset
 from app.etl.deteccao import analisar_arquivo, mapear_colunas
 from app.utils.erros import ErroValidacaoArquivo
 
@@ -44,6 +44,19 @@ def test_setor_prioriza_descricao_do_powerbi_em_vez_do_codigo_numerico():
     ])
 
     assert mapa["setor"] == "Setor do Recurso.Setor do Recurso"
+
+
+def test_implantacao_nao_confunde_id_da_atividade_com_matricula():
+    mapa = mapear_colunas(IMPLANTACAO, [
+        "Data", "Frente", "Status da Atividade", "ID da Atividade",
+    ])
+
+    assert "matricula" not in mapa
+
+    mapa_com_matricula = mapear_colunas(IMPLANTACAO, [
+        "Data", "Frente", "Status da Atividade", "ID da Atividade", "Matrícula",
+    ])
+    assert mapa_com_matricula["matricula"] == "Matrícula"
 
 
 def test_arquivo_desconhecido_nao_e_identificado(tmp_path):
