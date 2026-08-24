@@ -38,9 +38,26 @@ def frente_interior(recurso: object) -> str:
     return "Serviços"
 
 
+EQUIPES_VCG = ("RIOVCGPOPIN", "RIOVCGEXTIN", "RIOVCGVENIN")
+
+
 def _equipe_vcg(recurso: object) -> bool:
     valor = _texto(recurso)
-    return any(codigo in valor for codigo in ("RIOVCGPOPIN", "RIOVCGEXTIN", "RIOVCGVENIN"))
+    return any(codigo in valor for codigo in EQUIPES_VCG)
+
+
+def _comercial(recurso: pd.Series, codigo: pd.Series) -> pd.Series:
+    """Transcreve a medida `Venda Comercial` do PBIX.
+
+    A regra não é apenas "equipe não-VCG": uma venda lançada por RIOVCGVENIN
+    com o código 113001 é comercial, apesar de a equipe ser VCG. Sem essa
+    exceção essas vendas apareciam no canal errado.
+    """
+    permitido = ~codigo.str.contains("114003|118048", regex=True)
+    excecao = recurso.str.contains("RIOVCGVENIN", regex=False) & \
+        codigo.str.contains("113001", regex=False)
+    vcg = recurso.apply(lambda v: any(c in v for c in EQUIPES_VCG))
+    return permitido & (~vcg | excecao)
 
 
 def filtrar_vendas(dados: pd.DataFrame) -> pd.DataFrame:
@@ -50,16 +67,18 @@ def filtrar_vendas(dados: pd.DataFrame) -> pd.DataFrame:
     atividade = saida["tipo_atividade"].map(_texto)
     status = saida["status_atividade"].map(_texto)
     codigo = saida["codigo_descricao"].map(_texto)
+    recurso = saida["equipe"].map(_texto)
     vcg = saida["equipe"].map(_equipe_vcg)
     base = (atividade == "VENDA POTENCIAIS/FACTIVEIS") & (status == "FINALIZADA")
-    comercial_valido = ~vcg & ~codigo.str.contains("114003|118048", regex=True)
+    comercial = _comercial(recurso, codigo)
     vcg_valido = vcg & ~codigo.str.contains("114003", regex=False)
-    saida = saida[base & (comercial_valido | vcg_valido)].copy()
+    saida = saida[base & (comercial | vcg_valido)].copy()
     if saida.empty:
         return saida
-    eh_vcg = saida["equipe"].map(_equipe_vcg)
     saida["frente"] = saida["equipe"].map(frente_interior)
-    saida["canal"] = eh_vcg.map({True: "VCG", False: "COMERCIAL"})
+    saida["canal"] = _comercial(
+        saida["equipe"].map(_texto), saida["codigo_descricao"].map(_texto)
+    ).map({True: "COMERCIAL", False: "VCG"})
     saida["quantidade"] = 1.0
     return saida
 
