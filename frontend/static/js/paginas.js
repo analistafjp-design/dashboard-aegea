@@ -67,6 +67,34 @@
       </div>`).join("");
   }
 
+  function alertaSLA(sla) {
+    if (!sla || !sla.resumo) return "";
+    const resumo = sla.resumo || {};
+    const vencidas = resumo.total_vencidas || 0;
+    const proximo = resumo.total_proximo_vencimento || 0;
+
+    if (vencidas === 0 && proximo === 0) return "";
+
+    let html = "";
+    if (vencidas > 0) {
+      const ranking = (sla.ranking_vencidas_por_cidade || []).slice(0, 2);
+      const cidades = ranking.map((c) => `${App.escapar(c.cidade)} (${c.total})`).join(", ");
+      html += `<div class="aviso aviso--erro" style="margin-bottom:8px">
+        <span>🔴</span>
+        <div><strong>Implantações com SLA vencida:</strong> ${vencidas} em atraso${cidades ? " — " + cidades : ""}</div>
+      </div>`;
+    }
+    if (proximo > 0 && vencidas === 0) {
+      const ranking = (sla.ranking_proximo_por_cidade || []).slice(0, 2);
+      const cidades = ranking.map((c) => `${App.escapar(c.cidade)} (${c.total})`).join(", ");
+      html += `<div class="aviso aviso--atencao" style="margin-bottom:8px">
+        <span>⚠</span>
+        <div><strong>Implantações próximas do vencimento:</strong> ${proximo} dentro de 24h${cidades ? " — " + cidades : ""}</div>
+      </div>`;
+    }
+    return html;
+  }
+
   function roscaMeta(id, bloco) {
     bloco = bloco || {};
     const realizado = bloco.realizado || 0;
@@ -304,8 +332,11 @@
       periodoTexto(dados, "#implantacao-periodo");
 
       const f = dados.faturamento || {};
-      document.getElementById("implantacao-alerta").innerHTML = f.alerta
+      const sla = dados.sla || {};
+      const alerta_sla = alertaSLA(sla);
+      const alerta_faturamento = f.alerta
         ? `<div class="aviso aviso--atencao"><span>⚠</span><div>${App.escapar(f.alerta)}</div></div>` : "";
+      document.getElementById("implantacao-alerta").innerHTML = alerta_sla + alerta_faturamento;
 
       matrizMeta("#implantacao-matriz", dados.blocos_meta);
       document.getElementById("implantacao-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
