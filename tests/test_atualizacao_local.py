@@ -99,13 +99,13 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
         "versoes_bases": {"vendas": 2, "implantacao": 2, "termos": 1},
     }}}
 
-    # Implantacao também está pendente porque a versão mudou de 2 para 7
+    # Implantacao também está pendente porque a versão mudou de 2 para 8
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == {"implantacao", "termos"}
-    # Atualizando termos de 1 para 8 e implantacao de 2 para 7
+    # Atualizando termos de 1 para 8 e implantacao de 2 para 8
     manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 8
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 7
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 8
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == set()
@@ -129,12 +129,12 @@ def test_mudanca_das_medidas_reprocessa_venda_e_implantacao(tmp_path):
         "vendas": 2,
         "implantacao": 2,
     })
-    # Implantacao ainda está pendente porque espera versão 7 agora
+    # Implantacao ainda está pendente porque espera versão 8 agora
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == {"implantacao"}
-    # Atualizar para versão 7
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 7
+    # Atualizar para versão 8
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 8
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == set()
