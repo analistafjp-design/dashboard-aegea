@@ -138,6 +138,31 @@ def gerar(payloads: dict) -> list[dict]:
             "de dependência de uma única equipe.", "Esta semana",
             f"Participação: {percentual(topo['participacao'])}")
 
+    # SLA de Implantações vencidas
+    sla_impl = (payloads.get("sla_implantacao") or {}).get("resumo") or {}
+    vencidas = sla_impl.get("total_vencidas", 0)
+    if vencidas > 0:
+        ranking_vencidas = (payloads.get("sla_implantacao") or {}).get("ranking_vencidas_por_cidade") or []
+        cidades_vencidas = ", ".join(f"{c['cidade']} ({c['total']})" for c in ranking_vencidas[:3])
+        add(CRITICO, "Implantações com SLA vencida",
+            f"{numero(vencidas)} implantação(ões) com prazo de SLA vencido. "
+            f"Principais cidades: {cidades_vencidas}.",
+            "implantacao", "Priorizar a conclusão das implantações em atraso e comunicar "
+            "ao cliente sobre a situação. Identificar e resolver bloqueios operacionais.",
+            "Hoje", f"Vencidas: {numero(vencidas)}")
+
+    # SLA de Implantações próximo vencimento
+    proximo = sla_impl.get("total_proximo_vencimento", 0)
+    if proximo > 0 and vencidas == 0:  # Só mostrar se não houver vencidas
+        ranking_proximo = (payloads.get("sla_implantacao") or {}).get("ranking_proximo_por_cidade") or []
+        cidades_proximo = ", ".join(f"{c['cidade']} ({c['total']})" for c in ranking_proximo[:3])
+        add(ATENCAO, "Implantações com SLA próximo do vencimento",
+            f"{numero(proximo)} implantação(ões) com vencimento dentro de 24 horas. "
+            f"Principais cidades: {cidades_proximo}.",
+            "implantacao", "Verificar andamento e garantir conclusão dentro do prazo. "
+            "Preparar equipes para finalização antes do vencimento.",
+            "Hoje", f"Próximo vencimento: {numero(proximo)}")
+
     ordem = {CRITICO: 0, ATENCAO: 1, NORMAL: 2}
     alertas.sort(key=lambda a: ordem[a["categoria"]])
     return alertas

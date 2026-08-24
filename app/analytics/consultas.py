@@ -86,6 +86,7 @@ def _stmt_implantacao():
             FatoImplantacao.data, FatoImplantacao.ano_mes, FatoImplantacao.tipo,
             FatoImplantacao.faturado, FatoImplantacao.servico,
             FatoImplantacao.quantidade, FatoImplantacao.valor, FatoImplantacao.matricula,
+            FatoImplantacao.data_inicio_sla, FatoImplantacao.data_fim_sla,
             FatoImplantacao.origem_arquivo, FatoImplantacao.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
             frente.nome.label("frente"),

@@ -67,6 +67,34 @@
       </div>`).join("");
   }
 
+  function alertaSLA(sla) {
+    if (!sla || !sla.resumo) return "";
+    const resumo = sla.resumo || {};
+    const vencidas = resumo.total_vencidas || 0;
+    const proximo = resumo.total_proximo_vencimento || 0;
+
+    if (vencidas === 0 && proximo === 0) return "";
+
+    let html = "";
+    if (vencidas > 0) {
+      const ranking = (sla.ranking_vencidas_por_cidade || []).slice(0, 2);
+      const cidades = ranking.map((c) => `${App.escapar(c.cidade)} (${c.total})`).join(", ");
+      html += `<div class="aviso aviso--erro" style="margin-bottom:8px">
+        <span>🔴</span>
+        <div><strong>Implantações com SLA vencida:</strong> ${vencidas} em atraso${cidades ? " — " + cidades : ""}</div>
+      </div>`;
+    }
+    if (proximo > 0 && vencidas === 0) {
+      const ranking = (sla.ranking_proximo_por_cidade || []).slice(0, 2);
+      const cidades = ranking.map((c) => `${App.escapar(c.cidade)} (${c.total})`).join(", ");
+      html += `<div class="aviso aviso--atencao" style="margin-bottom:8px">
+        <span>⚠</span>
+        <div><strong>Implantações próximas do vencimento:</strong> ${proximo} dentro de 24h${cidades ? " — " + cidades : ""}</div>
+      </div>`;
+    }
+    return html;
+  }
+
   function roscaMeta(id, bloco) {
     bloco = bloco || {};
     const realizado = bloco.realizado || 0;
@@ -304,8 +332,11 @@
       periodoTexto(dados, "#implantacao-periodo");
 
       const f = dados.faturamento || {};
-      document.getElementById("implantacao-alerta").innerHTML = f.alerta
+      const sla = dados.sla || {};
+      const alerta_sla = alertaSLA(sla);
+      const alerta_faturamento = f.alerta
         ? `<div class="aviso aviso--atencao"><span>⚠</span><div>${App.escapar(f.alerta)}</div></div>` : "";
+      document.getElementById("implantacao-alerta").innerHTML = alerta_sla + alerta_faturamento;
 
       matrizMeta("#implantacao-matriz", dados.blocos_meta);
       document.getElementById("implantacao-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
@@ -353,6 +384,61 @@
       G.barrasHorizontais("graf-implantacao-equipe", equipe.rotulos, equipe.valores);
     } catch (e) {
       erro("#implantacao-cards", e.message);
+    }
+  });
+
+  /* ---------------------------------------------------------- SLA */
+  App.registrar("sla", async function () {
+    App.carregando("#sla-resumo");
+    try {
+      const dados = await App.buscar("modulo/implantacao");
+      const sla = dados.sla || {};
+      const resumo = sla.resumo || {};
+      periodoTexto(dados, "#sla-periodo");
+
+      // Cards de resumo
+      document.getElementById("sla-resumo").innerHTML = [
+        App.miniInfo("Total com SLA", App.numero(resumo.total_com_sla || 0)),
+        App.miniInfo("SLA Vencidas", App.numero(resumo.total_vencidas || 0), "erro"),
+        App.miniInfo("Próximo vencimento", App.numero(resumo.total_proximo_vencimento || 0), "atencao"),
+      ].join("");
+
+      // Gráficos de ranking por cidade
+      const rankingVencidas = ranking(sla.ranking_vencidas_por_cidade || [], "cidade");
+      G.barrasHorizontais("graf-sla-vencidas-cidade", rankingVencidas.rotulos, rankingVencidas.valores,
+        { cor: "#c62828" });
+
+      const rankingProximo = ranking(sla.ranking_proximo_por_cidade || [], "cidade");
+      G.barrasHorizontais("graf-sla-proximo-cidade", rankingProximo.rotulos, rankingProximo.valores,
+        { cor: "#f57c00" });
+
+      // Tabela de vencidas
+      const vencidas = sla.vencidas || [];
+      App.tabela("#sla-vencidas-tabela", [
+        { chave: "matricula", titulo: "Matrícula", clique: "matricula" },
+        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+        { chave: "equipe", titulo: "Equipe", clique: "equipe" },
+        { chave: "frente", titulo: "Frente", clique: "frente" },
+        { chave: "servico", titulo: "Serviço" },
+        { chave: "data_inicio_sla", titulo: "Início SLA", tipo: "data" },
+        { chave: "data_fim_sla", titulo: "Fim SLA", tipo: "data" },
+        { chave: "faturado", titulo: "Faturado", tipo: "booleano" },
+      ], vencidas, { vazio: "Nenhuma implantação com SLA vencida." });
+
+      // Tabela de próximo vencimento
+      const proximo = sla.proximo_vencimento || [];
+      App.tabela("#sla-proximo-tabela", [
+        { chave: "matricula", titulo: "Matrícula", clique: "matricula" },
+        { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+        { chave: "equipe", titulo: "Equipe", clique: "equipe" },
+        { chave: "frente", titulo: "Frente", clique: "frente" },
+        { chave: "servico", titulo: "Serviço" },
+        { chave: "data_inicio_sla", titulo: "Início SLA", tipo: "data" },
+        { chave: "data_fim_sla", titulo: "Fim SLA", tipo: "data" },
+        { chave: "faturado", titulo: "Faturado", tipo: "booleano" },
+      ], proximo, { vazio: "Nenhuma implantação próxima ao vencimento." });
+    } catch (e) {
+      erro("#sla-resumo", e.message);
     }
   });
 

@@ -7,7 +7,7 @@ Implantação Não Faturada, Valor Total Faturado, Falta Total.
 """
 from __future__ import annotations
 
-from app.analytics import consultas, metas, nucleo
+from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
 from app.analytics.periodo import Periodo, resolver
@@ -134,6 +134,9 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             f"faturada(s) em {periodo.rotulo}."
         )
 
+    # Calcular dados de SLA
+    sla_dados = sla_implantacao.calcular(filtros, periodo)
+
     indicadores = [
         nucleo.indicador_realizado(
             "total_implantacao", "Implantação Total", total_impl, meta_total, anterior,
@@ -191,6 +194,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "alerta": alerta_faturamento,
             "por_frente": faturamento_por_frente,
         },
+        "sla": sla_dados,
         "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
         "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),
         "evolucao_vcg": nucleo.evolucao_mensal(_tipo(dados, TIPO_VCG)).to_dict("records"),
