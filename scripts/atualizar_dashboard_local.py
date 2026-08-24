@@ -36,7 +36,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 2,
-    "implantacao": 5,
+    "implantacao": 6,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
@@ -186,8 +186,20 @@ def invalidar_cache_do_painel() -> None:
         return
 
 
-def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = False) -> int:
+def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = False,
+             pasta_interior: Path | None = None) -> int:
     entradas = carregar_pastas(pastas_arquivo)
+    if pasta_interior is not None:
+        pasta_interior = pasta_interior.expanduser()
+        # Substitui somente a entrada da pasta Interior. Faturamento,
+        # Atendimento e Programacao continuam com a configuracao existente.
+        entradas = [
+            entrada for entrada in entradas
+            if "implantacao" not in entrada.tipos
+        ]
+        entradas.append(PastaMonitorada(
+            pasta_interior, ("vendas", "implantacao", "termos")
+        ))
     if not entradas:
         print("ERRO   Nenhuma pasta foi configurada.")
         return 1
@@ -198,10 +210,34 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         return 1
 
     manifesto = carregar_manifesto(manifesto_arquivo)
+    # A versao 6 exige reconstruir a tabela inteira uma vez. Antes, arquivos
+    # removidos ou renomeados deixavam linhas orfas no SQLite e inflavam o
+    # DISTINCTCOUNT mesmo quando a planilha atual estava correta.
+    reconstrucoes = manifesto.setdefault("reconstrucoes_em_andamento", {})
+    reconstruindo_implantacao = int(reconstrucoes.get("implantacao", 0)) == 6
+    if not reconstruindo_implantacao:
+        reconstruindo_implantacao = any(
+            "implantacao" in permitidos
+            and int(
+                manifesto["arquivos"].get(str(caminho), {})
+                .get("versoes_bases", {}).get("implantacao", 1)
+            ) < VERSOES_REGRAS["implantacao"]
+            for caminho, permitidos in arquivos.items()
+        )
+        if reconstruindo_implantacao:
+            reconstrucoes["implantacao"] = 6
+            salvar_manifesto(manifesto_arquivo, manifesto)
+
     pendentes = {
         caminho: tipos_pendentes(caminho, permitidos, manifesto, completo)
         for caminho, permitidos in arquivos.items()
     }
+    if reconstruindo_implantacao:
+        for caminho, permitidos in arquivos.items():
+            if "implantacao" in permitidos:
+                atuais = pendentes.get(caminho)
+                pendentes[caminho] = set(permitidos) if atuais is None else set(atuais)
+                pendentes[caminho].add("implantacao")
     pendentes = {
         caminho: tipos for caminho, tipos in pendentes.items()
         if tipos is None or tipos
@@ -227,6 +263,13 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
         )
     print(f"Processando {len(pendentes)} planilha(s) que realmente precisam de atualizacao.")
     criar_banco()
+    if reconstruindo_implantacao:
+        print(
+            "Reconstruindo Implantacao somente com os arquivos que existem "
+            "hoje nas pastas monitoradas."
+        )
+        with sessao() as banco:
+            banco.execute(delete(FatoImplantacao))
     falhas = 0
     concluidos = 0
     com_avisos = 0
@@ -316,6 +359,10 @@ def executar(pastas_arquivo: Path, manifesto_arquivo: Path, completo: bool = Fal
             if bases_ignoradas:
                 com_avisos += 1
 
+    if reconstruindo_implantacao and falhas == 0:
+        manifesto.setdefault("reconstrucoes_em_andamento", {}).pop("implantacao", None)
+        salvar_manifesto(manifesto_arquivo, manifesto)
+
     cache.invalidar()
     invalidar_cache_do_painel()
     print()
@@ -335,11 +382,18 @@ def main() -> int:
     )
     parser.add_argument("--manifesto", type=Path, default=padrao_manifesto)
     parser.add_argument("--completo", action="store_true")
+    parser.add_argument(
+        "--pasta-interior", type=Path,
+        help="Caminho exato da pasta Interior; substitui somente essa entrada.",
+    )
     argumentos = parser.parse_args()
     if not argumentos.pastas.exists():
         print(f"ERRO   Configuracao nao encontrada: {argumentos.pastas}")
         return 1
-    return executar(argumentos.pastas, argumentos.manifesto, argumentos.completo)
+    return executar(
+        argumentos.pastas, argumentos.manifesto, argumentos.completo,
+        argumentos.pasta_interior,
+    )
 
 
 if __name__ == "__main__":
