@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="painel" style="margin-bottom:16px">
+  <div class="painel__cabecalho">
+    <div><div class="painel__titulo">Alertas de SLA — <span id="sla-periodo"></span></div>
+      <div class="painel__descricao">Implantações com SLA vencida ou próxima do vencimento</div></div>
+    <button class="btn" data-exportar="sla" data-formato="xlsx">Exportar</button>
+  </div>
+  <div class="painel__corpo" id="sla-resumo"></div>
+</div>
+
+<div class="grade grade--2" style="margin-top:16px">
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">SLA Vencidas por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-sla-vencidas-cidade"></div></div>
+  </div>
+  <div class="painel">
+    <div class="painel__cabecalho"><div class="painel__titulo">SLA Próximas a vencer por cidade</div></div>
+    <div class="painel__corpo"><div class="grafico" id="graf-sla-proximo-cidade"></div></div>
+  </div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Implantações com SLA vencida</div></div>
+  <div class="painel__corpo painel__corpo--limpo"><div id="sla-vencidas-tabela"></div></div>
+</div>
+
+<div class="painel" style="margin-top:16px">
+  <div class="painel__cabecalho"><div class="painel__titulo">Implantações próximas ao vencimento (≤ 24h)</div></div>
+  <div class="painel__corpo painel__corpo--limpo"><div id="sla-proximo-tabela"></div></div>
+</div>
+{% endblock %}

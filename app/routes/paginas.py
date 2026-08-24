@@ -25,6 +25,8 @@ ROTAS = [
      "grupo": "Venda / Implantação"},
     {"rota": "/implantacao", "chave": "implantacao", "titulo": "Implantação", "icone": "implantacao",
      "grupo": "Venda / Implantação"},
+    {"rota": "/sla", "chave": "sla", "titulo": "SLA — Atrasos", "icone": "implantacao",
+     "grupo": "Venda / Implantação"},
     {"rota": "/programacao", "chave": "programacao", "titulo": "Programação Diária",
      "icone": "programacao", "grupo": "Programação"},
     {"rota": "/equipes", "chave": "equipes", "titulo": "Equipes", "icone": "equipes",
