@@ -43,6 +43,7 @@ def base():
                     tipo=linha.get("tipo", "SERVICOS"),
                     matricula=linha.get("matricula"),
                     servico=linha.get("servico", "117007-LIGACAO"),
+                    protocolo=linha.get("protocolo"),
                     status_atividade="FINALIZADA",
                     conta_realizado=linha.get("conta_realizado", True),
                     quantidade=1.0,
@@ -124,3 +125,24 @@ def test_media_por_dia_usa_o_total_distinto(base):
 
     assert _indicador(payload, "impl_servicos") == 2
     assert _indicador(payload, "impl_servicos_dia") == pytest.approx(1.0)
+
+
+def test_protocolo_tem_prioridade_sobre_matricula(base):
+    """A medida do PBIX conta Cód. Protocolo Origem, não matrícula."""
+    payload = base([
+        {"matricula": "1", "protocolo": "P-100"},
+        {"matricula": "2", "protocolo": "P-100"},  # mesmo protocolo
+        {"matricula": "3", "protocolo": "P-200"},
+    ])
+
+    assert _indicador(payload, "total_implantacao") == 2
+
+
+def test_sem_protocolo_a_matricula_segue_valendo(base):
+    payload = base([
+        {"matricula": "1", "protocolo": None},
+        {"matricula": "1", "protocolo": None, "data": MES.replace(day=12)},
+        {"matricula": "2", "protocolo": None},
+    ])
+
+    assert _indicador(payload, "total_implantacao") == 2

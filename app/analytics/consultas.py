@@ -88,6 +88,7 @@ def _stmt_implantacao():
             FatoImplantacao.data, FatoImplantacao.ano_mes, FatoImplantacao.tipo,
             FatoImplantacao.faturado, FatoImplantacao.servico,
             FatoImplantacao.quantidade, FatoImplantacao.valor, FatoImplantacao.matricula,
+            FatoImplantacao.protocolo,
             FatoImplantacao.status_atividade, FatoImplantacao.inicio_sla,
             FatoImplantacao.fim_sla, FatoImplantacao.conta_realizado,
             FatoImplantacao.origem_arquivo, FatoImplantacao.importado_em,

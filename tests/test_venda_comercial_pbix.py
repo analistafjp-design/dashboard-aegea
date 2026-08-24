@@ -42,14 +42,22 @@ def test_equipe_vcg_e_vcg():
     assert _canais(resultado) == {"RIOVCGEXTIN-005": "VCG"}
 
 
-def test_riovcgvenin_com_113001_conta_nas_duas_medidas():
-    """A exceção torna a venda comercial sem tirá-la de VCG.
+def test_riovcgvenin_com_113001_conta_so_no_comercial():
+    """A exceção move a venda para o comercial e a tira de VCG.
 
-    O DAX de Comercial abre exceção para o RIOVCGVENIN com 113001; o de VCG
-    só descarta o 114003, então continua contando essa mesma linha.
+    As medidas são exclusivas: VCG fica com o que é produção da frente.
     """
     resultado = filtrar_vendas(_linhas(("RIOVCGVENIN-002", "113001-VENDA POTENCIAL")))
-    assert _marcas(resultado) == {"RIOVCGVENIN-002": (True, True)}
+    assert _marcas(resultado) == {"RIOVCGVENIN-002": (True, False)}
+
+
+def test_nenhuma_venda_conta_nas_duas_medidas():
+    resultado = filtrar_vendas(_linhas(
+        ("RIORECIN-001", "113001-VENDA"),
+        ("RIOVCGVENIN-002", "113001-VENDA"),
+        ("RIOVCGEXTIN-005", "313001-VENDAS FACTÍVEL ÁGUA", "Ligação de Água"),
+    ))
+    assert not (resultado["conta_comercial"] & resultado["conta_vcg"]).any()
 
 
 def test_codigo_313001_conta_em_vcg_mesmo_com_outro_tipo_de_atividade():

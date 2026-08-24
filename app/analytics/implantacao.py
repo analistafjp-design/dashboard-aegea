@@ -25,22 +25,37 @@ def _tipo(dados, tipo: str):
     return dados[dados["tipo"] == tipo] if "tipo" in dados.columns else dados.iloc[0:0]
 
 
-def _unicas(dados, *agrupamento: str):
-    """Uma linha por ligação — a medida conta matrículas distintas.
+def _identificador(dados) -> str | None:
+    """Coluna que identifica a implantação.
 
-    A mesma matrícula reaparece na planilha quando a ordem é lançada em
+    A medida do PBIX conta `Cód. Protocolo Origem` distintos. Quando a
+    planilha não traz essa coluna, a matrícula é o identificador possível.
+    """
+    for coluna in ("protocolo", "matricula"):
+        if coluna in dados.columns and dados[coluna].notna().any():
+            return coluna
+    return None
+
+
+def _unicas(dados, *agrupamento: str):
+    """Uma linha por implantação — a medida conta protocolos distintos.
+
+    O mesmo protocolo reaparece na planilha quando a ordem é lançada em
     outra data ou por outra equipe, e como a chave do fato inclui data,
     serviço e equipe, cada lançamento virava uma linha contada. `agrupamento`
     reproduz o contexto de filtro do DISTINCTCOUNT: por cidade, a contagem é
-    de matrículas distintas dentro de cada cidade.
+    de protocolos distintos dentro de cada cidade.
     """
-    if dados is None or dados.empty or "matricula" not in dados.columns:
+    if dados is None or dados.empty:
         return dados
-    chaves = [c for c in (*agrupamento, "matricula") if c in dados.columns]
-    # Linha sem matrícula não pode ser agrupada com nenhuma outra; descartá-la
-    # esconderia produção real, então cada uma continua valendo por si.
-    sem_id = dados[dados["matricula"].isna()]
-    com_id = dados[dados["matricula"].notna()].drop_duplicates(subset=chaves)
+    identificador = _identificador(dados)
+    if identificador is None:
+        return dados
+    chaves = [c for c in (*agrupamento, identificador) if c in dados.columns]
+    # Linha sem identificador não pode ser agrupada com nenhuma outra;
+    # descartá-la esconderia produção real, então continua valendo por si.
+    sem_id = dados[dados[identificador].isna()]
+    com_id = dados[dados[identificador].notna()].drop_duplicates(subset=chaves)
     return com_id if sem_id.empty else pd.concat([com_id, sem_id])
 
 

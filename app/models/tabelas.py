@@ -171,6 +171,9 @@ class FatoImplantacao(Base):
     frente_id: Mapped[int | None] = mapped_column(ForeignKey("dim_frente.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(20), index=True)  # SERVICOS | VCG
     matricula: Mapped[str | None] = mapped_column(String(60), index=True)
+    # Cód. Protocolo Origem: é ele que identifica a implantação na medida do
+    # PBIX. Quando a planilha o traz, é a chave da contagem distinta.
+    protocolo: Mapped[str | None] = mapped_column(String(60), index=True)
     servico: Mapped[str | None] = mapped_column(String(120))
     faturado: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)

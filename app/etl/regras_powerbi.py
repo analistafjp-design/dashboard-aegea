@@ -54,10 +54,9 @@ CODIGO_FACTIVEL_AGUA = "313001"
 def _marcar_vendas(saida: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """`Venda Comercial` e `Venda VCG` do PBIX, uma marca para cada.
 
-    As duas medidas se sobrepõem de propósito: uma venda do RIOVCGVENIN com
-    código 113001 é comercial pela exceção do DAX de Comercial e continua
-    sendo VCG pelo DAX de VCG, que só descarta o 114003. Marcar cada uma
-    separadamente é o que permite os dois números conviverem.
+    As medidas são exclusivas: a venda do RIOVCGVENIN com código 113001 que a
+    exceção leva para o comercial deixa de contar em VCG, o que mantém VCG
+    restrito ao que de fato é produção da frente.
     """
     atividade = saida["tipo_atividade"].map(_texto)
     status = saida["status_atividade"].map(_texto)
@@ -77,7 +76,10 @@ def _marcar_vendas(saida: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     factivel_agua = codigo.str.contains(CODIGO_FACTIVEL_AGUA, regex=False)
     conta_vcg = (vcg & finalizada
                  & ~codigo.str.contains("114003", regex=False)
-                 & (venda_potencial | factivel_agua))
+                 & (venda_potencial | factivel_agua)
+                 # As duas medidas não se sobrepõem: o que a exceção do
+                 # RIOVCGVENIN leva para o comercial sai de VCG.
+                 & ~comercial)
     return comercial, conta_vcg
 
 
