@@ -1,9 +1,9 @@
 """Confere se alguma implantação está sendo contada mais de uma vez.
 
-A medida oficial conta linhas (COUNTROWS de Ligação de Água finalizada), e a
-chave única do fato é `data + matricula + servico + equipe`. Uma mesma
-ligação, portanto, vira duas linhas contadas se aparecer na planilha com
-serviço ou equipe diferentes — é exatamente esse caso que este script mede.
+A medida oficial conta `Cód. Protocolo Origem` distintos, e a chave única do
+fato é `data + matricula + servico + equipe`. Uma mesma ligação, portanto,
+vira várias linhas na base quando é lançada em outra data ou por outra
+equipe — este script mostra quantas são e de que arquivo vieram.
 
 Uso:
     .venv\\Scripts\\python.exe scripts\\verificar_duplicidade_implantacao.py
@@ -38,7 +38,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mes", help="Recorte AAAA-MM (padrão: todos os meses)")
     parser.add_argument("--listar", type=int, default=10,
-                        help="Quantas matrículas repetidas detalhar (padrão: 10)")
+                        help="Quantos identificadores repetidos detalhar (padrão: 10)")
     parser.add_argument("--resumo", action="store_true",
                         help="Só os números, sem o detalhe linha a linha")
     args = parser.parse_args()
@@ -56,29 +56,53 @@ def main() -> int:
     print(f"Total do painel ......... {total:.0f}")
     print(f"Linhas contadas ......... {linhas}")
 
-    if "matricula" not in dados.columns:
-        print("\nA base não tem matrícula; não dá para medir repetição.")
+    # A medida do PBIX conta Cód. Protocolo Origem; a matrícula só entra
+    # quando a planilha não traz o protocolo.
+    identificador = next(
+        (c for c in ("protocolo", "matricula")
+         if c in dados.columns and dados[c].notna().any()), None)
+    if identificador is None:
+        print("\nA base não tem protocolo nem matrícula; não dá para medir repetição.")
         return 0
+    print(f"Identificador ........... {identificador}")
 
-    com_matricula = dados[dados["matricula"].notna()]
+    # De onde vêm as linhas: mais de um arquivo alimentando a mesma frente é
+    # a explicação usual para o painel divergir de uma planilha isolada.
+    if "origem_arquivo" in dados.columns:
+        print("\nPor arquivo de origem:")
+        origem = (dados.groupby("origem_arquivo", as_index=False)
+                  .agg(linhas=(identificador, "size"),
+                       distintos=(identificador, "nunique"))
+                  .sort_values("linhas", ascending=False))
+        print(origem.to_string(index=False))
+
+    if "tipo" in dados.columns:
+        print("\nPor frente:")
+        frente = (dados.groupby("tipo", as_index=False)
+                  .agg(linhas=(identificador, "size"),
+                       distintos=(identificador, "nunique")))
+        print(frente.to_string(index=False))
+    print()
+
+    com_matricula = dados[dados[identificador].notna()]
     sem_matricula = linhas - len(com_matricula)
-    distintas = com_matricula["matricula"].nunique()
+    distintas = com_matricula[identificador].nunique()
     excedente = len(com_matricula) - distintas
 
-    print(f"Matrículas distintas .... {distintas}")
+    print(f"{identificador.capitalize()}s distintos ...... {distintas}")
     if sem_matricula:
-        print(f"Linhas sem matrícula .... {sem_matricula} (não dá para conferir)")
+        print(f"Linhas sem identificador  {sem_matricula} (não dá para conferir)")
 
     if excedente <= 0:
-        print("\nOK: cada matrícula é contada uma única vez.")
+        print(f"\nOK: cada {identificador} é contado uma única vez.")
         return 0
 
     pct = excedente / total * 100 if total else 0
-    print(f"\nATENÇÃO: {excedente} linha(s) a mais que matrículas distintas "
+    print(f"\nATENÇÃO: {excedente} linha(s) a mais que {identificador}s distintos "
           f"({pct:.1f}% do total).")
     print("A mesma ligação está entrando mais de uma vez.\n")
 
-    repetidas = (com_matricula.groupby("matricula").size()
+    repetidas = (com_matricula.groupby(identificador).size()
                  .sort_values(ascending=False))
     repetidas = repetidas[repetidas > 1]
 
@@ -90,7 +114,7 @@ def main() -> int:
     # duas atividades legítimas na mesma ligação.
     mesmo_servico, servico_diferente = [], []
     for matricula in repetidas.index:
-        grupo = com_matricula[com_matricula["matricula"] == matricula]
+        grupo = com_matricula[com_matricula[identificador] == matricula]
         alvo = (servico_diferente
                 if "servico" in grupo and grupo["servico"].nunique(dropna=False) > 1
                 else mesmo_servico)
@@ -99,18 +123,18 @@ def main() -> int:
     def _excedente(pares: list) -> int:
         return sum(len(g) - 1 for _, g in pares)
 
-    print(f"{len(repetidas)} matrícula(s) repetida(s):")
-    print(f"  mesmo serviço ......... {len(mesmo_servico)} matrícula(s), "
+    print(f"{len(repetidas)} {identificador}(s) repetido(s):")
+    print(f"  mesmo serviço ......... {len(mesmo_servico)} caso(s), "
           f"{_excedente(mesmo_servico)} linha(s) a mais")
-    print(f"  serviço diferente ..... {len(servico_diferente)} matrícula(s), "
+    print(f"  serviço diferente ..... {len(servico_diferente)} caso(s), "
           f"{_excedente(servico_diferente)} linha(s) a mais")
 
     if not args.resumo:
         print(f"\nDetalhando as {min(args.listar, len(repetidas))} maiores:\n")
         for matricula in repetidas.head(args.listar).index:
-            grupo = com_matricula[com_matricula["matricula"] == matricula]
+            grupo = com_matricula[com_matricula[identificador] == matricula]
             difere = [c for c in colunas if grupo[c].nunique(dropna=False) > 1]
-            print(f"  matrícula {matricula}: {len(grupo)} linhas — "
+            print(f"  {identificador} {matricula}: {len(grupo)} linhas — "
                   f"difere em {', '.join(difere) if difere else 'nada visível'}")
             print(grupo[colunas].to_string(index=False, max_rows=6))
             print()
@@ -119,7 +143,7 @@ def main() -> int:
     print("-" * 60)
     print(f"RESUMO ({recorte})")
     print(f"  total do painel ....... {total:.0f}")
-    print(f"  matrículas distintas .. {distintas}")
+    print(f"  {identificador}s distintos . {distintas}")
     print(f"  contadas a mais ....... {excedente} ({pct:.1f}% do total)")
     print(f"  total sem repetir ..... {total - excedente:.0f}")
     return 1
