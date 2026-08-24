@@ -17,7 +17,22 @@ $Requisitos = Join-Path $RaizProjeto "requirements.txt"
 $PastaLocal = Join-Path $RaizProjeto "data\local"
 $MarcaRequisitos = Join-Path $PastaLocal "requisitos.sha256"
 $UrlLocal = "http://127.0.0.1:8000"
-$VersaoEsperada = "1.16.0"
+$ConfigAplicacao = Join-Path $RaizProjeto "app\config.py"
+$VersaoEsperada = ""
+
+# Le a versao declarada pela propria aplicacao. Um numero fixo aqui fazia o
+# Uvicorn iniciar corretamente, mas o script rejeitar a versao nova como se o
+# servidor nao tivesse iniciado.
+if (Test-Path $ConfigAplicacao) {
+    $ConteudoConfig = Get-Content $ConfigAplicacao -Raw
+    if ($ConteudoConfig -match 'APP_VERSAO\s*=\s*"([^"]+)"') {
+        $VersaoEsperada = [string]$Matches[1]
+    }
+}
+if (-not $VersaoEsperada) {
+    Write-Host "ERRO: nao foi possivel identificar a versao do dashboard." -ForegroundColor Red
+    exit 1
+}
 
 if (-not (Test-Path $Pastas)) {
     Write-Host "Configuracao inicial ainda nao realizada." -ForegroundColor Yellow
