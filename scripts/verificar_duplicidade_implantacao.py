@@ -80,12 +80,19 @@ def main() -> int:
                   .sort_values("linhas", ascending=False))
         print(origem.to_string(index=False))
 
-    if "tipo" in dados.columns:
-        print("\nPor frente:")
-        frente = (dados.groupby("tipo", as_index=False)
+    if "frente" in dados.columns:
+        # É por Frente que as medidas recortam. Um total de VCG muito acima do
+        # esperado costuma ser frente classificada errada, não fórmula.
+        print("\nPor frente (é assim que as medidas recortam):")
+        frente = (dados.groupby("frente", as_index=False)
                   .agg(linhas=(identificador, "size"),
-                       distintos=(identificador, "nunique")))
+                       distintos=(identificador, "nunique"))
+                  .sort_values("linhas", ascending=False))
         print(frente.to_string(index=False))
+
+    if "data" in dados.columns and dados["data"].notna().any():
+        # Datas fora do mês recortado indicam ano_mes gravado errado.
+        print(f"\nDatas no recorte: de {dados['data'].min()} a {dados['data'].max()}")
     print()
 
     com_matricula = dados[dados[identificador].notna()]
