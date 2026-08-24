@@ -146,6 +146,10 @@ class FatoVendas(Base):
     # exclusivo não representa isso, então cada medida tem sua marca.
     conta_comercial: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     conta_vcg: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Os dois campos em que toda regra de venda se apoia. Guardá-los é o que
+    # permite auditar depois por que uma linha entrou em cada medida.
+    tipo_atividade: Mapped[str | None] = mapped_column(String(120), index=True)
+    codigo_descricao: Mapped[str | None] = mapped_column(String(180), index=True)
     matricula: Mapped[str | None] = mapped_column(String(60), index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)
     valor: Mapped[float | None] = mapped_column(Float, nullable=True)
