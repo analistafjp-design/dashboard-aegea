@@ -115,23 +115,27 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     realizado = _oficial(do_mes)
     realizado_todos = _oficial(dados)  # histórico, para a evolução mensal
 
-    # Implantação Mês - Serviços / VCG: matrículas distintas da frente, sobre
-    # DISTINCTCOUNT(AnoMes) — que vale 1 com um mês recortado.
     linhas_servicos = _frente(realizado, "SERVICOS")
     linhas_vcg = _frente(realizado, "VCG")
-    servicos = nucleo.total(_unicas(linhas_servicos))
+
+    # As duas medidas do PBIX agregam de formas diferentes, e é proposital:
+    # `Implantação Mês - Serviços` soma [Total Implantação] (COUNTROWS), então
+    # duas execuções da mesma ligação valem duas; `Implantação Mês - VCG` usa
+    # DISTINCTCOUNT(Interior[Matrícula]), então valem uma.
+    servicos = nucleo.total(linhas_servicos)
     vcg = nucleo.total(_unicas(linhas_vcg))
     # Implantação Geral = Serviços + VCG, como define a medida do PBIX.
     total_impl = _somar(servicos, vcg)
 
-    # Média Implantação Dia: o divisor é DISTINCTCOUNT(Data) sobre todas as
-    # linhas da frente, não sobre as distintas.
+    # Média Implantação Dia: as duas usam [Total Implantação] no numerador —
+    # inclusive VCG, que aqui conta linhas, e não matrículas distintas — sobre
+    # o DISTINCTCOUNT(Data) da frente.
     dias_servicos = (float(linhas_servicos["data"].nunique())
                      if not linhas_servicos.empty else 0.0)
     dias_vcg = (float(linhas_vcg["data"].nunique())
                 if not linhas_vcg.empty else 0.0)
     media_servicos_dia = servicos / dias_servicos if dias_servicos else None
-    media_vcg_dia = vcg / dias_vcg if dias_vcg else None
+    media_vcg_dia = (nucleo.total(linhas_vcg) / dias_vcg) if dias_vcg else None
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)

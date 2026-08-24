@@ -1,8 +1,8 @@
-"""A implantação conta matrículas distintas, não linhas.
+"""Agregação de cada medida de implantação do PBIX.
 
-A mesma ligação reaparece na planilha quando a ordem é lançada em outra data
-ou por outra equipe. Como a chave do fato inclui data, serviço e equipe, cada
-lançamento virava uma linha e a ligação era contada duas vezes.
+`Implantação Mês - Serviços` soma [Total Implantação] (COUNTROWS) e
+`Implantação Mês - VCG` usa DISTINCTCOUNT(Interior[Matrícula]) — agregações
+diferentes de propósito. As duas recortam por CONTAINSSTRING(Frente, ...).
 """
 from datetime import date
 
@@ -58,16 +58,27 @@ def _indicador(payload, chave):
     return next(i["valor"] for i in payload["indicadores"] if i["chave"] == chave)
 
 
-def test_mesma_matricula_em_datas_diferentes_conta_uma_vez(base):
-    """O caso real: mesma ligação, mesmo serviço, duas datas e duas equipes."""
+def test_servicos_conta_linhas_e_nao_matriculas_distintas(base):
+    """Serviços usa COUNTROWS: duas execuções da mesma ligação valem duas."""
     payload = base([
         {"matricula": "103139478", "data": MES.replace(day=21), "equipe": "Riomltin-020"},
         {"matricula": "103139478", "data": MES.replace(day=23), "equipe": "Riomltin-019"},
         {"matricula": "103139479", "data": MES.replace(day=21), "equipe": "Riomltin-020"},
     ])
 
-    assert _indicador(payload, "impl_servicos") == 2
-    assert _indicador(payload, "total_implantacao") == 2
+    assert _indicador(payload, "impl_servicos") == 3
+    assert _indicador(payload, "total_implantacao") == 3
+
+
+def test_vcg_conta_matriculas_distintas(base):
+    """VCG usa DISTINCTCOUNT(Matrícula): a mesma ligação vale uma."""
+    payload = base([
+        {"matricula": "1", "frente": "VCG Rio Bonito", "data": MES.replace(day=21)},
+        {"matricula": "1", "frente": "VCG Rio Bonito", "data": MES.replace(day=23)},
+        {"matricula": "2", "frente": "VCG Rio Bonito", "data": MES.replace(day=21)},
+    ])
+
+    assert _indicador(payload, "impl_vcg") == 2
 
 
 def test_geral_e_a_soma_de_servicos_e_vcg(base):
@@ -107,45 +118,35 @@ def test_ranking_por_cidade_tambem_conta_distinto(base):
 def test_linha_sem_matricula_continua_valendo(base):
     """Sem identificador não dá para agrupar; descartar esconderia produção."""
     payload = base([
-        {"matricula": None},
-        {"matricula": None},
-        {"matricula": "1"},
+        {"matricula": None, "frente": "VCG"},
+        {"matricula": None, "frente": "VCG"},
+        {"matricula": "1", "frente": "VCG"},
     ])
 
-    assert _indicador(payload, "total_implantacao") == 3
+    assert _indicador(payload, "impl_vcg") == 3
 
 
-def test_media_por_dia_usa_o_total_distinto(base):
-    # Duas ligações distintas em duas datas: 2 / 2 = 1,0 por dia.
+def test_media_por_dia_divide_pelas_datas_distintas(base):
+    # 3 linhas em 2 datas distintas: 3 / 2 = 1,5 por dia.
     payload = base([
         {"matricula": "1", "data": MES.replace(day=10)},
         {"matricula": "1", "data": MES.replace(day=11)},
         {"matricula": "2", "data": MES.replace(day=11)},
     ])
 
-    assert _indicador(payload, "impl_servicos") == 2
-    assert _indicador(payload, "impl_servicos_dia") == pytest.approx(1.0)
+    assert _indicador(payload, "impl_servicos") == 3
+    assert _indicador(payload, "impl_servicos_dia") == pytest.approx(1.5)
 
 
-def test_matricula_tem_prioridade_sobre_protocolo(base):
-    """A medida conta DISTINCTCOUNT(Interior[Matrícula])."""
+def test_vcg_agrupa_por_matricula_e_nao_por_protocolo(base):
+    """A medida de VCG conta DISTINCTCOUNT(Interior[Matrícula])."""
     payload = base([
-        {"matricula": "1", "protocolo": "P-100"},
-        {"matricula": "2", "protocolo": "P-100"},  # mesmo protocolo, matrículas distintas
-        {"matricula": "3", "protocolo": "P-200"},
+        {"matricula": "1", "protocolo": "P-100", "frente": "VCG"},
+        {"matricula": "2", "protocolo": "P-100", "frente": "VCG"},  # mesmo protocolo
+        {"matricula": "3", "protocolo": "P-200", "frente": "VCG"},
     ])
 
-    assert _indicador(payload, "total_implantacao") == 3
-
-
-def test_sem_matricula_o_protocolo_segue_valendo(base):
-    payload = base([
-        {"matricula": None, "protocolo": "P-1"},
-        {"matricula": None, "protocolo": "P-1", "data": MES.replace(day=12)},
-        {"matricula": None, "protocolo": "P-2"},
-    ])
-
-    assert _indicador(payload, "total_implantacao") == 2
+    assert _indicador(payload, "impl_vcg") == 3
 
 
 def test_frente_fora_de_servicos_e_vcg_nao_entra_em_nenhuma_medida(base):
