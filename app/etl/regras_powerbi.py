@@ -38,28 +38,69 @@ def frente_interior(recurso: object) -> str:
     return "Serviços"
 
 
+EQUIPES_VCG = ("RIOVCGPOPIN", "RIOVCGEXTIN", "RIOVCGVENIN")
+
+# As duas atividades que contam como implantação.
+TIPOS_IMPLANTACAO = ("LIGACAO DE AGUA", "LIGACAO DE ESGOTO")
+
+
 def _equipe_vcg(recurso: object) -> bool:
     valor = _texto(recurso)
-    return any(codigo in valor for codigo in ("RIOVCGPOPIN", "RIOVCGEXTIN", "RIOVCGVENIN"))
+    return any(codigo in valor for codigo in EQUIPES_VCG)
+
+
+# Venda de água factível: entra em Venda VCG mesmo quando o Tipo de
+# Atividade não é "Venda Potenciais/Factíveis".
+CODIGO_FACTIVEL_AGUA = "313001"
+
+
+def _marcar_vendas(saida: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """`Venda Comercial` e `Venda VCG` do PBIX, uma marca para cada.
+
+    As medidas são exclusivas: a venda do RIOVCGVENIN com código 113001 que a
+    exceção leva para o comercial deixa de contar em VCG, o que mantém VCG
+    restrito ao que de fato é produção da frente.
+    """
+    atividade = saida["tipo_atividade"].map(_texto)
+    status = saida["status_atividade"].map(_texto)
+    codigo = saida["codigo_descricao"].map(_texto)
+    recurso = saida["equipe"].map(_texto)
+
+    finalizada = status == "FINALIZADA"
+    venda_potencial = atividade == "VENDA POTENCIAIS/FACTIVEIS"
+    vcg = recurso.apply(lambda v: any(c in v for c in EQUIPES_VCG))
+
+    excecao = (recurso.str.contains("RIOVCGVENIN", regex=False)
+               & codigo.str.contains("113001", regex=False))
+    comercial = (venda_potencial & finalizada
+                 & ~codigo.str.contains("114003|118048", regex=True)
+                 & (~vcg | excecao))
+
+    factivel_agua = codigo.str.contains(CODIGO_FACTIVEL_AGUA, regex=False)
+    conta_vcg = (vcg & finalizada
+                 & ~codigo.str.contains("114003", regex=False)
+                 & (venda_potencial | factivel_agua)
+                 # As duas medidas não se sobrepõem: o que a exceção do
+                 # RIOVCGVENIN leva para o comercial sai de VCG.
+                 & ~comercial)
+    return comercial, conta_vcg
 
 
 def filtrar_vendas(dados: pd.DataFrame) -> pd.DataFrame:
     if "tipo_atividade" not in dados or not dados["tipo_atividade"].notna().any():
         return dados
     saida = dados.copy()
-    atividade = saida["tipo_atividade"].map(_texto)
-    status = saida["status_atividade"].map(_texto)
-    codigo = saida["codigo_descricao"].map(_texto)
-    vcg = saida["equipe"].map(_equipe_vcg)
-    base = (atividade == "VENDA POTENCIAIS/FACTIVEIS") & (status == "FINALIZADA")
-    comercial_valido = ~vcg & ~codigo.str.contains("114003|118048", regex=True)
-    vcg_valido = vcg & ~codigo.str.contains("114003", regex=False)
-    saida = saida[base & (comercial_valido | vcg_valido)].copy()
+    comercial, conta_vcg = _marcar_vendas(saida)
+    saida = saida[comercial | conta_vcg].copy()
     if saida.empty:
         return saida
-    eh_vcg = saida["equipe"].map(_equipe_vcg)
+    comercial, conta_vcg = _marcar_vendas(saida)
+    saida["conta_comercial"] = comercial
+    saida["conta_vcg"] = conta_vcg
     saida["frente"] = saida["equipe"].map(frente_interior)
-    saida["canal"] = eh_vcg.map({True: "VCG", False: "COMERCIAL"})
+    # `canal` continua existindo para os recortes por dimensão; quando a
+    # venda conta nas duas medidas, ela aparece pelo lado comercial.
+    saida["canal"] = comercial.map({True: "COMERCIAL", False: "VCG"})
     saida["quantidade"] = 1.0
     return saida
 
@@ -70,8 +111,10 @@ def filtrar_implantacoes(dados: pd.DataFrame) -> pd.DataFrame:
     saida = dados.copy()
     atividade = saida["tipo_atividade"].map(_texto)
 
-    # Preservar todas as atividades de "Ligação de Água", independente do status
-    saida = saida[atividade == "LIGACAO DE AGUA"].copy()
+    # Ligação de Água e de Esgoto são as duas atividades de implantação.
+    # Todos os status seguem na base: o realizado é marcado adiante, e as
+    # ordens em aberto alimentam o acompanhamento de SLA.
+    saida = saida[atividade.isin(TIPOS_IMPLANTACAO)].copy()
     if saida.empty:
         return saida
 

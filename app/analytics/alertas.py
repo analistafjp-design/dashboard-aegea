@@ -154,9 +154,10 @@ def gerar(payloads: dict) -> list[dict]:
     elif vencidas == 0:
         proximas = sla_impl.get("a_vencer", 0)
         if proximas > 0:
+            janela = sla_impl.get("janela_dias", 3)
             add(ATENCAO, "Implantações próximas do fim da SLA",
-                f"{numero(proximas)} implantação(ões) estão a até 48 horas do vencimento ou "
-                f"consumiram 80% do prazo.",
+                f"{numero(proximas)} implantação(ões) estão a até {janela} dia(s) do "
+                f"vencimento ou consumiram 80% do prazo.",
                 "implantacao",
                 "Validar a programação das equipes e antecipar as ordens com menor tempo restante.",
                 "Hoje",

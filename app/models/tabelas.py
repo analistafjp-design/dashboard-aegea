@@ -141,6 +141,15 @@ class FatoVendas(Base):
     equipe_id: Mapped[int | None] = mapped_column(ForeignKey("dim_equipe.id"), index=True)
     frente_id: Mapped[int | None] = mapped_column(ForeignKey("dim_frente.id"), index=True)
     canal: Mapped[str] = mapped_column(String(30), index=True)  # COMERCIAL|VCG|OUTROS
+    # As medidas do PBIX se sobrepõem: uma venda do RIOVCGVENIN com código
+    # 113001 conta em Venda Comercial E em Venda VCG. Um único canal
+    # exclusivo não representa isso, então cada medida tem sua marca.
+    conta_comercial: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    conta_vcg: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Os dois campos em que toda regra de venda se apoia. Guardá-los é o que
+    # permite auditar depois por que uma linha entrou em cada medida.
+    tipo_atividade: Mapped[str | None] = mapped_column(String(120), index=True)
+    codigo_descricao: Mapped[str | None] = mapped_column(String(180), index=True)
     matricula: Mapped[str | None] = mapped_column(String(60), index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)
     valor: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -162,6 +171,9 @@ class FatoImplantacao(Base):
     frente_id: Mapped[int | None] = mapped_column(ForeignKey("dim_frente.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(20), index=True)  # SERVICOS | VCG
     matricula: Mapped[str | None] = mapped_column(String(60), index=True)
+    # Cód. Protocolo Origem: é ele que identifica a implantação na medida do
+    # PBIX. Quando a planilha o traz, é a chave da contagem distinta.
+    protocolo: Mapped[str | None] = mapped_column(String(60), index=True)
     servico: Mapped[str | None] = mapped_column(String(120))
     faturado: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)

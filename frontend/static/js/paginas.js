@@ -102,6 +102,91 @@
       </table>`;
   }
 
+  /** Prazo em horas vira um texto que o gestor lê sem converter nada. */
+  function prazoTexto(horas) {
+    if (horas === null || horas === undefined) return "—";
+    const atrasado = horas < 0;
+    const total = Math.abs(horas);
+    const dias = Math.floor(total / 24);
+    const resto = Math.round(total % 24);
+    const medida = dias >= 1 ? `${dias}d ${resto}h` : `${Math.round(total)}h`;
+    return atrasado ? `${medida} em atraso` : `faltam ${medida}`;
+  }
+
+  function dataHoraTexto(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return "—";
+    const dois = (n) => String(n).padStart(2, "0");
+    return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()} ${dois(d.getHours())}:${dois(d.getMinutes())}`;
+  }
+
+  /**
+   * Painel de SLA da implantação: vencidas, a vencer e onde estão.
+   * `ids` aponta os quatro destinos na página que está chamando.
+   */
+  function painelSla(sla, ids) {
+    sla = sla || {};
+    const vencidas = sla.vencidas || 0;
+    const aVencer = sla.a_vencer || 0;
+    const janela = sla.janela_dias || 3;
+
+    const descricao = document.querySelector(ids.descricao);
+    if (descricao) {
+      let texto;
+      if (vencidas || aVencer) {
+        texto = `Vencida = o prazo já passou. A vencer = falta até ${janela} dia(s) para `
+          + "o prazo ou 80% do tempo já foi consumido.";
+      } else if (!sla.com_prazo) {
+        // Sem isso o painel zerado seria lido como "está tudo em dia".
+        texto = "Nenhuma ordem em aberto tem Início e Fim da SLA preenchidos, "
+          + "então não há prazo a acompanhar. Confira se a planilha de Implantação "
+          + "traz essas duas colunas.";
+      } else {
+        texto = `As ${App.numero(sla.com_prazo)} ordem(ns) em aberto com prazo estão `
+          + "dentro do combinado.";
+      }
+      descricao.textContent = texto;
+    }
+
+    const resumo = document.querySelector(ids.resumo);
+    if (resumo) {
+      resumo.innerHTML = [
+        App.miniInfo("Vencidas", App.numero(vencidas),
+          vencidas ? `em ${App.numero(sla.cidades)} cidade(s)` : "nenhuma"),
+        App.miniInfo("A vencer", App.numero(aVencer),
+          aVencer ? `janela de ${janela} dia(s)` : "nenhuma"),
+        App.miniInfo("Em aberto", App.numero(sla.total),
+          sla.cidade_mais_critica ? `pior cidade: ${sla.cidade_mais_critica}`
+            : `${App.numero(sla.com_prazo)} com prazo`),
+      ].join("");
+    }
+
+    App.tabela(ids.cidades, [
+      { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+      { chave: "vencidas", titulo: "Vencidas", tipo: "numero" },
+      { chave: "proximas", titulo: "A vencer", tipo: "numero" },
+      { chave: "total", titulo: "Total", tipo: "numero" },
+    ], sla.por_cidade, { vazio: "Nenhuma cidade com ordem vencida ou a vencer." });
+
+    const detalhes = (sla.detalhes || []).slice(0, 20).map((linha) => ({
+      situacao: linha.situacao === "VENCIDO" ? "Vencida" : "A vencer",
+      matricula: linha.matricula,
+      cidade: linha.cidade,
+      equipe: linha.equipe,
+      prazo: dataHoraTexto(linha.fim_sla),
+      restante: prazoTexto(linha.tempo_restante_horas),
+    }));
+    App.tabela(ids.detalhes, [
+      { chave: "situacao", titulo: "Situação" },
+      { chave: "matricula", titulo: "Matrícula" },
+      { chave: "cidade", titulo: "Cidade", clique: "cidade" },
+      { chave: "equipe", titulo: "Equipe", clique: "equipe" },
+      { chave: "prazo", titulo: "Fim da SLA" },
+      { chave: "restante", titulo: "Prazo" },
+    ], detalhes, { vazio: "Nenhuma ordem vencida ou a vencer." });
+  }
+
   /* ------------------------------------------------------------------ HOME */
   App.registrar("home", async function () {
     try {
@@ -114,14 +199,18 @@
         App.numero(implantacao.bloco_principal.meta);
       document.getElementById("simples-dias-restantes").textContent =
         App.numero(dados.periodo.dias_uteis_restantes);
-      const implVcg = porChave(implantacao.indicadores, "impl_vcg").valor;
-      const dias = dados.periodo.dias_uteis_decorridos || 0;
+      const sla = implantacao.sla || {};
+      const dias = sla.janela_dias || 3;
       faixaIndicadores("#simples-implantacao-kpis", [
         { rotulo: "Implantação Geral", valor: ii("total_implantacao") },
         { rotulo: "Implantação Serviços", valor: ii("impl_servicos") },
-        { rotulo: "Implantação Serviços / Dia", valor: ii("media_dia", 1) },
+        { rotulo: "Implantação Serviços / Dia", valor: ii("impl_servicos_dia", 1) },
         { rotulo: "Implantação Mês - VCG", valor: ii("impl_vcg") },
-        { rotulo: "Implantação VCG / Dia", valor: implVcg === null || !dias ? "—" : App.numero(implVcg / dias, 1) },
+        { rotulo: "Implantação VCG / Dia", valor: ii("impl_vcg_dia", 1) },
+        // Sem prazo carregado o cartão mostraria zero, que se lê como
+        // "está tudo em dia". Um traço deixa claro que falta o dado.
+        { rotulo: `A Vencer em ${dias} Dias`,
+          valor: sla.com_prazo ? App.numero(sla.a_vencer || 0) : "—" },
       ]);
       faixaIndicadores("#simples-vendas-kpis", [
         { rotulo: "Total Venda", valor: vi("total_venda") },
@@ -310,6 +399,10 @@
       matrizMeta("#implantacao-matriz", dados.blocos_meta);
       document.getElementById("implantacao-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
       App.renderKpis("#implantacao-cards", dados.indicadores);
+      painelSla(dados.sla, {
+        resumo: "#implantacao-sla-resumo", descricao: "#implantacao-sla-descricao",
+        cidades: "#implantacao-sla-cidades", detalhes: "#implantacao-sla-detalhes",
+      });
 
       document.getElementById("implantacao-faturamento").innerHTML = [
         App.miniInfo("Quantidade faturada", App.numero(f.quantidade_faturada)),

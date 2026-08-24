@@ -7,10 +7,13 @@ Implantação Não Faturada, Valor Total Faturado, Falta Total.
 """
 from __future__ import annotations
 
+import pandas as pd
+
 from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
-from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
 from app.analytics.periodo import Periodo, resolver
+from app.etl.regras_powerbi import EQUIPES_VCG
+from app.utils.texto import sem_acento
 
 
 DEPARTAMENTOS_FATURAMENTO = {
@@ -19,8 +22,63 @@ DEPARTAMENTOS_FATURAMENTO = {
 }
 
 
-def _tipo(dados, tipo: str):
-    return dados[dados["tipo"] == tipo] if "tipo" in dados.columns else dados.iloc[0:0]
+def _eh_vcg(dados):
+    """Máscara das equipes VCG.
+
+    Só RIOVCGPOPIN, RIOVCGEXTIN e RIOVCGVENIN são VCG; todas as demais
+    equipes entram em Serviços nesta visão. A frente gravada não serve
+    sozinha porque nela existe também `Venda`, que aqui é Serviços.
+    """
+    equipe = dados["equipe"].map(lambda v: sem_acento(str(v)).upper())
+    return equipe.apply(lambda v: any(c in v for c in EQUIPES_VCG))
+
+
+def _frente(dados, alvo: str):
+    """Recorta a base em VCG ou Serviços."""
+    if dados is None or dados.empty or "equipe" not in dados.columns:
+        return dados.iloc[0:0] if dados is not None else dados
+    vcg = _eh_vcg(dados)
+    return dados[vcg] if alvo == "VCG" else dados[~vcg]
+
+
+def _identificador(dados) -> str | None:
+    """Coluna que identifica a implantação.
+
+    A medida conta `DISTINCTCOUNT(Interior[Matrícula])`. O protocolo só entra
+    quando a planilha não traz matrícula.
+    """
+    for coluna in ("matricula", "protocolo"):
+        if coluna in dados.columns and dados[coluna].notna().any():
+            return coluna
+    return None
+
+
+def _unicas(dados, *agrupamento: str):
+    """Uma linha por matrícula — a mesma ordem não conta duas vezes.
+
+    A mesma matrícula reaparece a cada arquivo diário em que a ordem foi
+    lançada, com data ou equipe diferentes, e como a chave do fato inclui
+    esses campos cada lançamento virava uma linha. `agrupamento` acrescenta
+    dimensões à chave: por cidade, a contagem é de matrículas distintas
+    dentro de cada cidade.
+    """
+    if dados is None or dados.empty:
+        return dados
+    identificador = _identificador(dados)
+    if identificador is None:
+        return dados
+    chaves = [c for c in (*agrupamento, identificador) if c in dados.columns]
+    # Linha sem identificador não pode ser agrupada com nenhuma outra;
+    # descartá-la esconderia produção real, então continua valendo por si.
+    sem_id = dados[dados[identificador].isna()]
+    com_id = dados[dados[identificador].notna()].drop_duplicates(subset=chaves)
+    return com_id if sem_id.empty else pd.concat([com_id, sem_id])
+
+
+def _somar(*parcelas: float | None) -> float | None:
+    """Soma tratando ausência de dado como ausência, não como zero."""
+    presentes = [p for p in parcelas if p is not None]
+    return float(sum(presentes)) if presentes else None
 
 
 def _linha_faturamento(rotulo: str, implantacoes, faturadas, nao_faturadas,
@@ -53,12 +111,30 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         if not faturamento_base.empty else faturamento_base
     )
 
-    # Filtrar apenas as implantações que contam para o realizado (conta_realizado=True)
-    conta_realizado = do_mes[do_mes.get("conta_realizado", True)] if not do_mes.empty else do_mes
+    # Só o que conta para o realizado oficial entra nos totais. As ordens em
+    # aberto seguem na base — elas alimentam o acompanhamento de SLA.
+    def _oficial(base):
+        if base.empty or "conta_realizado" not in base.columns:
+            return base
+        return base[base["conta_realizado"] == True]  # noqa: E712
 
-    total_impl = nucleo.total(conta_realizado)
-    servicos = nucleo.total(_tipo(conta_realizado, TIPO_SERVICOS))
-    vcg = nucleo.total(_tipo(conta_realizado, TIPO_VCG))
+    realizado = _oficial(do_mes)
+    realizado_todos = _oficial(dados)  # histórico, para a evolução mensal
+
+    # A mesma matrícula não se repete dentro do mês e da frente. É essa regra
+    # que impede a produção de ser contada de novo a cada arquivo diário em
+    # que a ordem reaparece.
+    linhas_servicos = _unicas(_frente(realizado, "SERVICOS"))
+    linhas_vcg = _unicas(_frente(realizado, "VCG"))
+    servicos = nucleo.total(linhas_servicos)
+    vcg = nucleo.total(linhas_vcg)
+    total_impl = _somar(servicos, vcg)
+
+    # Média diária = realizado / dias úteis decorridos do período. Não se
+    # divide por quantidade de meses nem por datas com produção.
+    dias_uteis = float(periodo.dias_uteis_decorridos or 0)
+    media_servicos_dia = servicos / dias_uteis if dias_uteis and servicos else None
+    media_vcg_dia = vcg / dias_uteis if dias_uteis and vcg else None
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
@@ -82,7 +158,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             faturamento_mes[ocorrencia & departamento], "valor"
         )
         faturamento_por_frente = []
-        for rotulo, tipo in (("Serviços", TIPO_SERVICOS), ("VCG", TIPO_VCG)):
+        for rotulo, termo in (("Serviços", "SERVICOS"), ("VCG", "VCG")):
             mascara_frente = faturamento_mes["frente"].str.strip().str.upper() == rotulo.upper()
             faturadas_frente = faturadas_df[
                 faturadas_df["frente"].str.strip().str.upper() == rotulo.upper()
@@ -94,19 +170,19 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
                 faturamento_mes[ocorrencia & departamento & mascara_frente], "valor"
             )
             faturamento_por_frente.append(_linha_faturamento(
-                rotulo, _tipo(do_mes, tipo), faturadas_frente,
+                rotulo, _unicas(_frente(realizado, termo)), faturadas_frente,
                 nao_faturadas_frente, valor_frente,
             ))
     else:
         # Compatibilidade com planilhas consolidadas antigas.
-        faturadas_df = do_mes[do_mes["faturado"] == True] if not do_mes.empty else do_mes  # noqa: E712
-        nao_faturadas_df = do_mes[do_mes["faturado"] == False] if not do_mes.empty else do_mes  # noqa: E712
+        faturadas_df = realizado[realizado["faturado"] == True] if not realizado.empty else realizado  # noqa: E712
+        nao_faturadas_df = realizado[realizado["faturado"] == False] if not realizado.empty else realizado  # noqa: E712
         qtd_faturada = nucleo.total(faturadas_df)
         qtd_nao_faturada = nucleo.total(nao_faturadas_df)
         valor_faturado = nucleo.total(faturadas_df, "valor")
         faturamento_por_frente = []
-        for rotulo, tipo in (("Serviços", TIPO_SERVICOS), ("VCG", TIPO_VCG)):
-            implantacoes_frente = _tipo(do_mes, tipo)
+        for rotulo, termo in (("Serviços", "SERVICOS"), ("VCG", "VCG")):
+            implantacoes_frente = _unicas(_frente(realizado, termo))
             faturamento_por_frente.append(_linha_faturamento(
                 rotulo,
                 implantacoes_frente,
@@ -122,11 +198,6 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     pct_nao_faturado = None if pct_faturado is None else round(100 - pct_faturado, 1)
 
     _, anterior = nucleo.comparar_meses(todos, periodo)
-
-    # Calcular média diária separada por frente
-    dias_uteis = max(1, periodo.dias_uteis_decorridos)
-    media_servicos_dia = (servicos / dias_uteis) if servicos is not None else None
-    media_vcg_dia = (vcg / dias_uteis) if vcg is not None else None
 
     bloco_total = nucleo.bloco_meta(total_impl, meta_total, periodo, "Total")
     blocos = [
@@ -153,6 +224,14 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         nucleo.indicador_realizado(
             "impl_vcg", "Implantação VCG", vcg, meta_vcg,
             pergunta="Como está VCG?", explicacao="Implantações classificadas como VCG."),
+        nucleo.indicador_realizado(
+            "impl_servicos_dia", "Implantação Serviços / Dia", media_servicos_dia, casas=1,
+            pergunta="Qual o ritmo diário de Serviços?",
+            explicacao="Serviços divididos pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
+            "impl_vcg_dia", "Implantação VCG / Dia", media_vcg_dia, casas=1,
+            pergunta="Qual o ritmo diário de VCG?",
+            explicacao="VCG dividido pelos dias úteis decorridos."),
         nucleo.indicador_realizado(
             "impl_faturada", "Implantação Faturada", qtd_faturada,
             pergunta="Quanto já foi faturado?",
@@ -211,13 +290,22 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "por_frente": faturamento_por_frente,
         },
         "sla": sla_dados,
-        "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
-        "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),
-        "evolucao_vcg": nucleo.evolucao_mensal(_tipo(dados, TIPO_VCG)).to_dict("records"),
-        "evolucao_diaria": nucleo.evolucao_diaria(do_mes).to_dict("records"),
-        "por_cidade": nucleo.ranking(do_mes, "cidade", top=15).to_dict("records"),
-        "por_frente": nucleo.ranking(do_mes, "frente").to_dict("records"),
-        "por_equipe": nucleo.ranking(do_mes, "equipe", top=15).to_dict("records"),
+        # Cada recorte conta matrículas distintas dentro do próprio grupo, do
+        # mesmo jeito que o DISTINCTCOUNT responde ao contexto de filtro.
+        "evolucao_mensal": nucleo.evolucao_mensal(
+            _unicas(realizado_todos, "ano_mes")).to_dict("records"),
+        "evolucao_servicos": nucleo.evolucao_mensal(
+            _unicas(_frente(realizado_todos, "SERVICOS"), "ano_mes")).to_dict("records"),
+        "evolucao_vcg": nucleo.evolucao_mensal(
+            _unicas(_frente(realizado_todos, "VCG"), "ano_mes")).to_dict("records"),
+        "evolucao_diaria": nucleo.evolucao_diaria(
+            _unicas(realizado, "data")).to_dict("records"),
+        "por_cidade": nucleo.ranking(
+            _unicas(realizado, "cidade"), "cidade", top=15).to_dict("records"),
+        "por_frente": nucleo.ranking(
+            _unicas(realizado, "frente"), "frente").to_dict("records"),
+        "por_equipe": nucleo.ranking(
+            _unicas(realizado, "equipe"), "equipe", top=15).to_dict("records"),
         "nao_faturadas_por_cidade": (
             nucleo.ranking(nao_faturadas_df, "cidade", top=10).to_dict("records")
             if "cidade" in nao_faturadas_df.columns else []

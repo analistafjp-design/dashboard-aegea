@@ -68,6 +68,8 @@ def _stmt_vendas():
     return (
         select(
             FatoVendas.data, FatoVendas.ano_mes, FatoVendas.canal,
+            FatoVendas.conta_comercial, FatoVendas.conta_vcg,
+            FatoVendas.tipo_atividade, FatoVendas.codigo_descricao,
             FatoVendas.quantidade, FatoVendas.valor, FatoVendas.matricula,
             FatoVendas.origem_arquivo, FatoVendas.importado_em,
             cidade.nome.label("cidade"), equipe.nome.label("equipe"),
@@ -86,6 +88,7 @@ def _stmt_implantacao():
             FatoImplantacao.data, FatoImplantacao.ano_mes, FatoImplantacao.tipo,
             FatoImplantacao.faturado, FatoImplantacao.servico,
             FatoImplantacao.quantidade, FatoImplantacao.valor, FatoImplantacao.matricula,
+            FatoImplantacao.protocolo,
             FatoImplantacao.status_atividade, FatoImplantacao.inicio_sla,
             FatoImplantacao.fim_sla, FatoImplantacao.conta_realizado,
             FatoImplantacao.origem_arquivo, FatoImplantacao.importado_em,

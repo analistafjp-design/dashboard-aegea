@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from scripts import atualizar_dashboard_local as atualizador
 from scripts.atualizar_dashboard_local import (
+    VERSOES_REGRAS,
     arquivo_mudou,
     carregar_manifesto,
     carregar_pastas,
@@ -12,6 +13,11 @@ from scripts.atualizar_dashboard_local import (
     salvar_manifesto,
     tipos_pendentes,
 )
+
+
+def _versao(tipo: str) -> int:
+    """Versao corrente da base, para os testes acompanharem cada bump."""
+    return VERSOES_REGRAS[tipo]
 
 
 def test_carrega_pastas_e_conta_arquivo_fisico_uma_so_vez(tmp_path):
@@ -68,16 +74,17 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
         "modificado_ns": info.st_mtime_ns,
         "bases": ["vendas", "implantacao"],
         "bases_sem_registros": ["termos"],
-        "versoes_bases": {"vendas": 2, "implantacao": 2, "termos": 1},
+        "versoes_bases": {
+            "vendas": _versao("vendas"),
+            "implantacao": _versao("implantacao"),
+            "termos": 1,
+        },
     }}}
 
-    # Implantacao também está pendente porque a versão mudou de 2 para 3
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
-    ) == {"implantacao", "termos"}
-    # Atualizando termos de 1 para 8 e implantacao de 2 para 3
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 8
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 3
+    ) == {"termos"}
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = _versao("termos")
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == set()
@@ -98,15 +105,9 @@ def test_mudanca_das_medidas_reprocessa_venda_e_implantacao(tmp_path):
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == {"vendas", "implantacao"}
     manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"].update({
-        "vendas": 2,
-        "implantacao": 2,
+        "vendas": _versao("vendas"),
+        "implantacao": _versao("implantacao"),
     })
-    # Implantacao ainda está pendente porque espera versão 3 agora
-    assert tipos_pendentes(
-        planilha.resolve(), {"vendas", "implantacao"}, manifesto
-    ) == {"implantacao"}
-    # Atualizar para versão 3
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 3
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == set()

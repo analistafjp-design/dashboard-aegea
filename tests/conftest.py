@@ -82,8 +82,13 @@ def planilhas(diretorio_temporario) -> dict[str, Path]:
                 "Canal": "Comercial" if sufixo == 0 else "VCG Rio Bonito",
                 "Matrícula": f"{indice}{sufixo}", "Quantidade": 1, "Valor": 200.0,
             })
+            # A frente da implantação é decidida pela equipe: só as três
+            # siglas VCG contam como VCG, o resto é Serviços.
+            equipe_implantacao = (f"RIOVCGEXTIN-{indice % 3:03d}" if sufixo
+                                  else f"RIOMLTIN-{indice % 3:03d}")
             implantacao.append({
-                "Data da Implantação": dia, "Cidade": cidade, "Equipe": equipe,
+                "Data da Implantação": dia, "Cidade": cidade,
+                "Equipe": equipe_implantacao,
                 "Frente": frente, "Matrícula": f"{indice}{sufixo}",
                 "Serviço": "Ligação Nova",
                 "Situação Faturamento": "Faturado" if sufixo == 0 else "Não Faturado",
