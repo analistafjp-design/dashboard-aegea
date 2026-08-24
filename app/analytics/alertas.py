@@ -138,6 +138,30 @@ def gerar(payloads: dict) -> list[dict]:
             "de dependência de uma única equipe.", "Esta semana",
             f"Participação: {percentual(topo['participacao'])}")
 
+    # Implantações com SLA vencido
+    sla_impl = (payloads.get("implantacao") or {}).get("sla") or {}
+    vencidas = sla_impl.get("vencidas", 0)
+    if vencidas > 0:
+        cidade_critica = sla_impl.get("cidade_mais_critica")
+        msg_cidade = f" Maior concentração: {cidade_critica}." if cidade_critica else "."
+        add(CRITICO, "Implantações com SLA vencido",
+            f"{numero(vencidas)} implantação(ões) ultrapassaram o prazo de execução{msg_cidade}",
+            "implantacao",
+            "Priorizar as ordens vencidas, confirmar impedimentos com as equipes e registrar "
+            "a nova previsão de execução.", "Hoje",
+            f"Vencidas: {numero(vencidas)}")
+    # Implantações próximas do vencimento (só mostrar se não há vencidas)
+    elif vencidas == 0:
+        proximas = sla_impl.get("a_vencer", 0)
+        if proximas > 0:
+            add(ATENCAO, "Implantações próximas do fim da SLA",
+                f"{numero(proximas)} implantação(ões) estão a até 48 horas do vencimento ou "
+                f"consumiram 80% do prazo.",
+                "implantacao",
+                "Validar a programação das equipes e antecipar as ordens com menor tempo restante.",
+                "Hoje",
+                f"A vencer: {numero(proximas)}")
+
     ordem = {CRITICO: 0, ATENCAO: 1, NORMAL: 2}
     alertas.sort(key=lambda a: ordem[a["categoria"]])
     return alertas

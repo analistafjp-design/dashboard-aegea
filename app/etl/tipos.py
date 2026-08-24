@@ -123,8 +123,51 @@ def converter_booleano(valor: object) -> tuple[bool | None, bool]:
     return None, False
 
 
+def converter_data_hora(valor: object) -> tuple[datetime | None, bool]:
+    """Converte para datetime, aceitando formatos variados com hora."""
+    if esta_vazio(valor):
+        return None, True
+    if isinstance(valor, datetime):
+        return valor, True
+    if isinstance(valor, date) and not isinstance(valor, datetime):
+        return datetime.combine(valor, datetime.min.time()), True
+    if isinstance(valor, pd.Timestamp):
+        return valor.to_pydatetime(), True
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        # Número de série do Excel (base 1899-12-30).
+        numero = float(valor)
+        if 20000 <= numero <= 80000:
+            return datetime(1899, 12, 30) + timedelta(days=numero), True
+        return None, False
+    texto = str(valor).strip()
+    # Tenta formatos com hora primeiro
+    formatos_com_hora = (
+        "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+        "%d/%m/%y %H:%M:%S", "%d/%m/%y %H:%M", "%d-%m-%Y %H:%M:%S", "%d-%m-%Y %H:%M",
+        "%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
+    )
+    for formato in formatos_com_hora:
+        try:
+            return datetime.strptime(texto, formato), True
+        except ValueError:
+            continue
+    # Fallback para formatos apenas de data
+    for formato in _FORMATOS_DATA:
+        try:
+            dt = datetime.strptime(texto, formato)
+            return dt, True
+        except ValueError:
+            continue
+    try:
+        convertido = pd.to_datetime(texto, dayfirst=True, errors="raise")
+        return convertido.to_pydatetime(), True
+    except (ValueError, TypeError, pd.errors.ParserError):
+        return None, False
+
+
 CONVERSORES = {
     "data": converter_data,
+    "data_hora": converter_data_hora,
     "numero": converter_numero,
     "inteiro": converter_inteiro,
     "texto": converter_texto,
