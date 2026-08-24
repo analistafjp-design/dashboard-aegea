@@ -58,9 +58,19 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
     vcg = nucleo.total(_tipo(do_mes, TIPO_VCG))
 
     # Calcular médias diárias separadas por frente
-    dias_uteis = max(1, periodo.dias_uteis_decorridos)
-    media_servicos_dia = (servicos / dias_uteis) if servicos is not None else None
-    media_vcg_dia = (vcg / dias_uteis) if vcg is not None else None
+    # Usa DISTINCTCOUNT de datas onde houve implantação (como DAX)
+    do_mes_finalizado = do_mes[do_mes.get("conta_realizado", True) == True] if not do_mes.empty else do_mes  # noqa: E712
+
+    servicos_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_SERVICOS))
+    vcg_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_VCG))
+
+    dias_servicos = (float(_tipo(do_mes_finalizado, TIPO_SERVICOS)["data"].nunique())
+                     if not do_mes_finalizado.empty else 0)
+    dias_vcg = (float(_tipo(do_mes_finalizado, TIPO_VCG)["data"].nunique())
+                if not do_mes_finalizado.empty else 0)
+
+    media_servicos_dia = (servicos_finalizado / dias_servicos if dias_servicos > 0 else None)
+    media_vcg_dia = (vcg_finalizado / dias_vcg if dias_vcg > 0 else None)
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
