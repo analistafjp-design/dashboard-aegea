@@ -7,7 +7,7 @@ Implantação Não Faturada, Valor Total Faturado, Falta Total.
 """
 from __future__ import annotations
 
-from app.analytics import consultas, metas, nucleo
+from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
 from app.analytics.periodo import Periodo, resolver
@@ -53,29 +53,26 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         if not faturamento_base.empty else faturamento_base
     )
 
-    total_impl = nucleo.total(do_mes)
-    servicos = nucleo.total(_tipo(do_mes, TIPO_SERVICOS))
-    vcg = nucleo.total(_tipo(do_mes, TIPO_VCG))
-
-    # Calcular médias diárias separadas por frente
-    # Usa DISTINCTCOUNT de datas onde houve implantação (como DAX)
+    # Só o que conta para o realizado oficial entra nos totais. As ordens em
+    # aberto seguem na base — elas alimentam o acompanhamento de SLA.
     if not do_mes.empty and "conta_realizado" in do_mes.columns:
-        do_mes_finalizado = do_mes[do_mes["conta_realizado"] == True]  # noqa: E712
+        realizado = do_mes[do_mes["conta_realizado"] == True]  # noqa: E712
     else:
-        do_mes_finalizado = do_mes
+        realizado = do_mes
 
-    servicos_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_SERVICOS))
-    vcg_finalizado = nucleo.total(_tipo(do_mes_finalizado, TIPO_VCG))
+    total_impl = nucleo.total(realizado)
+    servicos = nucleo.total(_tipo(realizado, TIPO_SERVICOS))
+    vcg = nucleo.total(_tipo(realizado, TIPO_VCG))
 
-    if not do_mes_finalizado.empty:
-        dias_servicos = float(_tipo(do_mes_finalizado, TIPO_SERVICOS)["data"].nunique())
-        dias_vcg = float(_tipo(do_mes_finalizado, TIPO_VCG)["data"].nunique())
-    else:
-        dias_servicos = 0
-        dias_vcg = 0
-
-    media_servicos_dia = (servicos_finalizado / dias_servicos if dias_servicos > 0 else None)
-    media_vcg_dia = (vcg_finalizado / dias_vcg if dias_vcg > 0 else None)
+    # Média por frente = total da frente dividido pelo DISTINCTCOUNT das datas
+    # em que aquela frente produziu — é assim que as medidas DAX do PBIX
+    # calculam, e não pelos dias úteis decorridos do mês.
+    dias_servicos = (float(_tipo(realizado, TIPO_SERVICOS)["data"].nunique())
+                     if not realizado.empty else 0.0)
+    dias_vcg = (float(_tipo(realizado, TIPO_VCG)["data"].nunique())
+                if not realizado.empty else 0.0)
+    media_servicos_dia = servicos / dias_servicos if dias_servicos else None
+    media_vcg_dia = vcg / dias_vcg if dias_vcg else None
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
@@ -193,6 +190,14 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             pergunta="Quanto entrou de receita?",
             explicacao="Soma do valor das implantações faturadas."),
         nucleo.indicador_realizado(
+            "impl_servicos_dia", "Implantação Serviços / Dia", media_servicos_dia, casas=1,
+            pergunta="Qual o ritmo diário de Serviços?",
+            explicacao="Implantações Serviços divididas pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
+            "impl_vcg_dia", "Implantação VCG / Dia", media_vcg_dia, casas=1,
+            pergunta="Qual o ritmo diário de VCG?",
+            explicacao="Implantações VCG divididas pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
             "media_dia", "Média Implantação/Dia", bloco_total["media_dia"], casas=1,
             pergunta="Qual o ritmo diário?",
             explicacao="Implantação total dividida pelos dias úteis decorridos."),
@@ -201,6 +206,9 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             pergunta="Quanto falta para a meta?",
             explicacao="Meta menos realizado."),
     ]
+
+    # Calcular dados de SLA
+    sla_dados = sla_implantacao.calcular(filtros, periodo)
 
     return {
         "modulo": "IMPLANTACAO",
@@ -219,6 +227,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "alerta": alerta_faturamento,
             "por_frente": faturamento_por_frente,
         },
+        "sla": sla_dados,
         "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
         "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),
         "evolucao_vcg": nucleo.evolucao_mensal(_tipo(dados, TIPO_VCG)).to_dict("records"),

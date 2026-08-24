@@ -34,8 +34,11 @@ def test_implantacao_exige_ligacao_de_agua_finalizada_e_classifica_frente():
          "equipe": "RIOMLTIN-002"},
     ])
     resultado = regras.filtrar_implantacoes(base)
-    assert list(resultado["tipo"]) == ["SERVICOS", "VCG"]
-    assert list(resultado["frente"]) == ["Serviços", "VCG Bairro Legal - SFI"]
+    # Agora preserva todas as "Ligação de Água", mas marca apenas as finalizadas
+    assert list(resultado["tipo"]) == ["SERVICOS", "VCG", "SERVICOS"]
+    assert list(resultado["frente"]) == ["Serviços", "VCG Bairro Legal - SFI", "Serviços"]
+    # Verifica que apenas as 2 primeiras contam para o realizado
+    assert list(resultado["conta_realizado"]) == [True, True, False]
 
 
 def test_termos_reproduzem_codigos_status_e_equipe_das_medidas():

@@ -166,6 +166,10 @@ class FatoImplantacao(Base):
     faturado: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     quantidade: Mapped[float] = mapped_column(Float, default=1.0)
     valor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status_atividade: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    inicio_sla: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    fim_sla: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    conta_realizado: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     origem_arquivo: Mapped[str | None] = mapped_column(String(255))
     importado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
