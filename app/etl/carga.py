@@ -147,6 +147,12 @@ def _montar_fato(dataset: Dataset, linha: dict, dim: ResolvedorDimensoes,
             "faturado": bool(_valor(linha, "faturado", False)),
             "quantidade": float(_valor(linha, "quantidade", 1.0)),
             "valor": _valor(linha, "valor"),
+            "status_atividade": _valor(linha, "status_atividade"),
+            "inicio_sla": _valor(linha, "inicio_sla"),
+            "fim_sla": _valor(linha, "fim_sla"),
+            # Bases consolidadas antigas não possuem status e já representam
+            # realizados; exportações brutas trazem a marca calculada.
+            "conta_realizado": bool(_valor(linha, "conta_realizado", True)),
         }
     if dataset.nome == "atendimento":
         # Grava como venda por Outros Canais (ver regras_atendimento).
