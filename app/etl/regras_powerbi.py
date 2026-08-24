@@ -69,10 +69,16 @@ def filtrar_implantacoes(dados: pd.DataFrame) -> pd.DataFrame:
         return dados
     saida = dados.copy()
     atividade = saida["tipo_atividade"].map(_texto)
-    status = saida["status_atividade"].map(_texto)
-    saida = saida[(atividade == "LIGACAO DE AGUA") & (status == "FINALIZADA")].copy()
+
+    # Preservar todas as atividades de "Ligação de Água", independente do status
+    saida = saida[atividade == "LIGACAO DE AGUA"].copy()
     if saida.empty:
         return saida
+
+    # Marcar quais contam para o realizado: apenas as finalizadas
+    status = saida["status_atividade"].map(_texto)
+    saida["conta_realizado"] = (status == "FINALIZADA")
+
     saida["frente"] = saida["equipe"].map(frente_interior)
     saida["tipo"] = saida["frente"].map(
         lambda valor: "VCG" if "VCG" in _texto(valor) else "SERVICOS"

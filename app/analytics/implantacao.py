@@ -7,7 +7,7 @@ Implantação Não Faturada, Valor Total Faturado, Falta Total.
 """
 from __future__ import annotations
 
-from app.analytics import consultas, metas, nucleo
+from app.analytics import consultas, metas, nucleo, sla_implantacao
 from app.analytics.base import AZUL, CINZA, VERMELHO, Filtros, Indicador
 from app.analytics.dominio_tipos import TIPO_SERVICOS, TIPO_VCG
 from app.analytics.periodo import Periodo, resolver
@@ -53,9 +53,12 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         if not faturamento_base.empty else faturamento_base
     )
 
-    total_impl = nucleo.total(do_mes)
-    servicos = nucleo.total(_tipo(do_mes, TIPO_SERVICOS))
-    vcg = nucleo.total(_tipo(do_mes, TIPO_VCG))
+    # Filtrar apenas as implantações que contam para o realizado (conta_realizado=True)
+    conta_realizado = do_mes[do_mes.get("conta_realizado", True)] if not do_mes.empty else do_mes
+
+    total_impl = nucleo.total(conta_realizado)
+    servicos = nucleo.total(_tipo(conta_realizado, TIPO_SERVICOS))
+    vcg = nucleo.total(_tipo(conta_realizado, TIPO_VCG))
 
     meta_total = metas.meta_total_composta("IMPLANTACAO", periodo.ano, periodo.mes, filtros)
     meta_servicos = metas.meta("IMPLANTACAO", periodo.ano, periodo.mes, "SERVICOS", filtros)
@@ -120,6 +123,11 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
 
     _, anterior = nucleo.comparar_meses(todos, periodo)
 
+    # Calcular média diária separada por frente
+    dias_uteis = max(1, periodo.dias_uteis_decorridos)
+    media_servicos_dia = (servicos / dias_uteis) if servicos is not None else None
+    media_vcg_dia = (vcg / dias_uteis) if vcg is not None else None
+
     bloco_total = nucleo.bloco_meta(total_impl, meta_total, periodo, "Total")
     blocos = [
         nucleo.bloco_meta(servicos, meta_servicos, periodo, "Serviços"),
@@ -165,6 +173,14 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             pergunta="Quanto entrou de receita?",
             explicacao="Soma do valor das implantações faturadas."),
         nucleo.indicador_realizado(
+            "impl_servicos_dia", "Implantação Serviços / Dia", media_servicos_dia, casas=1,
+            pergunta="Qual o ritmo diário de Serviços?",
+            explicacao="Implantações Serviços divididas pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
+            "impl_vcg_dia", "Implantação VCG / Dia", media_vcg_dia, casas=1,
+            pergunta="Qual o ritmo diário de VCG?",
+            explicacao="Implantações VCG divididas pelos dias úteis decorridos."),
+        nucleo.indicador_realizado(
             "media_dia", "Média Implantação/Dia", bloco_total["media_dia"], casas=1,
             pergunta="Qual o ritmo diário?",
             explicacao="Implantação total dividida pelos dias úteis decorridos."),
@@ -173,6 +189,9 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             pergunta="Quanto falta para a meta?",
             explicacao="Meta menos realizado."),
     ]
+
+    # Calcular dados de SLA
+    sla_dados = sla_implantacao.calcular(filtros, periodo)
 
     return {
         "modulo": "IMPLANTACAO",
@@ -191,6 +210,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
             "alerta": alerta_faturamento,
             "por_frente": faturamento_por_frente,
         },
+        "sla": sla_dados,
         "evolucao_mensal": nucleo.evolucao_mensal(dados).to_dict("records"),
         "evolucao_servicos": nucleo.evolucao_mensal(_tipo(dados, TIPO_SERVICOS)).to_dict("records"),
         "evolucao_vcg": nucleo.evolucao_mensal(_tipo(dados, TIPO_VCG)).to_dict("records"),
