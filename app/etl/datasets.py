@@ -105,6 +105,11 @@ CAMPO_MATRICULA = Campo(
              "numero da conta", "n ligacao", "n do pedido", "id da atividade"),
     peso=2,
 )
+CAMPO_MATRICULA_IMPLANTACAO = Campo(
+    "matricula", "texto", "Matrícula usada para identificar a implantação",
+    aliases=("matricula cliente",),
+    peso=4,
+)
 CAMPO_QUANTIDADE = Campo(
     "quantidade", "numero", "Quantidade do registro (1 quando cada linha é um evento)",
     aliases=("qtd", "qtde", "quantidade realizada", "volume", "total"),
@@ -270,7 +275,7 @@ IMPLANTACAO = Dataset(
         CAMPO_CIDADE,
         CAMPO_EQUIPE,
         CAMPO_FRENTE,
-        CAMPO_MATRICULA,
+        CAMPO_MATRICULA_IMPLANTACAO,
         Campo("tipo", "texto", "Classificação Serviços x VCG da implantação",
               aliases=("tipo implantacao", "tipo de implantacao", "categoria",
                        "grupo", "produto", "tipo servico", "tipo de atividade"),
