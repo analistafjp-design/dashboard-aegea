@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -33,10 +34,76 @@ def _fontes_atuais(pasta: Path) -> list[Path]:
     encontrados = encontrar_arquivos([
         PastaMonitorada(pasta, ("implantacao",)),
     ])
-    selecionados = selecionar_fontes_implantacao(encontrados)
-    return sorted(
+    selecionados = selecionar_fontes_implantacao({
+        caminho: set(tipos) for caminho, tipos in encontrados.items()
+    })
+    por_nome = sorted(
         caminho for caminho, tipos in selecionados.items()
         if "implantacao" in tipos
+    )
+    if len(por_nome) >= 2:
+        return por_nome
+
+    print(
+        "Os nomes dos arquivos não identificam as fontes. "
+        "Analisando o conteúdo das planilhas..."
+    )
+    candidatos: dict[str, list[Path]] = {"SERVICOS": [], "VCG": []}
+    for indice, caminho in enumerate(sorted(encontrados), start=1):
+        print(f"  Verificando [{indice}/{len(encontrados)}]: {caminho.name}")
+        try:
+            identificacao = analisar_arquivo(caminho, "implantacao")
+            # Sem estes três campos, o arquivo não pode ser fonte da medida.
+            if not {"matricula", "status_atividade", "tipo_atividade"}.issubset(
+                identificacao.mapeamento
+            ):
+                continue
+            dados, _ = transformar(identificacao, permitir_vazio=True)
+        except Exception:
+            continue
+        if dados.empty or "tipo_atividade" not in dados:
+            continue
+
+        atividades = dados["tipo_atividade"].map(_normalizar)
+        # A fonte de implantação deve ser composta por ligações. Isso impede
+        # que relatórios de Venda, Termos ou outras atividades com as mesmas
+        # 295 colunas sejam confundidos com Implantação.
+        proporcao_ligacao = atividades.str.startswith("LIGACAO DE ").mean()
+        if proporcao_ligacao < 0.90:
+            continue
+
+        realizadas = _realizadas_unicas(dados)
+        tipos = set(realizadas.get("tipo", pd.Series(dtype="string")).dropna())
+        if len(tipos) != 1:
+            continue
+        tipo = next(iter(tipos))
+        if tipo in candidatos and not realizadas.empty:
+            candidatos[tipo].append(caminho)
+
+    faltantes = [tipo for tipo, caminhos in candidatos.items() if not caminhos]
+    if faltantes:
+        return []
+    return sorted(
+        max(
+            caminhos,
+            key=lambda item: (item.stat().st_mtime_ns, item.name.casefold()),
+        )
+        for caminhos in candidatos.values()
+    )
+
+
+def _normalizar(valor: object) -> str:
+    if valor is None:
+        return ""
+    try:
+        if pd.isna(valor):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    texto = " ".join(str(valor).split()).strip().upper()
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(c)
     )
 
 
