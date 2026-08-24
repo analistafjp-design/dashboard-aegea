@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.analytics import consultas  # noqa: E402
 from app.etl.regras_powerbi import EQUIPES_VCG, _texto  # noqa: E402
+from app.models.db import criar_banco  # noqa: E402
 
 
 def _codigo(valor: object) -> str:
@@ -40,6 +41,9 @@ def main() -> int:
     parser.add_argument("--mes", help="Recorte AAAA-MM (padrão: todos)")
     args = parser.parse_args()
 
+    # O banco pode ter sido criado por uma versão anterior; alinhar as colunas
+    # antes evita quebrar com "no such column".
+    criar_banco()
     dados = consultas.dados("vendas")
     if args.mes and not dados.empty:
         dados = dados[dados["ano_mes"] == args.mes]

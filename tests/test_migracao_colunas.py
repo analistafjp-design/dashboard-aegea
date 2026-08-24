@@ -83,3 +83,23 @@ def test_indices_das_colunas_novas_sao_recriados(banco_da_versao_anterior):
     indices = {i["name"] for i in sa.inspect(engine).get_indexes("fato_implantacao")}
     esperados = {indice.name for indice in FatoImplantacao.__table__.indexes}
     assert esperados <= indices
+
+
+def test_scripts_de_diagnostico_alinham_o_banco_sozinhos(banco_da_versao_anterior):
+    """Eles consultam o banco direto, sem passar pelo servidor.
+
+    Sem alinhar as colunas por conta própria, quebravam com "no such column"
+    justamente no banco antigo que precisavam diagnosticar.
+    """
+    import sqlalchemy as sa
+
+    from scripts.verificar_duplicidade_implantacao import _contadas
+
+    with engine.begin() as c:
+        c.execute(sa.text("DROP INDEX IF EXISTS ix_fato_implantacao_protocolo"))
+        c.execute(sa.text("ALTER TABLE fato_implantacao DROP COLUMN protocolo"))
+    assert "protocolo" not in _colunas("fato_implantacao")
+
+    _contadas(None)  # não pode levantar
+
+    assert "protocolo" in _colunas("fato_implantacao")

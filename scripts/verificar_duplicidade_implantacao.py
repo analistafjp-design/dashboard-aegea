@@ -20,10 +20,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.analytics import consultas  # noqa: E402
+from app.models.db import criar_banco  # noqa: E402
 
 
 def _contadas(mes: str | None) -> pd.DataFrame:
     """As linhas que entram no total do painel."""
+    # O banco pode ter sido criado por uma versão anterior. Sem alinhar as
+    # colunas primeiro, a consulta quebra com "no such column".
+    criar_banco()
     dados = consultas.dados("implantacao")
     if dados.empty:
         return dados
