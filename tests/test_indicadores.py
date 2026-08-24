@@ -104,6 +104,29 @@ def test_implantacao_distinta_preserva_meses_e_registros_sem_matricula():
     assert total(resultado) == 5.0
 
 
+def test_implantacao_servicos_mantem_soma_e_vcg_distingue_matricula():
+    base = pd.DataFrame([
+        {"ano_mes": "2026-08", "data": date(2026, 8, 1), "matricula": "1",
+         "tipo": "SERVICOS", "equipe": "EQUIPE-001", "servico": "LIGACAO",
+         "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 2), "matricula": "1",
+         "tipo": "SERVICOS", "equipe": "EQUIPE-002", "servico": "LIGACAO",
+         "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 3), "matricula": "3",
+         "tipo": "VCG", "equipe": "RIOVCGPOPIN-001", "servico": "317007",
+         "quantidade": 1.0, "conta_realizado": True},
+        {"ano_mes": "2026-08", "data": date(2026, 8, 4), "matricula": "3",
+         "tipo": "VCG", "equipe": "RIOVCGVENIN-001", "servico": "317002",
+         "quantidade": 1.0, "conta_realizado": True},
+    ])
+
+    resultado = _realizadas_unicas(base)
+
+    assert total(resultado[resultado["tipo"] == "SERVICOS"]) == 2.0
+    assert total(resultado[resultado["tipo"] == "VCG"]) == 1.0
+    assert total(resultado) == 3.0
+
+
 def test_bloco_meta_sem_meta_cadastrada_nao_inventa_numero():
     periodo = montar(2026, 8, date(2026, 8, 21))
     bloco = bloco_meta(100.0, None, periodo)
