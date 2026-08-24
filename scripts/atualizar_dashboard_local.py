@@ -39,7 +39,7 @@ TIPOS_VALIDOS = set(DATASETS)
 VERSOES_REGRAS = {tipo: 1 for tipo in TIPOS_VALIDOS} | {
     "termos": 8,
     "vendas": 2,
-    "implantacao": 9,
+    "implantacao": 10,
 }
 
 FATOS_SUBSTITUIDOS_POR_ARQUIVO = {
@@ -118,9 +118,10 @@ def selecionar_fontes_implantacao(
     entrarem como implantação. Cópias como ``arquivo (1).xlsx`` também não
     podem ser somadas: são fotografias sucessivas da mesma base.
     """
-    # A pasta operacional contém fotografias diárias completas com nomes como
-    # Atividades-INTERIOR_24_08_26.xlsx. Implantação deve ser reconstruída
-    # somente a partir da fotografia de data mais recente, não da soma de todas.
+    # A pasta operacional contém arquivos diários com nomes como
+    # Atividades-INTERIOR_24_08_26.xlsx. Para formar o mês, usa-se um arquivo
+    # por dia. Quando existem cópias (1), (2), (3), fica somente a mais recente
+    # daquele mesmo dia.
     fotografias: list[tuple[date, Path]] = []
     for caminho, tipos in arquivos.items():
         if "implantacao" not in tipos:
@@ -141,17 +142,18 @@ def selecionar_fontes_implantacao(
             continue
 
     if fotografias:
-        maior_data = max(item[0] for item in fotografias)
-        da_data = [
-            caminho for data_arquivo, caminho in fotografias
-            if data_arquivo == maior_data
-        ]
-        atual = max(
-            da_data,
-            key=lambda item: (item.stat().st_mtime_ns, item.name.casefold()),
-        )
+        por_dia: dict[date, list[Path]] = {}
+        for data_arquivo, caminho in fotografias:
+            por_dia.setdefault(data_arquivo, []).append(caminho)
+        atuais = {
+            max(
+                caminhos,
+                key=lambda item: (item.stat().st_mtime_ns, item.name.casefold()),
+            )
+            for caminhos in por_dia.values()
+        }
         for caminho, tipos in arquivos.items():
-            if "implantacao" in tipos and caminho != atual:
+            if "implantacao" in tipos and caminho not in atuais:
                 tipos.discard("implantacao")
         return {caminho: tipos for caminho, tipos in arquivos.items() if tipos}
 
