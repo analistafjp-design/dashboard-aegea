@@ -1,4 +1,5 @@
 import json
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from scripts.atualizar_dashboard_local import (
     carregar_pastas,
     encontrar_arquivos,
     salvar_manifesto,
+    selecionar_fontes_implantacao,
     tipos_pendentes,
 )
 
@@ -29,6 +31,32 @@ def test_carrega_pastas_e_conta_arquivo_fisico_uma_so_vez(tmp_path):
 
     assert len(arquivos) == 1
     assert arquivos[planilha.resolve()] == {"vendas", "implantacao", "termos"}
+
+
+def test_implantacao_usa_so_relatorios_proprios_e_snapshot_mais_novo(tmp_path):
+    antigo_vcg = tmp_path / "Validação - Implantação.xlsx"
+    atual_vcg = tmp_path / "Validação - Implantação(1).xlsx"
+    servicos = tmp_path / "Implantação - Serviços.xlsx"
+    vendas = tmp_path / "Relatório de Vendas.xlsx"
+    for caminho in (antigo_vcg, atual_vcg, servicos, vendas):
+        caminho.write_bytes(b"planilha")
+    os.utime(antigo_vcg, ns=(1, 1))
+    os.utime(atual_vcg, ns=(2, 2))
+
+    permitidos = {"vendas", "implantacao", "termos"}
+    arquivos = {
+        caminho: set(permitidos)
+        for caminho in (antigo_vcg, atual_vcg, servicos, vendas)
+    }
+
+    resultado = selecionar_fontes_implantacao(arquivos)
+
+    assert "implantacao" not in resultado[antigo_vcg]
+    assert "implantacao" in resultado[atual_vcg]
+    assert "implantacao" in resultado[servicos]
+    assert "implantacao" not in resultado[vendas]
+    # A seleção da fonte de implantação não impede as outras bases.
+    assert resultado[vendas] == {"vendas", "termos"}
 
 
 def test_manifesto_pula_arquivo_inalterado_e_detecta_alteracao(tmp_path):
@@ -71,13 +99,13 @@ def test_mudanca_de_regra_reprocessa_somente_termos_uma_vez(tmp_path):
         "versoes_bases": {"vendas": 2, "implantacao": 2, "termos": 1},
     }}}
 
-    # Implantacao também está pendente porque a versão mudou de 2 para 6
+    # Implantacao também está pendente porque a versão mudou de 2 para 7
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == {"implantacao", "termos"}
-    # Atualizando termos de 1 para 8 e implantacao de 2 para 6
+    # Atualizando termos de 1 para 8 e implantacao de 2 para 7
     manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["termos"] = 8
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 6
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 7
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao", "termos"}, manifesto
     ) == set()
@@ -101,12 +129,12 @@ def test_mudanca_das_medidas_reprocessa_venda_e_implantacao(tmp_path):
         "vendas": 2,
         "implantacao": 2,
     })
-    # Implantacao ainda está pendente porque espera versão 6 agora
+    # Implantacao ainda está pendente porque espera versão 7 agora
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == {"implantacao"}
-    # Atualizar para versão 6
-    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 6
+    # Atualizar para versão 7
+    manifesto["arquivos"][str(planilha.resolve())]["versoes_bases"]["implantacao"] = 7
     assert tipos_pendentes(
         planilha.resolve(), {"vendas", "implantacao"}, manifesto
     ) == set()
