@@ -101,6 +101,21 @@ def test_ordem_sem_prazo_nao_vira_atraso(base):
     ])
     assert resultado["vencidas"] == 0
     assert resultado["a_vencer"] == 0
+    # Sem prazo nenhum: o painel precisa poder dizer que falta dado em vez de
+    # deixar o gestor concluir que está tudo em dia.
+    assert resultado["total"] == 2
+    assert resultado["com_prazo"] == 0
+
+
+def test_com_prazo_separa_falta_de_dado_de_tudo_em_dia(base):
+    resultado = base([
+        {"inicio_sla": None, "fim_sla": None},
+        {"inicio_sla": AGORA - timedelta(days=1), "fim_sla": AGORA + timedelta(days=90)},
+    ])
+    assert resultado["vencidas"] == 0
+    assert resultado["a_vencer"] == 0
+    assert resultado["total"] == 2
+    assert resultado["com_prazo"] == 1
 
 
 def test_ranking_traz_so_cidades_com_pendencia_e_a_pior_primeiro(base):

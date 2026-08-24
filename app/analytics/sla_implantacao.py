@@ -21,7 +21,7 @@ JANELA_HORAS = 48
 LIMITE_CONSUMIDO = 0.8
 
 VAZIO = {
-    "vencidas": 0, "a_vencer": 0, "total": 0,
+    "vencidas": 0, "a_vencer": 0, "total": 0, "com_prazo": 0,
     "cidades": 0, "equipes": 0, "janela_horas": JANELA_HORAS,
     "cidade_mais_critica": None,
     "por_cidade": [], "detalhes": [],
@@ -121,9 +121,13 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
 
     vencidas = abertos[abertos["sla_status"] == "VENCIDO"]
     proximas = abertos[abertos["sla_status"] == "PROXIMO"]
+    # Quantas ordens abertas têm prazo preenchido. Sem isso não dá para
+    # separar "está tudo no prazo" de "a planilha não trouxe as datas".
+    com_prazo = int(abertos["sla_status"].notna().sum())
+
     criticas = pd.concat([vencidas, proximas]) if len(vencidas) or len(proximas) else vencidas
     if criticas.empty:
-        return dict(VAZIO) | {"total": len(abertos)}
+        return dict(VAZIO) | {"total": len(abertos), "com_prazo": com_prazo}
 
     # O ranking mostra só quem tem algo a tratar: uma cidade com 40 ordens
     # todas dentro do prazo não é notícia num painel de atraso.
@@ -168,6 +172,7 @@ def calcular(filtros: Filtros, periodo: Periodo | None = None) -> dict:
         "vencidas": len(vencidas),
         "a_vencer": len(proximas),
         "total": len(abertos),
+        "com_prazo": com_prazo,
         "cidades": int(criticas["cidade"].nunique()) if "cidade" in criticas.columns else 0,
         "equipes": int(criticas["equipe"].nunique()) if "equipe" in criticas.columns else 0,
         "janela_horas": JANELA_HORAS,

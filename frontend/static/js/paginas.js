@@ -121,33 +121,48 @@
     return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()} ${dois(d.getHours())}:${dois(d.getMinutes())}`;
   }
 
-  /** Painel de SLA da implantação: vencidas, a vencer e onde estão. */
-  function painelSla(sla) {
+  /**
+   * Painel de SLA da implantação: vencidas, a vencer e onde estão.
+   * `ids` aponta os quatro destinos na página que está chamando.
+   */
+  function painelSla(sla, ids) {
     sla = sla || {};
     const vencidas = sla.vencidas || 0;
     const aVencer = sla.a_vencer || 0;
+    const janela = sla.janela_horas || 48;
 
-    const descricao = document.getElementById("implantacao-sla-descricao");
+    const descricao = document.querySelector(ids.descricao);
     if (descricao) {
-      descricao.textContent = vencidas || aVencer
-        ? `Vencida = prazo já passou. A vencer = falta até ${sla.janela_horas || 48}h `
-          + "para o prazo ou 80% do tempo já consumido."
-        : "Nenhuma ordem em aberto passou do prazo nem está perto de passar.";
+      let texto;
+      if (vencidas || aVencer) {
+        texto = `Vencida = o prazo já passou. A vencer = falta até ${janela}h para o `
+          + "prazo ou 80% do tempo já foi consumido.";
+      } else if (!sla.com_prazo) {
+        // Sem isso o painel zerado seria lido como "está tudo em dia".
+        texto = "Nenhuma ordem em aberto tem Início e Fim da SLA preenchidos, "
+          + "então não há prazo a acompanhar. Confira se a planilha de Implantação "
+          + "traz essas duas colunas.";
+      } else {
+        texto = `As ${App.numero(sla.com_prazo)} ordem(ns) em aberto com prazo estão `
+          + "dentro do combinado.";
+      }
+      descricao.textContent = texto;
     }
 
-    const resumo = document.getElementById("implantacao-sla-resumo");
+    const resumo = document.querySelector(ids.resumo);
     if (resumo) {
       resumo.innerHTML = [
         App.miniInfo("Vencidas", App.numero(vencidas),
           vencidas ? `em ${App.numero(sla.cidades)} cidade(s)` : "nenhuma"),
         App.miniInfo("A vencer", App.numero(aVencer),
-          aVencer ? `janela de ${sla.janela_horas || 48}h` : "nenhuma"),
+          aVencer ? `janela de ${janela}h` : "nenhuma"),
         App.miniInfo("Em aberto", App.numero(sla.total),
-          sla.cidade_mais_critica ? `pior cidade: ${sla.cidade_mais_critica}` : ""),
+          sla.cidade_mais_critica ? `pior cidade: ${sla.cidade_mais_critica}`
+            : `${App.numero(sla.com_prazo)} com prazo`),
       ].join("");
     }
 
-    App.tabela("#implantacao-sla-cidades", [
+    App.tabela(ids.cidades, [
       { chave: "cidade", titulo: "Cidade", clique: "cidade" },
       { chave: "vencidas", titulo: "Vencidas", tipo: "numero" },
       { chave: "proximas", titulo: "A vencer", tipo: "numero" },
@@ -162,7 +177,7 @@
       prazo: dataHoraTexto(linha.fim_sla),
       restante: prazoTexto(linha.tempo_restante_horas),
     }));
-    App.tabela("#implantacao-sla-detalhes", [
+    App.tabela(ids.detalhes, [
       { chave: "situacao", titulo: "Situação" },
       { chave: "matricula", titulo: "Matrícula" },
       { chave: "cidade", titulo: "Cidade", clique: "cidade" },
@@ -191,6 +206,10 @@
         { rotulo: "Implantação Mês - VCG", valor: ii("impl_vcg") },
         { rotulo: "Implantação VCG / Dia", valor: ii("impl_vcg_dia", 1) },
       ]);
+      painelSla(implantacao.sla, {
+        resumo: "#simples-sla-resumo", descricao: "#simples-sla-descricao",
+        cidades: "#simples-sla-cidades", detalhes: "#simples-sla-detalhes",
+      });
       faixaIndicadores("#simples-vendas-kpis", [
         { rotulo: "Total Venda", valor: vi("total_venda") },
         { rotulo: "Venda Comercial", valor: vi("venda_comercial") },
@@ -378,7 +397,10 @@
       matrizMeta("#implantacao-matriz", dados.blocos_meta);
       document.getElementById("implantacao-bloco").innerHTML = App.blocoMeta(dados.bloco_principal);
       App.renderKpis("#implantacao-cards", dados.indicadores);
-      painelSla(dados.sla);
+      painelSla(dados.sla, {
+        resumo: "#implantacao-sla-resumo", descricao: "#implantacao-sla-descricao",
+        cidades: "#implantacao-sla-cidades", detalhes: "#implantacao-sla-detalhes",
+      });
 
       document.getElementById("implantacao-faturamento").innerHTML = [
         App.miniInfo("Quantidade faturada", App.numero(f.quantidade_faturada)),
